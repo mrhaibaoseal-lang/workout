@@ -1,206 +1,256 @@
 import SwiftUI
 
-/// 自己畫的牌位獎章：牌位越高，盾牌外加的裝飾越多（翅膀、寶石、皇冠、光芒）。
+/// 自己畫的牌位獎章（Canvas，120×120 座標）。牌位越高裝飾越多：
+/// 鐵＝鉚釘；銅起月桂葉；銀起側刃；金起翅膀；白金起寶石；鑽石加頂端水晶；大師加皇冠與光芒；王者光芒更多。
 struct RankBadge: View {
     let tier: RankTier
     var division: Int? = nil
     var size: CGFloat = 80
 
     var body: some View {
-        ZStack {
-            if tier == .champion {
-                Rays()
-                    .fill(RadialGradient(colors: [tier.light.opacity(0.7), .clear],
-                                         center: .center, startRadius: 0, endRadius: size * 0.75))
-                    .frame(width: size * 1.5, height: size * 1.5)
-            }
-            if tier.rawValue >= RankTier.gold.rawValue {
-                HStack(spacing: size * 0.42) {
-                    Wing().fill(tier.gradient).scaleEffect(x: -1)
-                    Wing().fill(tier.gradient)
-                }
-                .frame(width: size * 1.35, height: size * 0.5)
-                .offset(y: -size * 0.05)
-                .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
-            }
-            Shield()
-                .fill(tier.gradient)
-                .overlay(Shield().stroke(tier.dark, lineWidth: size * 0.04))
-                .overlay(
-                    Shield()
-                        .inset(by: size * 0.1)
-                        .stroke(.white.opacity(0.45), lineWidth: size * 0.025)
-                )
-                .frame(width: size * 0.7, height: size * 0.82)
-                .shadow(color: tier.dark.opacity(0.5), radius: size * 0.04, y: size * 0.02)
-            emblem
-                .offset(y: -size * 0.03)
-            if tier.rawValue >= RankTier.master.rawValue {
-                Crown()
-                    .fill(LinearGradient(colors: [Color(red: 1, green: 0.88, blue: 0.4),
-                                                  Color(red: 0.85, green: 0.6, blue: 0.1)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .overlay(Crown().stroke(Color(red: 0.55, green: 0.35, blue: 0.05), lineWidth: size * 0.015))
-                    .frame(width: size * 0.42, height: size * 0.22)
-                    .offset(y: -size * 0.5)
-            }
-            if let d = division {
-                HStack(spacing: size * 0.04) {
-                    ForEach(0..<(4 - d), id: \.self) { _ in
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: size * 0.11, weight: .black))
-                    }
-                }
-                .foregroundStyle(.white)
-                .shadow(color: tier.dark, radius: 1)
-                .offset(y: size * 0.24)
-            }
+        Canvas { c, sz in
+            let k = sz.width / 120
+            c.scaleBy(x: k, y: k)
+            BadgePainter(tier: tier, division: division).draw(&c)
         }
         .frame(width: size * 1.2, height: size * 1.2)
+        .accessibilityElement()
         .accessibilityLabel(division.map { "\(tier.name) 第 \($0) 段" } ?? tier.name)
     }
+}
 
-    @ViewBuilder
-    private var emblem: some View {
-        if tier.rawValue >= RankTier.platinum.rawValue {
-            Gem()
-                .fill(LinearGradient(colors: [.white, tier.light, tier.dark],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay(Gem().stroke(.white.opacity(0.8), lineWidth: size * 0.015))
-                .frame(width: size * 0.24, height: size * 0.3)
+private struct BadgePainter {
+    let tier: RankTier
+    let division: Int?
+
+    private var lt: Color { tier.light }
+    private var md: Color { tier.mid }
+    private var dk: Color { tier.dark }
+    private var lv: Int { tier.rawValue }
+
+    private func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+
+    private var metal: GraphicsContext.Shading {
+        .linearGradient(Gradient(stops: [.init(color: lt, location: 0), .init(color: md, location: 0.55),
+                                         .init(color: dk, location: 1)]),
+                        startPoint: p(60, 18), endPoint: p(60, 102))
+    }
+    private var rim: GraphicsContext.Shading {
+        .linearGradient(Gradient(stops: [.init(color: lt, location: 0), .init(color: dk, location: 0.5),
+                                         .init(color: md, location: 0.75), .init(color: dk, location: 1)]),
+                        startPoint: p(26, 16), endPoint: p(94, 104))
+    }
+
+    /// 盾牌外形，以 (60,60) 為中心縮放。
+    private func shield(_ s: CGFloat, leftHalfOnly: Bool = false) -> Path {
+        func q(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: 60 + (x - 60) * s, y: 60 + (y - 60) * s) }
+        var path = Path()
+        path.move(to: q(60, 22))
+        if leftHalfOnly {
+            path.addLine(to: q(60, 98))
         } else {
-            Image(systemName: "dumbbell.fill")
-                .font(.system(size: size * 0.2, weight: .bold))
-                .foregroundStyle(.white.opacity(0.9))
-                .shadow(color: tier.dark, radius: 1)
-                .rotationEffect(.degrees(-30))
+            path.addQuadCurve(to: q(88, 28), control: q(74, 30))
+            path.addLine(to: q(88, 62))
+            path.addQuadCurve(to: q(60, 98), control: q(88, 84))
+        }
+        path.addQuadCurve(to: q(32, 62), control: q(32, 84))
+        path.addLine(to: q(32, 28))
+        path.addQuadCurve(to: q(60, 22), control: q(46, 30))
+        path.closeSubpath()
+        return path
+    }
+
+    private func mirrored(_ path: Path) -> Path {
+        path.applying(CGAffineTransform(translationX: 120, y: 0).scaledBy(x: -1, y: 1))
+    }
+
+    private func poly(_ pts: [CGPoint]) -> Path {
+        var path = Path()
+        path.addLines(pts)
+        path.closeSubpath()
+        return path
+    }
+
+    func draw(_ c: inout GraphicsContext) {
+        // 光芒（大師起）
+        if lv >= RankTier.master.rawValue {
+            let champ = tier == .champion
+            c.fill(Path(ellipseIn: CGRect(x: 2, y: 0, width: 116, height: 116)),
+                   with: .radialGradient(Gradient(colors: [md.opacity(0.9), md.opacity(0)]),
+                                         center: p(60, 58), startRadius: 0, endRadius: 58))
+            let n = champ ? 16 : 10
+            let r: CGFloat = champ ? 60 : 52
+            var rays = Path()
+            for i in 0..<n {
+                let a = CGFloat(i) / CGFloat(n) * 2 * .pi
+                let h = CGFloat.pi / CGFloat(n) * 0.42
+                rays.addLines([p(60, 58), p(60 + r * cos(a - h), 58 + r * sin(a - h)),
+                               p(60 + r * cos(a + h), 58 + r * sin(a + h))])
+                rays.closeSubpath()
+            }
+            c.fill(rays, with: .color(lt.opacity(0.35)))
+        }
+
+        // 側刃（銀起）
+        if lv >= RankTier.silver.rawValue {
+            let blade = poly([p(40, 46), p(10, lv >= RankTier.platinum.rawValue ? 30 : 36), p(36, 60)])
+            for b in [blade, mirrored(blade)] {
+                c.fill(b, with: metal)
+                c.stroke(b, with: .color(dk), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+            }
+        }
+
+        // 翅膀（金起）
+        if lv >= RankTier.gold.rawValue {
+            let n = lv >= RankTier.diamond.rawValue ? 5 : 4
+            for i in stride(from: n - 1, through: 0, by: -1) {
+                let y = 40 + CGFloat(i) * 9
+                let len = 34 - CGFloat(i) * 5 - (n > 4 ? 0 : 2)
+                let x0: CGFloat = 82
+                let ty = y - 10 + CGFloat(i) * 2
+                var f = Path()
+                f.move(to: p(x0, y))
+                f.addQuadCurve(to: p(x0 + len, ty), control: p(x0 + len * 0.55, ty - 6))
+                f.addQuadCurve(to: p(x0, y + 9), control: p(x0 + len * 0.6, y + 7))
+                f.closeSubpath()
+                for side in [f, mirrored(f)] {
+                    c.fill(side, with: .color(i % 2 == 1 ? md : lt))
+                    c.stroke(side, with: .color(dk), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
+                }
+            }
+        }
+
+        // 月桂葉（銅起）
+        if lv >= RankTier.bronze.rawValue {
+            let leaf = lv >= RankTier.gold.rawValue ? Color(red: 1, green: 0.88, blue: 0.54) : lt
+            for i in 0..<5 {
+                let t = CGFloat(i) / 4
+                let a = CGFloat.pi * (0.62 + 0.33 * t)
+                let cx = 60 + 40 * cos(a)
+                let cy = 62 + 38 * sin(a)
+                let ang = a + .pi / 2 + .pi / 6
+                let e = Path(ellipseIn: CGRect(x: -3.3, y: -7, width: 6.6, height: 14))
+                    .applying(CGAffineTransform(translationX: cx, y: cy).rotated(by: ang))
+                for side in [e, mirrored(e)] {
+                    c.fill(side, with: .color(leaf))
+                    c.stroke(side, with: .color(dk), lineWidth: 1.3)
+                }
+            }
+        }
+
+        // 盾牌：外框、金屬邊、本體、左半高光
+        c.fill(shield(1.12), with: .color(dk))
+        c.fill(shield(1.06), with: rim)
+        c.fill(shield(0.92), with: metal)
+        c.fill(shield(0.92, leftHalfOnly: true), with: .color(.white.opacity(0.18)))
+        c.stroke(shield(0.92), with: .color(dk.opacity(0.6)), lineWidth: 1.5)
+
+        // 鉚釘（鐵）
+        if tier == .iron {
+            for (x, y) in [(40.0, 34.0), (80, 34), (40, 70), (80, 70)] {
+                let r = Path(ellipseIn: CGRect(x: x - 2.4, y: y - 2.4, width: 4.8, height: 4.8))
+                c.fill(r, with: .color(lt))
+                c.stroke(r, with: .color(dk), lineWidth: 1)
+            }
+        }
+
+        // 中央圓章
+        let medal = Path(ellipseIn: CGRect(x: 43, y: 39, width: 34, height: 34))
+        c.fill(medal, with: .color(dk))
+        c.stroke(medal, with: .color(lt), lineWidth: 2)
+
+        if lv < RankTier.platinum.rawValue {
+            // 啞鈴
+            var d = c
+            d.translateBy(x: 60, y: 56)
+            d.rotate(by: .degrees(-30))
+            d.translateBy(x: -60, y: -56)
+            let parts: [(CGRect, CGFloat)] = [
+                (CGRect(x: 52, y: 54.5, width: 16, height: 3), 0),
+                (CGRect(x: 47, y: 48, width: 5, height: 16), 1.5),
+                (CGRect(x: 68, y: 48, width: 5, height: 16), 1.5),
+                (CGRect(x: 43, y: 51, width: 4, height: 10), 1.2),
+                (CGRect(x: 73, y: 51, width: 4, height: 10), 1.2)
+            ]
+            for (r, rad) in parts {
+                let path = Path(roundedRect: r, cornerRadius: rad)
+                d.fill(path, with: .color(lt))
+                d.stroke(path, with: .color(dk), lineWidth: 1)
+            }
+        } else {
+            // 寶石
+            let top = p(60, 42), right = p(72, 52), bottom = p(60, 71), left = p(48, 52), mid = p(60, 56)
+            c.fill(poly([top, right, bottom, left]), with: .color(md))
+            c.fill(poly([top, right, mid]), with: .color(.white.opacity(0.85)))
+            c.fill(poly([top, left, mid]), with: .color(lt))
+            c.fill(poly([left, mid, bottom]), with: .color(md))
+            c.fill(poly([right, mid, bottom]), with: .color(dk))
+            c.stroke(poly([top, right, bottom, left]), with: .color(.white.opacity(0.8)), lineWidth: 1)
+        }
+
+        // 頂端水晶（鑽石）
+        if tier == .diamond {
+            let main = poly([p(60, 4), p(66, 18), p(60, 24), p(54, 18)])
+            c.fill(main, with: .color(lt))
+            c.stroke(main, with: .color(dk), lineWidth: 1.5)
+            let side = poly([p(48, 12), p(52, 22), p(47, 24)])
+            for s in [side, mirrored(side)] {
+                c.fill(s, with: .color(md))
+                c.stroke(s, with: .color(dk), lineWidth: 1.2)
+            }
+        }
+
+        // 皇冠（大師起）
+        if lv >= RankTier.master.rawValue {
+            let brown = Color(red: 0.42, green: 0.26, blue: 0.02)
+            let crown = poly([p(42, 22), p(40, 6), p(50, 14), p(60, 2), p(70, 14), p(80, 6), p(78, 22)])
+            c.fill(crown, with: .color(Color(red: 1, green: 0.89, blue: 0.48)))
+            c.stroke(crown, with: .color(brown), style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
+            c.fill(Path(CGRect(x: 42, y: 17, width: 36, height: 5)),
+                   with: .color(Color(red: 0.79, green: 0.54, blue: 0.06)))
+            let jewel = Path(ellipseIn: CGRect(x: 57.4, y: 8.4, width: 5.2, height: 5.2))
+            c.fill(jewel, with: .color(tier == .champion ? Color(red: 1, green: 0.29, blue: 0.35)
+                                                         : Color(red: 0.69, green: 0.49, blue: 1)))
+            c.stroke(jewel, with: .color(brown), lineWidth: 1)
+        }
+
+        // 小段緞帶：III=1 個箭頭，I=3 個
+        if let d = division {
+            let ribbon = poly([p(40, 92), p(80, 92), p(84, 100), p(80, 108), p(40, 108), p(36, 100)])
+            c.fill(ribbon, with: .color(dk))
+            c.stroke(ribbon, with: .color(lt), lineWidth: 1.5)
+            let n = max(0, 4 - d)
+            var chev = Path()
+            for i in 0..<n {
+                let cx = 60 + (CGFloat(i) - CGFloat(n - 1) / 2) * 9
+                chev.move(to: p(cx - 3.5, 103))
+                chev.addLine(to: p(cx, 97))
+                chev.addLine(to: p(cx + 3.5, 103))
+            }
+            c.stroke(chev, with: .color(.white), style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
         }
     }
 }
 
 extension RankTier {
-    var light: Color {
+    private var palette: (String, String, String) {
         switch self {
-        case .iron: Color(red: 0.62, green: 0.62, blue: 0.64)
-        case .bronze: Color(red: 0.86, green: 0.58, blue: 0.36)
-        case .silver: Color(red: 0.88, green: 0.9, blue: 0.93)
-        case .gold: Color(red: 1, green: 0.85, blue: 0.4)
-        case .platinum: Color(red: 0.55, green: 0.92, blue: 0.86)
-        case .diamond: Color(red: 0.62, green: 0.75, blue: 1)
-        case .master: Color(red: 0.82, green: 0.6, blue: 1)
-        case .champion: Color(red: 1, green: 0.55, blue: 0.45)
+        case .iron: ("#B9BEC6", "#5C626C", "#2A2E35")
+        case .bronze: ("#F0B07A", "#A0582B", "#4A2410")
+        case .silver: ("#F4F7FB", "#9AA6B6", "#3E4756")
+        case .gold: ("#FFE48A", "#D69A1E", "#6A4205")
+        case .platinum: ("#B8FFF0", "#2FB7A6", "#0B4D4A")
+        case .diamond: ("#CFE0FF", "#5B7BF0", "#1C2370")
+        case .master: ("#EBC8FF", "#9B4BE0", "#3A0F63")
+        case .champion: ("#FFD0A8", "#F0523C", "#6A0A1A")
         }
     }
 
-    var dark: Color {
-        switch self {
-        case .iron: Color(red: 0.3, green: 0.3, blue: 0.33)
-        case .bronze: Color(red: 0.5, green: 0.28, blue: 0.14)
-        case .silver: Color(red: 0.5, green: 0.54, blue: 0.6)
-        case .gold: Color(red: 0.72, green: 0.5, blue: 0.08)
-        case .platinum: Color(red: 0.1, green: 0.5, blue: 0.5)
-        case .diamond: Color(red: 0.25, green: 0.3, blue: 0.8)
-        case .master: Color(red: 0.45, green: 0.18, blue: 0.7)
-        case .champion: Color(red: 0.75, green: 0.12, blue: 0.2)
-        }
-    }
+    var light: Color { Color(gearHex: palette.0) }
+    var mid: Color { Color(gearHex: palette.1) }
+    var dark: Color { Color(gearHex: palette.2) }
 
     var gradient: LinearGradient {
-        LinearGradient(colors: [light, dark], startPoint: .top, endPoint: .bottom)
-    }
-}
-
-// MARK: - Shapes
-
-struct Shield: InsettableShape {
-    var insetAmount: CGFloat = 0
-
-    func path(in rect: CGRect) -> Path {
-        let r = rect.insetBy(dx: insetAmount, dy: insetAmount)
-        var p = Path()
-        p.move(to: CGPoint(x: r.midX, y: r.minY))
-        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.minY + r.height * 0.12),
-                       control: CGPoint(x: r.midX + r.width * 0.3, y: r.minY + r.height * 0.1))
-        p.addLine(to: CGPoint(x: r.maxX, y: r.minY + r.height * 0.5))
-        p.addQuadCurve(to: CGPoint(x: r.midX, y: r.maxY),
-                       control: CGPoint(x: r.maxX, y: r.minY + r.height * 0.82))
-        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.minY + r.height * 0.5),
-                       control: CGPoint(x: r.minX, y: r.minY + r.height * 0.82))
-        p.addLine(to: CGPoint(x: r.minX, y: r.minY + r.height * 0.12))
-        p.addQuadCurve(to: CGPoint(x: r.midX, y: r.minY),
-                       control: CGPoint(x: r.midX - r.width * 0.3, y: r.minY + r.height * 0.1))
-        p.closeSubpath()
-        return p
-    }
-
-    func inset(by amount: CGFloat) -> Shield {
-        var s = self
-        s.insetAmount += amount
-        return s
-    }
-}
-
-/// 右邊的翅膀（左邊用 scaleEffect 翻過去）。三片羽毛。
-struct Wing: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let w = rect.width, h = rect.height
-        for i in 0..<3 {
-            let y = rect.minY + h * (0.1 + Double(i) * 0.25)
-            let len = w * (1 - Double(i) * 0.22)
-            p.move(to: CGPoint(x: rect.minX, y: y + h * 0.05))
-            p.addQuadCurve(to: CGPoint(x: rect.minX + len, y: y - h * 0.05),
-                           control: CGPoint(x: rect.minX + len * 0.6, y: y - h * 0.12))
-            p.addQuadCurve(to: CGPoint(x: rect.minX, y: y + h * 0.3),
-                           control: CGPoint(x: rect.minX + len * 0.55, y: y + h * 0.22))
-            p.closeSubpath()
-        }
-        return p
-    }
-}
-
-struct Gem: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.38))
-        p.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.38))
-        p.closeSubpath()
-        return p
-    }
-}
-
-struct Crown: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let w = rect.width, h = rect.height
-        p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + h * 0.25))
-        p.addLine(to: CGPoint(x: rect.minX + w * 0.27, y: rect.minY + h * 0.6))
-        p.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX - w * 0.27, y: rect.minY + h * 0.6))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + h * 0.25))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.closeSubpath()
-        return p
-    }
-}
-
-struct Rays: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let c = CGPoint(x: rect.midX, y: rect.midY)
-        let r = min(rect.width, rect.height) / 2
-        let count = 12
-        for i in 0..<count {
-            let a = Double(i) / Double(count) * 2 * .pi
-            let half = .pi / Double(count) * 0.45
-            p.move(to: c)
-            p.addLine(to: CGPoint(x: c.x + r * cos(a - half), y: c.y + r * sin(a - half)))
-            p.addLine(to: CGPoint(x: c.x + r * cos(a + half), y: c.y + r * sin(a + half)))
-            p.closeSubpath()
-        }
-        return p
+        LinearGradient(colors: [light, mid, dark], startPoint: .top, endPoint: .bottom)
     }
 }

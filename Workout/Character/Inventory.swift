@@ -10,13 +10,18 @@ struct InventoryState: Codable, Equatable {
     var pity: Int = 0
     var claimedMilestones: Set<String> = []
 
-    /// 初始狀態：基本款全部擁有，但什麼都不穿，只有內褲。
+    /// 初始狀態：沒有任何裝備，只穿內褲。基本款要從補給箱開。
     static func starter() -> InventoryState {
-        var s = InventoryState()
+        InventoryState()
+    }
+
+    /// 舊版初始會送全套基本款。那時候開到基本款一定是重複、已換成碎片，
+    /// 所以背包裡的基本款都是贈送的，收回並脫掉。
+    mutating func removeStarterGift() {
         for it in GearCatalog.basicItems() {
-            s.owned.insert(it.id)
+            owned.remove(it.id)
+            if loadout[it.slot] == it.id { loadout[it.slot] = nil }
         }
-        return s
     }
 
     /// 舊版初始會把基本款全部穿上；還維持那個樣子（沒換過裝）的就脫掉。
@@ -145,9 +150,16 @@ final class InventoryStore: ObservableObject {
                 UserDefaults.standard.set(true, forKey: flag)
                 if s.isUntouchedOldStarter { s.loadout = Loadout() }
             }
+            // 一次性：收回舊版送的基本款。
+            let giftFlag = "workout.character.noStarterGear"
+            if !UserDefaults.standard.bool(forKey: giftFlag) {
+                UserDefaults.standard.set(true, forKey: giftFlag)
+                s.removeStarterGift()
+            }
             state = s
         } else {
             UserDefaults.standard.set(true, forKey: "workout.character.nakedStart")
+            UserDefaults.standard.set(true, forKey: "workout.character.noStarterGear")
             state = InventoryState.starter()
         }
     }

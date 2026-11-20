@@ -180,9 +180,9 @@ private struct DrawShape {
 
 enum CharacterRenderer {
     private static let K = Color(gearHex: "#0A0D12")
-    private static let nearGrey = Color(gearHex: "#8D98A4")
-    private static let farGrey = Color(gearHex: "#66717D")
     private static let skin = Color(gearHex: "#E9BE9C")
+    private static let nearSkin = Color(gearHex: "#E3B48F")
+    private static let farSkin = Color(gearHex: "#BF8F6C")
     private static let fg = Color(gearHex: "#E7EBF0")
     private static let lineGrey = Color(gearHex: "#2C3440")
 
@@ -228,7 +228,7 @@ enum CharacterRenderer {
             } else if seg.base == "neck" {
                 col = skin
             } else {
-                col = seg.far ? farGrey : nearGrey
+                col = seg.far ? farSkin : nearSkin
             }
             let extraW: CGFloat = (seg.base == "foot" && shoe != nil) ? 3 : 0
             let w = seg.width + extraW
@@ -280,21 +280,7 @@ enum CharacterRenderer {
         // 肢體填色
         for sh in shapes {
             if !sh.isTorso {
-                pen.line(&c, sh.a, sh.b, sh.w, sh.color)
-                if let sc = stripe[sh.base] {
-                    let col = Color(gearHex: sc)
-                    let a = mix(sh.a, sh.b, 0.08)
-                    let b = mix(sh.a, sh.b, 0.92)
-                    if sglow[sh.base] == true {
-                        pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
-                            pen.line(&l, a, b, 5, col)
-                        }
-                    }
-                    pen.line(&c, a, b, 2.6, col)
-                }
-                if sh.far {
-                    pen.line(&c, sh.a, sh.b, sh.w, Color.black.opacity(0.22))
-                }
+                fillLimb(&c, pen, sh, stripe: stripe, glow: sglow)
             } else {
                 pen.fill(&c, quadPath(sh.a, sh.b, 10, 16), sh.color)
                 pen.stroke(&c, quadPath(sh.a, sh.b, 10, 16), sh.color, 2)
@@ -335,15 +321,7 @@ enum CharacterRenderer {
 
         // 高光線
         for sh in shapes where !sh.isTorso && !sh.far && sh.w >= 11 {
-            let d = sub(sh.b, sh.a)
-            var l = hyp(d)
-            if l == 0 { l = 1 }
-            let nx = -d.y / l * sh.w * 0.25
-            let ny = d.x / l * sh.w * 0.25
-            let sgn: CGFloat = nx < 0 ? 1 : -1
-            let a = pt(sh.a.x + nx * sgn, sh.a.y + ny * sgn)
-            let b = pt(sh.b.x + nx * sgn, sh.b.y + ny * sgn)
-            pen.line(&c, mix(a, b, 0.2), mix(a, b, 0.75), 2.5, Color.white.opacity(0.35))
+            highlight(&c, pen, sh)
         }
 
         // 肩甲與胸前紋章
@@ -352,20 +330,28 @@ enum CharacterRenderer {
         }
 
         // 手部（護腕／手套）
-        if let hn = loadout.item(.hands) {
-            let far0 = P.point(.el, far: true)
-            let far1 = P.point(.ha, far: true)
-            let isWrist = hn.form == "wrist"
-            let lo: CGFloat = isWrist ? 0.62 : 0.7
-            let hi: CGFloat = isWrist ? 0.86 : 1.05
-            let w: CGFloat = isWrist ? 12 : 15
-            let col = Color(gearHex: hn.c)
-            drawBand(&c, pen, mix(far0, far1, lo), mix(far0, far1, hi), w - 1, col)
-            drawBand(&c, pen, mix(P.el, P.ha, lo), mix(P.el, P.ha, hi), w, col)
-        }
+        drawHands(&c, pen, loadout.item(.hands), P: P)
 
         // 頭
         drawHead(&c, pen, loadout.item(.head), P: P, t: t)
+
+        // 手舉過頭（肩推）時，手臂要壓在頭上面，跟啞鈴同一層
+        // 只重畫近側手臂；上臂從中段開始，避免黑框切過軀幹。遠側手臂留在頭後面。
+        if min(P.el.y, P.ha.y) < P.head.y + 13 {
+            let arms: [DrawShape] = shapes.compactMap { sh in
+                guard !sh.far, sh.base == "upper" || sh.base == "fore" else { return nil }
+                let a = sh.base == "upper" ? mix(sh.a, sh.b, 0.55) : sh.a
+                return DrawShape(isTorso: false, a: a, b: sh.b, w: sh.w, color: sh.color, far: false, base: sh.base)
+            }
+            for sh in arms {
+                pen.line(&c, sh.a, sh.b, sh.w + O, K)
+            }
+            for sh in arms {
+                fillLimb(&c, pen, sh, stripe: stripe, glow: sglow)
+                if sh.w >= 11 { highlight(&c, pen, sh) }
+            }
+            drawHands(&c, pen, loadout.item(.hands), P: P)
+        }
 
         // 啞鈴
         drawDumbbell(&c, pen, loadout.item(.bell), P: P, kind: move.gearKind)
@@ -391,6 +377,52 @@ enum CharacterRenderer {
             let pw = Text("戰力 \(loadout.power)").font(.system(size: 11 * k, weight: .bold)).foregroundColor(fg)
             c.draw(pw, at: pen.map(pt(176, 14)), anchor: .bottomTrailing)
         }
+    }
+
+    // MARK: 肢體
+
+    private static func fillLimb(_ c: inout GraphicsContext, _ pen: Pen, _ sh: DrawShape,
+                                 stripe: [String: String], glow: [String: Bool]) {
+        pen.line(&c, sh.a, sh.b, sh.w, sh.color)
+        if let sc = stripe[sh.base] {
+            let col = Color(gearHex: sc)
+            let a = mix(sh.a, sh.b, 0.08)
+            let b = mix(sh.a, sh.b, 0.92)
+            if glow[sh.base] == true {
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.line(&l, a, b, 5, col)
+                }
+            }
+            pen.line(&c, a, b, 2.6, col)
+        }
+        if sh.far {
+            pen.line(&c, sh.a, sh.b, sh.w, Color.black.opacity(0.22))
+        }
+    }
+
+    private static func highlight(_ c: inout GraphicsContext, _ pen: Pen, _ sh: DrawShape) {
+        let d = sub(sh.b, sh.a)
+        var l = hyp(d)
+        if l == 0 { l = 1 }
+        let nx = -d.y / l * sh.w * 0.25
+        let ny = d.x / l * sh.w * 0.25
+        let sgn: CGFloat = nx < 0 ? 1 : -1
+        let a = pt(sh.a.x + nx * sgn, sh.a.y + ny * sgn)
+        let b = pt(sh.b.x + nx * sgn, sh.b.y + ny * sgn)
+        pen.line(&c, mix(a, b, 0.2), mix(a, b, 0.75), 2.5, Color.white.opacity(0.35))
+    }
+
+    private static func drawHands(_ c: inout GraphicsContext, _ pen: Pen, _ hn: GearItem?, P: Joints) {
+        guard let hn = hn else { return }
+        let far0 = P.point(.el, far: true)
+        let far1 = P.point(.ha, far: true)
+        let isWrist = hn.form == "wrist"
+        let lo: CGFloat = isWrist ? 0.62 : 0.7
+        let hi: CGFloat = isWrist ? 0.86 : 1.05
+        let w: CGFloat = isWrist ? 12 : 15
+        let col = Color(gearHex: hn.c)
+        drawBand(&c, pen, mix(far0, far1, lo), mix(far0, far1, hi), w - 1, col)
+        drawBand(&c, pen, mix(P.el, P.ha, lo), mix(P.el, P.ha, hi), w, col)
     }
 
     // MARK: 輪廓
