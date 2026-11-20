@@ -47,3 +47,8 @@
   - 詳見 `docs/character-system.md`、`docs/rank-system.md`。
 - **動畫**：手遊感、要豐富（粒子、光芒、衝擊波、觸覺節奏）。牌位動畫的公式在 `BadgeMotion.swift` 和 `scripts/art/badge-anim.js`
   各一份，改一邊要改另一邊；先用預覽 HTML 截幾個時間點檢查，再推送。都要支援「減少動態效果」和點畫面跳到結尾。
+
+## 健身系統
+
+- **還沒做的功能、使用者的器材和情況，記在 `docs/roadmap.md`**。開始做健身相關功能前先讀；做完一項就更新它。
+- 已經做好的設計（課表、在家／健身房、熱身、遞增遞減、啞鈴槓片、換重量時間）見 `docs/training-system.md`。
