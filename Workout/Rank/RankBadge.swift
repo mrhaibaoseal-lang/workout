@@ -12,7 +12,10 @@ struct RankBadge: View {
         Canvas { c, sz in
             let k = sz.width / 120
             c.scaleBy(x: k, y: k)
-            RankBadgeArt.tiers[tier.rawValue].draw(&c)
+            // 小段越高外框越華麗：III → II → I；沒指定小段（牌位一覽）畫最完整的那組
+            let looks = RankBadgeArt.tiers[tier.rawValue]
+            let lv = division.map { 3 - $0 } ?? (looks.count - 1)
+            looks[max(0, min(looks.count - 1, lv))].draw(&c)
             if let d = division {
                 RankBadgeArt.ribbons[tier.rawValue].draw(&c)
                 RankBadgeArt.numerals[max(0, min(3, d))].draw(&c)

@@ -160,13 +160,24 @@ function feathers(n, x0, y0, spanX, spanY, lt, md, dk, sw = 1.6) {
 }
 const both = (layers) => [...layers, ...layers.map((l) => ({ ...l, d: mirrorD(l.d) }))];
 
-function tierLayers(ti) {
+// lv：小段華麗程度，0 = III、1 = II、2 = I（大師、王者固定 2）。越高的小段多一些外框裝飾，輪廓跟著變大。
+function tierLayers(ti, lv = 2) {
   const [, lt, md, dk] = PAL[ti];
   const o = [];
   const metal = lin(lt, md, dk);
   const W = '#FFFFFF';
   switch (ti) {
-    case 0: { // 鐵：八角鐵板＋鉚釘＋刮痕
+    case 0: { // 鐵：八角鐵板＋鉚釘＋刮痕；II 加兩側鐵夾板，I 再加頂端三根鐵刺
+      if (lv >= 2) {
+        for (const [x, h, w] of [[60, 16, 5], [47, 10, 4], [73, 10, 4]]) {
+          o.push(L(P([[x - w, 26], [x, 26 - h], [x + w, 26]]), metal, dk, 1.4));
+        }
+      }
+      if (lv >= 1) {
+        const plate = [L(P([[86, 46], [100, 49], [100, 67], [86, 70]]), metal, dk, 1.5),
+          L(circle(95, 58, 2.2), solid(lt), dk, 1)];
+        o.push(...both(plate));
+      }
       const oct = regular(60, 58, 36, 8, -67.5);
       o.push(L(P(oct), solid(dk)));
       o.push(L(P(regular(60, 58, 32, 8, -67.5)), metal, dk, 1.5));
@@ -181,12 +192,13 @@ function tierLayers(ti) {
       o.push(L(P([[44, 80], [36, 108], [44, 103], [50, 110], [54, 82]]), solid(md), dk, 1.5));
       o.push(L(mirrorD(P([[44, 80], [36, 108], [44, 103], [50, 110], [54, 82]])), solid(md), dk, 1.5));
       const leaves = [];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < [3, 5, 6][lv]; i++) {
         const a = (200 - i * 22) * Math.PI / 180;
         const cx = 60 + 39 * Math.cos(a), cy = 60 - 39 * Math.sin(a);
         leaves.push(L(ellipseRot(cx, cy, 3.6, 8, -((200 - i * 22) - 90) + 35), lin('#CFE8A0', '#5E8A2E'), '#2E4A12', 1.2));
       }
       o.push(...both(leaves));
+      if (lv >= 2) o.push(L(P(star(60, 13, 5, 9, 3.8)), lin('#FFFFFF', lt, md), dk, 1.4));
       const cog = [];
       for (let i = 0; i < 32; i++) {
         const r = i % 4 < 2 ? 33 : 29, a = (i / 32 * 360 + 5.6) * Math.PI / 180;
@@ -207,6 +219,8 @@ function tierLayers(ti) {
         return flip ? s.map((l) => ({ ...l, d: mirrorD(l.d) })) : s;
       };
       o.push(...sword(false), ...sword(true));
+      if (lv >= 1) o.push(L(P([[60, 2], [66, 14], [62, 13], [60, 20], [58, 13], [54, 14]]), lin(W, md), dk, 1.4));
+      if (lv >= 2) o.push(...both([L(P(star(16, 22, 4, 7, 2.2)), solid(W), dk, 0.8), L(P(star(22, 46, 4, 5, 1.6)), solid(W))]));
       const sh = 'M60 18 Q76 26 90 24 L90 58 Q90 84 60 100 Q30 84 30 58 L30 24 Q44 26 60 18 Z';
       o.push(L(sh, solid(dk)));
       o.push(L('M60 23 Q75 30 86 28.5 L86 58 Q86 81 60 95 Q34 81 34 58 L34 28.5 Q45 30 60 23 Z', metal, null));
@@ -216,7 +230,8 @@ function tierLayers(ti) {
       break;
     }
     case 3: { // 金：太陽光芒＋圓牌＋翅膀
-      o.push(...both(feathers(4, 82, 50, 34, 30, lt, md, dk)));
+      if (lv >= 1) o.push(...both(feathers(lv + 2, 82, 50, 28 + lv * 3, 30, lt, md, dk)));
+      if (lv >= 2) o.push(L(P(star(60, 8, 5, 8, 3.4)), solid(W), GOLD[2], 1.2));
       o.push(L(P(star(60, 58, 12, 40, 28, -90)), lin(GOLD[0], GOLD[1]), GOLD[2], 1.5));
       o.push(L(circle(60, 58, 27), solid(dk)));
       o.push(L(circle(60, 58, 24), metal, lt, 1.5));
@@ -228,7 +243,8 @@ function tierLayers(ti) {
       const shard = [L(P([[80, 44], [112, 30], [92, 52]]), lin(W, md), dk, 1.5),
         L(P([[84, 56], [116, 56], [88, 66]]), lin(lt, md), dk, 1.5),
         L(P([[82, 68], [104, 84], [80, 76]]), lin(lt, dk), dk, 1.5)];
-      o.push(...both(shard));
+      o.push(...both(shard.slice(0, 1 + lv)));
+      if (lv >= 2) o.push(L(P([[60, 2], [66, 20], [60, 24], [54, 20]]), lin(W, md), dk, 1.4));
       const hx = regular(60, 58, 36, 6);
       o.push(L(P(hx), solid(dk)));
       const hi = regular(60, 58, 32, 6);
@@ -241,8 +257,9 @@ function tierLayers(ti) {
       break;
     }
     case 5: { // 鑽石：大菱形＋水晶刺＋羽翼
-      o.push(...both(feathers(5, 84, 50, 36, 34, lt, md, dk)));
-      for (const [pts] of [[[[60, 2], [66, 16], [54, 16]]], [[[38, 10], [48, 22], [41, 24]]], [[[82, 10], [79, 24], [72, 22]]]]) {
+      o.push(...both(feathers([2, 4, 5][lv], 84, 50, [26, 32, 36][lv], 34, lt, md, dk)));
+      if (lv >= 2) o.push(...both([L(P(star(14, 24, 4, 7, 2)), solid(W)), L(P(star(108, 88, 4, 5, 1.5)), solid(W))]));
+      for (const [pts] of [[[[60, 2], [66, 16], [54, 16]]], [[[38, 10], [48, 22], [41, 24]]], [[[82, 10], [79, 24], [72, 22]]]].slice(0, lv >= 1 ? 3 : 1)) {
         o.push(L(P(pts), lin(W, md), dk, 1.4));
       }
       const dia = [[60, 12], [98, 56], [60, 104], [22, 56]];
@@ -337,7 +354,8 @@ function numerals(n) {
 }
 
 // ---------- 輸出 ----------
-const tiers = PAL.map((_, i) => tierLayers(i));
+// tiers[階][lv]：有小段的階 3 組（III、II、I），大師、王者 1 組
+const tiers = PAL.map((_, i) => (i < 6 ? [0, 1, 2] : [2]).map((lv) => tierLayers(i, lv)));
 
 function svgFill(fill, id) {
   if (fill[0] === 'solid') return { attr: `fill="${fill[1]}" fill-opacity="${fill[2]}"`, defs: '' };
@@ -361,7 +379,7 @@ function svg(layers, size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 120 120"><defs>${defs}</defs>${body}</svg>`;
 }
 function badge(ti, div, size) {
-  const layers = [...tiers[ti]];
+  const layers = [...tiers[ti][div ? 3 - div : tiers[ti].length - 1]];
   if (div) layers.push(...ribbon(ti), ...numerals(div));
   return svg(layers, size);
 }
@@ -390,7 +408,7 @@ function swLayers(ls, ind) {
   return '[\n' + ls.map((l) => `${ind}ArtLayer(${sw(l.d)}, ${swFill(l.fill)}${l.stroke ? `, stroke: ${sw(l.stroke)}, width: ${l.sw}` : ''})`).join(',\n') + '\n' + ind.slice(4) + ']';
 }
 let out = `// 自動產生，請勿手改：node scripts/art/badges.js\n// 牌位獎章形狀（120×120 座標），每階一組圖層。\n\nenum RankBadgeArt {\n`;
-out += `    static let tiers: [[ArtLayer]] = [\n` + tiers.map((t) => '        ' + swLayers(t, '            ')).join(',\n') + '\n    ]\n\n';
+out += `    /// tiers[階][華麗程度]：有小段的階 [III, II, I]，大師、王者只有一組\n    static let tiers: [[[ArtLayer]]] = [\n` + tiers.map((t) => '        [\n' + t.map((v) => '            ' + swLayers(v, '                ')).join(',\n') + '\n        ]').join(',\n') + '\n    ]\n\n';
 out += `    static let ribbons: [[ArtLayer]] = [\n` + PAL.map((_, i) => '        ' + swLayers(ribbon(i), '            ')).join(',\n') + '\n    ]\n\n';
 out += `    /// numerals[n] = 羅馬數字 n（1 = I … 3 = III）；numerals[0] 為空\n    static let numerals: [[ArtLayer]] = [\n` + [0, 1, 2, 3].map((n) => '        ' + (n === 0 ? '[]' : swLayers(numerals(n), '            '))).join(',\n') + '\n    ]\n}\n';
 fs.writeFileSync(path.join(__dirname, '../../Workout/Rank/RankBadgeArt.swift'), out);
