@@ -33,7 +33,7 @@ enum RankScene {
     }
 
     static func draw(_ c: inout GraphicsContext, size: CGSize, from: RankStep, to: RankStep, t: Double) {
-        let kind = kind(from, to), S = timing(kind)
+        let kind = Self.kind(from, to), S = Self.timing(kind)
         let W = size.width, H = size.height
         let (center, sz) = layout(size)
         let cx = center.x, cy = center.y, k = sz / 120
@@ -162,7 +162,7 @@ enum RankScene {
 
     /// 觸覺節奏：蓄力越來越密、爆開重擊、落地成功。
     static func haptics(_ kind: Kind) -> [(Double, HapticScript.Kind)] {
-        let S = timing(kind)
+        let S = Self.timing(kind)
         switch kind {
         case .down:
             return [(0.75, .light), (1.0, .light), (1.3, .medium), (S.boom, .warning)]

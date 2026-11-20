@@ -173,7 +173,7 @@ struct RankBar: View {
                         LinearGradient(colors: [.white.opacity(0), .white.opacity(0.6), .white.opacity(0)],
                                        startPoint: .leading, endPoint: .trailing)
                             .frame(width: 28)
-                            .offset(x: -28 + (w + 28) * u)
+                            .offset(x: -28 + (w + 28) * CGFloat(u))
                     }
                 }
                 .clipShape(Capsule())

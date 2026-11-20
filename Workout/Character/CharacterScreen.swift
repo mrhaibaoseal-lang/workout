@@ -403,6 +403,7 @@ extension Milestone.Kind {
 struct GearPickerView: View {
     let slot: GearSlot
     @EnvironmentObject private var store: InventoryStore
+    @State private var flash: (id: String, at: Date)?
 
     private let columns = [GridItem(.adaptive(minimum: 104), spacing: 10)]
 
@@ -458,7 +459,11 @@ struct GearPickerView: View {
         let owned = store.isOwned(item)
         let equipped = store.isEquipped(item)
         return Button {
-            if owned { store.equip(item) }
+            if owned {
+                store.equip(item)
+                flash = (item.id, Date())
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
         } label: {
             VStack(spacing: 4) {
                 ZStack {
@@ -476,6 +481,11 @@ struct GearPickerView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(equipped ? item.rarity.color : Theme.line, lineWidth: equipped ? 2 : 1))
+                .overlay {
+                    if let f = flash, f.id == item.id {
+                        EquipFlash(start: f.at, color: item.rarity.color).id(f.at)
+                    }
+                }
                 HStack(spacing: 4) {
                     Circle().fill(item.rarity.color).frame(width: 7, height: 7)
                     Text(item.name).font(.caption).lineLimit(1).foregroundStyle(Theme.fg)
