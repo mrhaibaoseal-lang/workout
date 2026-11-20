@@ -11,6 +11,7 @@ struct TodayView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
+    @AppStorage(Keys.place) private var placeRaw = TrainingPlace.home.rawValue
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
@@ -49,7 +50,7 @@ struct TodayView: View {
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
     private var phase: Phase { ProgramBuilder.phase(week: week) }
     private var day: DayTemplate { pickedDay ?? ProgramBuilder.nextDay(after: sessions) }
-    private var equipment: Set<Equipment> { Equipment.parse(equipmentRaw) }
+    private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
         ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length)
     }
@@ -250,6 +251,22 @@ struct TodayView: View {
             }
 
             HStack(spacing: 6) {
+                ForEach(TrainingPlace.allCases) { p in
+                    let on = p.rawValue == placeRaw
+                    Button { placeRaw = p.rawValue } label: {
+                        Label(p.title, systemImage: p.icon)
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(on ? Theme.bg : Color(gearHex: "#DCE4F7"))
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(on ? Color(gearHex: "#DCE4F7") : .clear, in: Capsule())
+                            .overlay(Capsule().stroke(on ? Color(gearHex: "#DCE4F7") : Theme.accentDim, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+
+            HStack(spacing: 6) {
                 ForEach(WorkoutLength.allCases) { l in
                     let on = l == length
                     Button { length = l } label: {
@@ -309,7 +326,8 @@ struct TodayView: View {
         plan.enumerated().map { i, item in
             let last = Progression.lastSets(for: item.exercise.id, in: sessions)
             let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
-            let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap)
+            let scheme = SetPlanner.resolve(SchemeStore.scheme(for: item.exercise.id), exercise: item.exercise, phase: phase)
+            let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap, scheme: scheme)
             let lastWeight = last.map(\.weight).max() ?? 0
             let load: String
             if !item.exercise.loaded {

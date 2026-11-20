@@ -12,6 +12,7 @@ enum SettingsBackup {
         Keys.maxDumbbell, Keys.maxBarbell, Keys.reminderOn, Keys.reminderWeekdays,
         Keys.reminderMinutes, Keys.commuteSchool, Keys.commuteWork, Keys.earliestHour,
         Keys.preferredHour, Keys.latestHour, Keys.reminderLead, Keys.tiredHours,
+        Keys.place, Keys.schemes, Keys.autoWarmup, Keys.height,
         ClassStore.key, EventStore.key,
     ]
 

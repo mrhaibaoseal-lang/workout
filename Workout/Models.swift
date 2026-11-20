@@ -36,12 +36,41 @@ final class SetEntry {
     var reps: Int
     var date: Date
     var session: WorkoutSession?
+    /// SetKind.rawValue：warmup／work／drop。舊紀錄沒有這個欄位，預設是正式組。
+    var kind: String = "work"
+    /// 做完還剩幾下（RIR），-1 = 沒填。
+    var rir: Int = -1
 
-    init(exerciseId: String, setIndex: Int, weight: Double, reps: Int, date: Date) {
+    init(exerciseId: String, setIndex: Int, weight: Double, reps: Int, date: Date,
+         kind: SetKind = .work, rir: Int = -1) {
         self.exerciseId = exerciseId
         self.setIndex = setIndex
         self.weight = weight
         self.reps = reps
+        self.date = date
+        self.kind = kind.rawValue
+        self.rir = rir
+    }
+
+    /// 正式組才算進步、破紀錄和訓練量；熱身組和 drop set 不算。
+    var isWork: Bool { kind == SetKind.work.rawValue }
+}
+
+/// 身體數據（不拍照，只記數字）。0 = 這次沒量。
+@Model
+final class BodyLog {
+    var date: Date
+    var weight: Double = 0
+    var bodyFat: Double = 0
+    var shoulders: Double = 0
+    var chest: Double = 0
+    var arm: Double = 0
+    var waist: Double = 0
+    var hips: Double = 0
+    var thigh: Double = 0
+    var calf: Double = 0
+
+    init(date: Date = .now) {
         self.date = date
     }
 }
@@ -71,6 +100,14 @@ enum Keys {
     static let readPhoneCalendar = "readPhoneCalendar"
     /// 上次看到的牌位（Rank.index），用來判斷要不要跳晉級畫面。
     static let lastRankIndex = "lastRankIndex"
+    /// TrainingPlace.rawValue：在家／健身房
+    static let place = "place"
+    /// 每個動作選的組數模式，JSON [exerciseId: SetScheme.rawValue]
+    static let schemes = "schemes"
+    /// 自動排熱身組
+    static let autoWarmup = "autoWarmup"
+    /// 身高（公分），身體數據用
+    static let height = "height"
     /// 上次看到的牌位分數，用來播「分數入帳」動畫。
     static let lastRankPoints = "lastRankPoints"
     /// 上次看到分數的時間（找出這段時間新增的加減分）。
@@ -87,7 +124,12 @@ enum Keys {
 }
 
 enum Equipment: String, CaseIterable, Identifiable {
-    case dumbbell, barbell, kettlebell, bench, cable, band, pullupBar
+    case dumbbell, barbell, kettlebell, bench, cable, band, pullupBar, rack, machine
+
+    /// 設定頁「在家的器材」能勾的項目；健身房器械只在健身房模式用。
+    static var homeChoices: [Equipment] { allCases.filter { $0 != .machine } }
+    /// 健身房模式：假設什麼都有。
+    static var gym: Set<Equipment> { Set(allCases) }
 
     var id: String { rawValue }
 
@@ -100,6 +142,8 @@ enum Equipment: String, CaseIterable, Identifiable {
         case .band: "彈力帶"
         case .pullupBar: "單槓"
         case .kettlebell: "壺鈴"
+        case .rack: "深蹲架／臥推架"
+        case .machine: "健身房器械"
         }
     }
 
@@ -112,6 +156,8 @@ enum Equipment: String, CaseIterable, Identifiable {
         case .band: "lasso"
         case .pullupBar: "figure.climbing"
         case .kettlebell: "scalemass.fill"
+        case .rack: "square.split.bottomrightquarter"
+        case .machine: "gearshape.2.fill"
         }
     }
 
@@ -121,5 +167,33 @@ enum Equipment: String, CaseIterable, Identifiable {
 
     static func encode(_ set: Set<Equipment>) -> String {
         set.map(\.rawValue).sorted().joined(separator: ",")
+    }
+}
+
+/// 在家／健身房。在家用設定裡勾的器材；健身房什麼都有，而且可以換動作（器材被佔用時）。
+enum TrainingPlace: String, CaseIterable, Identifiable {
+    case home, gym
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .home: "在家"
+        case .gym: "健身房"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: "house.fill"
+        case .gym: "building.2.fill"
+        }
+    }
+
+    func equipment(homeRaw: String) -> Set<Equipment> {
+        switch self {
+        case .home: Equipment.parse(homeRaw)
+        case .gym: Equipment.gym
+        }
     }
 }

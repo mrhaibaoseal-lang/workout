@@ -64,13 +64,15 @@ enum CharacterMove: String, CaseIterable, Identifiable {
     /// 依動作模式挑示範動作。
     static func forPattern(_ p: MovementPattern) -> CharacterMove {
         switch p {
-        case .hPush: return .pushup
+        case .hPush, .incline: return .pushup
         case .vPush: return .press
         case .hPull: return .row
         case .vPull: return .pulldown
         case .squat: return .squat
         case .hinge: return .rdl
         case .lunge: return .lunge
+        case .hamCurl: return .bridge
+        case .quadIso: return .squat
         case .glute: return .bridge
         case .calf: return .calf
         case .biceps: return .curl

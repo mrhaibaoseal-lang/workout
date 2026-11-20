@@ -1,7 +1,17 @@
 import Foundation
 
 enum MovementPattern: String {
-    case hPush, vPush, hPull, vPull, squat, hinge, lunge, glute, calf, biceps, triceps, lateral, rear, core
+    case hPush, incline, vPush, hPull, vPull, squat, hinge, lunge, glute, hamCurl, quadIso, calf, biceps, triceps, lateral, rear, core
+
+    /// 熱身用的分區：同一區第一個複合動作做完整熱身，之後只做 1 組。nil = 單關節動作，不排熱身。
+    var region: String? {
+        switch self {
+        case .hPush, .incline, .vPush: "push"
+        case .hPull, .vPull: "pull"
+        case .squat, .hinge, .lunge, .glute: "legs"
+        default: nil
+        }
+    }
 }
 
 enum RepUnit {
@@ -26,21 +36,29 @@ struct Exercise: Identifiable {
 /// Candidates are listed in order of preference within each movement pattern.
 enum ExerciseLibrary {
     static let all: [Exercise] = [
-        // 水平推
+        // 水平推（健身房的排前面，在家沒有那些器材會自動跳過）
+        Exercise(id: "bb_bench", name: "槓鈴臥推", pattern: .hPush, requires: [.barbell, .rack, .bench], loaded: true, tip: "肩胛骨夾緊、腳踩穩，槓下放到胸口下緣再推起"),
+        Exercise(id: "machine_chest_press", name: "坐姿推胸機", pattern: .hPush, requires: [.machine], loaded: true, tip: "把手對齊胸口中段，推到手臂快打直就收回"),
         Exercise(id: "db_bench", name: "啞鈴臥推", pattern: .hPush, requires: [.dumbbell, .bench], loaded: true, tip: "肩胛骨夾緊貼椅，啞鈴下放到胸側"),
-        Exercise(id: "db_incline_press", name: "啞鈴上斜臥推", pattern: .hPush, requires: [.dumbbell, .bench], loaded: true, tip: "椅背調到第 2-3 格（約 30 度），推向上胸"),
         Exercise(id: "bb_floor_press", name: "槓鈴地板臥推", pattern: .hPush, requires: [.barbell], loaded: true, tip: "沒有深蹲架，所以躺地上推最安全，手肘碰地再推"),
         Exercise(id: "db_floor_press", name: "啞鈴地板臥推", pattern: .hPush, requires: [.dumbbell], loaded: true, tip: "躺地上，手肘輕碰地面停一下再推"),
         Exercise(id: "pushup", name: "伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "身體一直線，胸口貼近地面"),
-        Exercise(id: "decline_pushup", name: "腳抬高伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "腳放椅子上，核心收緊不塌腰"),
+        // 上斜推（練上胸，胸肌看起來比較厚）
+        Exercise(id: "db_incline_press", name: "啞鈴上斜臥推", pattern: .incline, requires: [.dumbbell, .bench], loaded: true, tip: "椅背調到第 2-3 格（約 30 度），推向上胸"),
+        Exercise(id: "bb_incline_bench", name: "槓鈴上斜臥推", pattern: .incline, requires: [.barbell, .rack, .bench], loaded: true, tip: "椅背約 30 度，槓下放到鎖骨下方"),
+        Exercise(id: "db_incline_fly", name: "啞鈴上斜飛鳥", pattern: .incline, requires: [.dumbbell, .bench], loaded: true, tip: "手肘微彎固定，像抱大樹一樣往下打開、再合起來"),
+        Exercise(id: "decline_pushup", name: "腳抬高伏地挺身", pattern: .incline, requires: [], loaded: false, tip: "腳放椅子上，核心收緊不塌腰"),
 
         // 垂直推
+        Exercise(id: "bb_ohp", name: "槓鈴站姿肩推", pattern: .vPush, requires: [.barbell, .rack], loaded: true, tip: "從架上取槓，夾臀收腹，推到頭頂時頭往前穿過"),
+        Exercise(id: "machine_shoulder_press", name: "坐姿肩推機", pattern: .vPush, requires: [.machine], loaded: true, tip: "背貼椅背，推到手臂快打直"),
         Exercise(id: "db_shoulder_press", name: "啞鈴肩推", pattern: .vPush, requires: [.dumbbell], loaded: true, tip: "推到手臂打直，腹部收緊不拱腰"),
         Exercise(id: "db_arnold", name: "阿諾肩推", pattern: .vPush, requires: [.dumbbell], loaded: true, tip: "掌心朝自己開始，邊推邊轉向前"),
         Exercise(id: "band_press", name: "彈力帶肩推", pattern: .vPush, requires: [.band], loaded: false, tip: "腳踩彈力帶，往頭頂推直"),
         Exercise(id: "pike_pushup", name: "屈體伏地挺身", pattern: .vPush, requires: [], loaded: false, tip: "臀部抬高成倒 V，頭往地板方向下"),
 
         // 水平拉
+        Exercise(id: "cable_row", name: "坐姿滑輪划船", pattern: .hPull, requires: [.machine], loaded: true, tip: "挺胸坐直，把手拉到肚子，停一秒夾背"),
         Exercise(id: "db_row", name: "單臂啞鈴划船", pattern: .hPull, requires: [.dumbbell], loaded: true, tip: "背打平，把啞鈴拉向髖部（每邊做）"),
         Exercise(id: "db_chest_row", name: "啞鈴俯臥划船", pattern: .hPull, requires: [.dumbbell, .bench], loaded: true, tip: "胸口趴椅上，雙手同時拉、夾背"),
         Exercise(id: "bb_row", name: "槓鈴俯身划船", pattern: .hPull, requires: [.barbell], loaded: true, tip: "上身前傾約 45 度，背打直，槓拉向肚臍"),
@@ -48,6 +66,7 @@ enum ExerciseLibrary {
         Exercise(id: "table_row", name: "桌下反向划船", pattern: .hPull, requires: [], loaded: false, tip: "先確認桌子夠穩！身體一直線，胸口拉向桌緣"),
 
         // 垂直拉
+        Exercise(id: "assisted_pullup", name: "輔助引體向上機", pattern: .vPull, requires: [.machine], loaded: true, tip: "重量是「幫你減輕」的重量，越輕越難"),
         Exercise(id: "cable_pulldown", name: "高位下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "寬握長槓，挺胸，拉到上胸，不要往後倒"),
         Exercise(id: "cable_close_pulldown", name: "窄握下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "換上兩個橡膠把手，手肘往下往後拉到身側"),
         Exercise(id: "pullup", name: "引體向上", pattern: .vPull, requires: [.pullupBar], loaded: false, tip: "做不到就跳上去，花 3-5 秒慢慢放下"),
@@ -56,6 +75,8 @@ enum ExerciseLibrary {
         Exercise(id: "prone_ytw", name: "俯臥 Y-T-W", pattern: .vPull, requires: [], loaded: false, tip: "趴著，手臂依序擺成 Y、T、W 字，夾背"),
 
         // 深蹲
+        Exercise(id: "bb_squat", name: "槓鈴深蹲", pattern: .squat, requires: [.barbell, .rack], loaded: true, tip: "槓放上背，吸氣撐住肚子，蹲到大腿平行再站起"),
+        Exercise(id: "leg_press", name: "腿推機", pattern: .squat, requires: [.machine], loaded: true, tip: "下背貼緊椅墊，膝蓋對齊腳尖，不要鎖死膝蓋"),
         Exercise(id: "goblet_squat", name: "高腳杯深蹲", pattern: .squat, requires: [.dumbbell], loaded: true, tip: "啞鈴抱胸前，蹲到大腿至少平行地面"),
         Exercise(id: "db_squat", name: "啞鈴深蹲", pattern: .squat, requires: [.dumbbell], loaded: true, tip: "兩手各拿啞鈴垂在身側，挺胸下蹲"),
         Exercise(id: "squat", name: "徒手深蹲", pattern: .squat, requires: [], loaded: false, tip: "最低點停 2 秒，增加難度"),
@@ -78,14 +99,24 @@ enum ExerciseLibrary {
         Exercise(id: "db_glute_bridge", name: "啞鈴臀橋", pattern: .glute, requires: [.dumbbell], loaded: true, tip: "躺地上，啞鈴壓髖部，頂起夾臀 1 秒"),
         Exercise(id: "sl_glute_bridge", name: "單腳臀橋", pattern: .glute, requires: [], loaded: false, tip: "單腳踩地把髖頂起（每邊做）"),
 
+        // 腿後彎舉
+        Exercise(id: "machine_leg_curl", name: "腿後彎舉機", pattern: .hamCurl, requires: [.machine], loaded: true, tip: "慢慢放回，不要讓重量片撞在一起"),
+        Exercise(id: "db_leg_curl", name: "啞鈴俯臥腿後彎舉", pattern: .hamCurl, requires: [.dumbbell, .bench], loaded: true, tip: "趴在椅子上，兩腳夾住一顆啞鈴，用輕重量慢慢彎"),
+        Exercise(id: "towel_leg_curl", name: "毛巾滑行腿後彎舉", pattern: .hamCurl, requires: [], loaded: false, tip: "躺地上、腳踩毛巾、臀部抬起，把腳跟拉向屁股"),
+
+        // 腿前伸展（只有健身房有）
+        Exercise(id: "leg_extension", name: "腿伸展機", pattern: .quadIso, requires: [.machine], loaded: true, tip: "踢到腿伸直停 1 秒，慢慢放下"),
+
         // 小腿
+        Exercise(id: "machine_calf", name: "站姿提踵機", pattern: .calf, requires: [.machine], loaded: true, tip: "腳跟放到底拉伸，再踮到最高"),
         Exercise(id: "db_calf_raise", name: "啞鈴單腳提踵", pattern: .calf, requires: [.dumbbell], loaded: true, tip: "站階梯邊緣，腳跟放到底再踮到最高"),
         Exercise(id: "calf_raise", name: "單腳提踵", pattern: .calf, requires: [], loaded: false, tip: "站階梯邊緣，腳跟放到底再踮到最高"),
 
         // 二頭
         Exercise(id: "bb_curl", name: "槓鈴彎舉", pattern: .biceps, requires: [.barbell], loaded: true, tip: "手肘固定在身側，不要用腰甩"),
-        Exercise(id: "db_curl", name: "啞鈴彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "手肘固定在身側，不要甩"),
         Exercise(id: "db_hammer_curl", name: "錘式彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "掌心相對，手肘固定"),
+        Exercise(id: "db_curl", name: "啞鈴彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "手肘固定在身側，不要甩"),
+        Exercise(id: "cable_curl", name: "低位滑輪彎舉", pattern: .biceps, requires: [.machine], loaded: true, tip: "手肘貼身，彎到頂停一秒"),
         Exercise(id: "band_curl", name: "彈力帶彎舉", pattern: .biceps, requires: [.band], loaded: false, tip: "腳踩彈力帶，手肘固定"),
 
         // 三頭
@@ -97,10 +128,12 @@ enum ExerciseLibrary {
 
         // 側肩
         Exercise(id: "db_lateral", name: "啞鈴側平舉", pattern: .lateral, requires: [.dumbbell], loaded: true, tip: "用輕重量，舉到肩膀高度就好"),
+        Exercise(id: "cable_lateral", name: "單手滑輪側平舉", pattern: .lateral, requires: [.machine], loaded: true, tip: "滑輪放最低，從身體前方往側邊舉"),
         Exercise(id: "band_lateral", name: "彈力帶側平舉", pattern: .lateral, requires: [.band], loaded: false, tip: "腳踩彈力帶，手臂微彎往兩側舉"),
 
         // 後肩
         Exercise(id: "cable_face_pull", name: "繩索面拉", pattern: .rear, requires: [.cable], loaded: true, tip: "坐著用三頭繩拉向臉，手肘外開，對肩膀健康很好"),
+        Exercise(id: "machine_rear_delt", name: "反向飛鳥機", pattern: .rear, requires: [.machine], loaded: true, tip: "手臂微彎，往後打開到身體兩側"),
         Exercise(id: "db_rear_fly", name: "啞鈴反向飛鳥", pattern: .rear, requires: [.dumbbell], loaded: true, tip: "上身前傾，手臂微彎往兩側打開，用輕重量"),
         Exercise(id: "band_pull_apart", name: "彈力帶拉開", pattern: .rear, requires: [.band], loaded: false, tip: "手臂伸直，把彈力帶往兩邊拉到胸前"),
 

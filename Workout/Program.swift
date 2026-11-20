@@ -32,7 +32,7 @@ enum Phase {
     var note: String {
         switch self {
         case .rampUp: "前兩週練輕一點，每組留 3 下的力氣。先養成習慣，不要練到爆痠。"
-        case .normal: "每組做到快做不動（還剩 1-2 下）就停。達標就加重。"
+        case .normal: "每組做到還剩 1–2 下的力氣就停。每組都做到次數上限，下次就加重。"
         case .deload: "這週組數減少、重量減輕，讓身體恢復。下週會換一批動作。"
         }
     }
@@ -74,42 +74,52 @@ struct PlannedExercise: Identifiable {
 enum ProgramBuilder {
     static let blockWeeks = 6
 
+    /// 新手增肌的上下半身分化（每週 4 天，每個部位一週練 2 次）。
+    /// 每個肌群一週大約 9–12 個正式組：新手這個量就會一直長，不用練到爆。
+    /// 複合動作 6–12 下、單關節動作 10–20 下；每組留 1–2 下的力氣，達標就加重（雙重進步法）。
+    /// 健身房才有的動作（例如腿伸展機），在家會自動跳過。
     static let days: [DayTemplate] = [
-        DayTemplate(id: "upperA", name: "上半身 A", focus: "胸、背、肩", slots: [
+        DayTemplate(id: "upperA", name: "上半身 A", focus: "胸、背為主", slots: [
             Slot(pattern: .hPush, sets: 3, low: 6, high: 10, essential: true),
-            Slot(pattern: .vPull, sets: 3, low: 6, high: 10, essential: true),
-            Slot(pattern: .vPush, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .vPull, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .incline, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: false),
-            Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
             Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false),
-            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
         ]),
-        DayTemplate(id: "lowerA", name: "下半身 A", focus: "腿、臀、核心", slots: [
+        DayTemplate(id: "lowerA", name: "下半身 A", focus: "大腿前側、臀", slots: [
             Slot(pattern: .squat, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hinge, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .lunge, sets: 3, low: 8, high: 12, essential: true),
-            Slot(pattern: .glute, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .quadIso, sets: 3, low: 12, high: 15, essential: false),
             Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
-            Slot(pattern: .core, sets: 3, low: 8, high: 15, essential: false),
+            Slot(pattern: .core, sets: 3, low: 10, high: 15, essential: false),
         ]),
         DayTemplate(id: "upperB", name: "上半身 B", focus: "肩、背、手臂", variant: 1, slots: [
-            Slot(pattern: .vPush, sets: 3, low: 6, high: 10, essential: true),
+            Slot(pattern: .vPush, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hPush, sets: 3, low: 8, high: 12, essential: true),
-            Slot(pattern: .vPull, sets: 3, low: 6, high: 10, essential: false),
+            Slot(pattern: .vPull, sets: 3, low: 10, high: 12, essential: false),
             Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
-            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .rear, sets: 2, low: 12, high: 20, essential: false),
+            Slot(pattern: .biceps, sets: 3, low: 10, high: 15, essential: false),
             Slot(pattern: .triceps, sets: 3, low: 10, high: 15, essential: false),
         ]),
-        DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、後腿、核心", variant: 1, slots: [
+        DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、大腿後側", variant: 1, slots: [
             Slot(pattern: .hinge, sets: 3, low: 6, high: 10, essential: true),
-            Slot(pattern: .lunge, sets: 3, low: 8, high: 12, essential: true),
-            Slot(pattern: .glute, sets: 3, low: 10, high: 15, essential: true),
-            Slot(pattern: .squat, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .glute, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .lunge, sets: 3, low: 10, high: 15, essential: true),
+            Slot(pattern: .hamCurl, sets: 3, low: 10, high: 15, essential: false),
             Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
-            Slot(pattern: .core, sets: 3, low: 8, high: 15, essential: false),
+            Slot(pattern: .core, sets: 3, low: 10, high: 15, essential: false),
         ]),
     ]
+
+    /// 練的動作要用什麼器材：在家用設定裡勾的，健身房全部都有。
+    static func equipment(place: String, homeRaw: String) -> Set<Equipment> {
+        (TrainingPlace(rawValue: place) ?? .home).equipment(homeRaw: homeRaw)
+    }
 
     static func phase(week: Int) -> Phase {
         if week <= 2 { return .rampUp }
@@ -185,14 +195,14 @@ enum Progression {
     /// `sessions` must be sorted newest first.
     static func lastSets(for exerciseId: String, in sessions: [WorkoutSession]) -> [SetEntry] {
         for session in sessions {
-            let sets = session.entries.filter { $0.exerciseId == exerciseId }
+            let sets = session.entries.filter { $0.exerciseId == exerciseId && $0.isWork }
             if !sets.isEmpty { return sets.sorted { $0.setIndex < $1.setIndex } }
         }
         return []
     }
 
     static func suggest(_ item: PlannedExercise, last: [SetEntry], phase: Phase, increment: Double,
-                        maxWeight: Double? = nil) -> Suggestion {
+                        maxWeight: Double? = nil, scheme: SetScheme = .straight) -> Suggestion {
         let ex = item.exercise
         guard !last.isEmpty else {
             let note = ex.loaded
@@ -202,8 +212,11 @@ enum Progression {
         }
 
         let lastWeight = last.map(\.weight).max() ?? 0
-        let bestReps = last.map(\.reps).max() ?? item.low
-        let allHitTop = last.allSatisfy { $0.reps >= item.high }
+        // 只看最重的那幾組（遞增／遞減組的輕組不算）
+        let top = last.filter { $0.weight >= lastWeight }
+        let bestReps = top.map(\.reps).max() ?? item.low
+        let target = SetPlanner.targetReps(scheme: scheme, low: item.low, high: item.high)
+        let allHitTop = top.allSatisfy { $0.reps >= target }
 
         switch phase {
         case .deload:

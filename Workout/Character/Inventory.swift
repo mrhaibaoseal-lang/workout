@@ -50,7 +50,7 @@ struct MilestoneStats {
         stats.weekStreak = Stats.weekStreak(sessions)
 
         var all: [SetEntry] = []
-        for s in sessions { all.append(contentsOf: s.entries) }
+        for s in sessions { all.append(contentsOf: s.entries.filter(\.isWork)) }
         all.sort { a, b in
             if a.date != b.date { return a.date < b.date }
             return a.setIndex < b.setIndex

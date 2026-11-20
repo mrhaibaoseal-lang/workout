@@ -5,16 +5,27 @@ struct SetDraft: Identifiable {
     let id = UUID()
     var weight: Double
     var reps: Int
+    var kind: SetKind = .work
+    /// 還剩幾下力氣（RIR），-1 = 沒填
+    var rir: Int = -1
     var done = false
 }
 
 struct ExerciseDraft: Identifiable {
-    let item: PlannedExercise
-    let suggestion: Suggestion
+    var item: PlannedExercise
+    var suggestion: Suggestion
     /// 「上次 10 kg × 12、11、10」, empty the first time.
-    let lastText: String
+    var lastText: String
     var sets: [SetDraft]
+    /// 使用者選的排法（可能是自動）
+    var chosen: SetScheme = .auto
+    /// 實際用的排法
+    var scheme: SetScheme = .straight
     var id: String { item.id }
+
+    /// 已經開始做正式組，就不能再改排法或換動作。
+    var locked: Bool { sets.contains { $0.done && $0.kind != .warmup } }
+    var hasWarmups: Bool { sets.contains { $0.kind == .warmup } }
 }
 
 struct WorkoutView: View {
@@ -27,6 +38,8 @@ struct WorkoutView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
+    @AppStorage(Keys.place) private var placeRaw = TrainingPlace.home.rawValue
+    @AppStorage(Keys.autoWarmup) private var autoWarmup = true
     @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
     @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
@@ -44,6 +57,7 @@ struct WorkoutView: View {
     @State private var prMoment: PRMoment?
     @State private var prCount: Set<String> = []
     @State private var summary: WorkoutSummary?
+    @State private var toast: String?
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
     private var allDone: Bool {
@@ -66,13 +80,16 @@ struct WorkoutView: View {
         return drafts.first { $0.sets.contains { $0.id == id } }?.id
     }
 
+    private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
+    private var isGym: Bool { placeRaw == TrainingPlace.gym.rawValue }
+
     private var doneSets: Int { drafts.reduce(0) { $0 + $1.sets.filter(\.done).count } }
     private var totalSets: Int { drafts.reduce(0) { $0 + $1.sets.count } }
 
     /// Next exercise from the full plan that isn't on screen yet (for the "1 set" ladder).
     private var nextExtra: PlannedExercise? {
         let shown = Set(drafts.map(\.id))
-        return ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, length: .full)
+        return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: .full)
             .first { !shown.contains($0.id) }
     }
 
@@ -87,8 +104,12 @@ struct WorkoutView: View {
                             ForEach(Array(drafts.indices), id: \.self) { i in
                                 ExerciseCard(draft: $drafts[i], number: i + 1, total: drafts.count,
                                              activeSetId: activeSetId, increment: increment,
+                                             swapOptions: isGym ? swapOptions(for: i) : [],
                                              onFocus: { focused = $0 },
-                                             onComplete: { id in complete(set: id, in: i) })
+                                             onComplete: { id in complete(set: id, in: i) },
+                                             onScheme: { setScheme($0, at: i) },
+                                             onToggleWarmup: { toggleWarmup(at: i) },
+                                             onSwap: { swap(at: i, to: $0) })
                                     .id(drafts[i].id)
                             }
                         }
@@ -132,6 +153,18 @@ struct WorkoutView: View {
                 Text("你已經贏過想偷懶的自己了，這次也算數。還想再多做一點嗎？")
             }
             .onAppear(perform: buildDrafts)
+            .overlay(alignment: .top) {
+                if let t = toast {
+                    Text(t)
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.bg)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(Theme.green, in: Capsule())
+                        .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
+                        .padding(.top, 60)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .overlay {
                 if let pr = prMoment {
                     PRBurstView(pr: pr).id(pr.id)
@@ -239,25 +272,127 @@ struct WorkoutView: View {
         drafts[exerciseIndex].sets[s].done = true
         focused = nil
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        checkRecord(drafts[exerciseIndex], set: drafts[exerciseIndex].sets[s])
+        let set = drafts[exerciseIndex].sets[s]
+        if set.kind == .work {
+            checkRecord(drafts[exerciseIndex], set: set)
+            autoAdjust(exerciseIndex, after: s)
+        }
         if length == .minimal && allDone {
             restEnd = nil
             askMore = true
         } else if !allDone {
-            let rest = drafts[exerciseIndex].item.restSeconds
-            restTotal = Double(rest)
-            restEnd = Date().addingTimeInterval(TimeInterval(rest))
+            let next = drafts[exerciseIndex].sets.first { !$0.done }?.kind
+            let rest = SetPlanner.rest(after: set.kind, next: next, normal: drafts[exerciseIndex].item.restSeconds)
+            if rest > 0 {
+                restTotal = Double(rest)
+                restEnd = Date().addingTimeInterval(TimeInterval(rest))
+            } else {
+                restEnd = nil
+                showToast("馬上減重，不休息！")
+            }
         } else {
             restEnd = nil
         }
     }
 
-    private func makeDraft(_ item: PlannedExercise) -> ExerciseDraft {
+    /// 依「還剩幾下」自動調整這個動作接下來的正式組：還剩 4 下以上就加重，力竭又沒做到下限就減重。
+    private func autoAdjust(_ i: Int, after s: Int) {
+        let set = drafts[i].sets[s]
+        guard drafts[i].item.exercise.loaded, set.weight > 0, set.rir >= 0 else { return }
+        let later = drafts[i].sets.indices.filter { $0 > s && !drafts[i].sets[$0].done && drafts[i].sets[$0].kind == .work }
+        guard !later.isEmpty else { return }
+        var delta = 0.0
+        if set.rir >= 4 { delta = increment }
+        else if set.rir == 0 && set.reps < drafts[i].item.low { delta = -increment }
+        guard delta != 0 else { return }
+        for j in later {
+            drafts[i].sets[j].weight = max(0, drafts[i].sets[j].weight + delta)
+        }
+        let amount = Progression.format(abs(delta))
+        showToast(delta > 0 ? "還很有力氣，接下來每組加 \(amount) kg" : "太吃力了，接下來每組減 \(amount) kg")
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation(.spring(duration: 0.3)) { toast = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            if toast == text { withAnimation { toast = nil } }
+        }
+    }
+
+    // MARK: Scheme, warm-up, swap
+
+    private func isFirstInRegion(_ ex: Exercise, before index: Int) -> Bool {
+        guard let r = ex.pattern.region else { return false }
+        return !drafts.prefix(index).contains { $0.item.exercise.pattern.region == r }
+    }
+
+    /// 重新排一個動作的組（還沒做的部分）；已做完的熱身組留著。
+    private func rebuild(_ i: Int, item: PlannedExercise? = nil, scheme: SetScheme? = nil) {
+        let old = drafts[i]
+        let it = item ?? old.item
+        var d = makeDraft(it, firstInRegion: isFirstInRegion(it.exercise, before: i), scheme: scheme ?? old.chosen)
+        let doneWarm = old.sets.filter { $0.done && $0.kind == .warmup }
+        if !doneWarm.isEmpty {
+            d.sets = doneWarm + d.sets.filter { $0.kind != .warmup }
+        } else if !old.hasWarmups && item == nil {
+            d.sets = d.sets.filter { $0.kind != .warmup }
+        }
+        drafts[i] = d
+    }
+
+    private func setScheme(_ scheme: SetScheme, at i: Int) {
+        guard !drafts[i].locked else { return }
+        SchemeStore.set(scheme, for: drafts[i].item.exercise.id)
+        rebuild(i, scheme: scheme)
+    }
+
+    private func toggleWarmup(at i: Int) {
+        guard !drafts[i].locked else { return }
+        if drafts[i].hasWarmups {
+            drafts[i].sets.removeAll { $0.kind == .warmup && !$0.done }
+        } else {
+            let ex = drafts[i].item.exercise
+            let w = drafts[i].sets.first { $0.kind == .work }?.weight ?? 0
+            let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i), step: increment)
+            if warm.isEmpty {
+                showToast(w > 0 ? "這個動作重量不重，不用熱身" : "先填正式組的重量，才能算熱身組")
+                return
+            }
+            drafts[i].sets.insert(contentsOf: warm.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: .warmup) }, at: 0)
+        }
+    }
+
+    /// 健身房模式：同一類動作、今天還沒排到的都可以換。
+    private func swapOptions(for i: Int) -> [Exercise] {
+        let ex = drafts[i].item.exercise
+        let used = Set(drafts.map(\.id))
+        return ExerciseLibrary.candidates(for: ex.pattern, equipment: equipment).filter { !used.contains($0.id) }
+    }
+
+    private func swap(at i: Int, to ex: Exercise) {
+        guard !drafts[i].locked else { return }
+        let old = drafts[i].item
+        let range = ex.range ?? old.low...old.high
+        let item = PlannedExercise(exercise: ex, sets: old.sets, low: range.lowerBound, high: range.upperBound,
+                                   restSeconds: old.restSeconds, essential: old.essential)
+        rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
+        showToast("換成「\(ex.name)」")
+    }
+
+    private func makeDraft(_ item: PlannedExercise, firstInRegion: Bool, scheme chosenOverride: SetScheme? = nil) -> ExerciseDraft {
         let phase = ProgramBuilder.phase(week: week)
         let last = Progression.lastSets(for: item.exercise.id, in: sessions)
         let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
-        let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap)
-        let sets = (0..<item.sets).map { _ in SetDraft(weight: s.weight, reps: s.reps) }
+        let chosen = chosenOverride ?? SchemeStore.scheme(for: item.exercise.id)
+        // 只做 1 組的日子不排遞增／遞減
+        let scheme = length == .minimal ? .straight : SetPlanner.resolve(chosen, exercise: item.exercise, phase: phase)
+        let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap, scheme: scheme)
+        let work = SetPlanner.workSets(scheme: scheme, count: item.sets, weight: s.weight, reps: s.reps,
+                                       low: item.low, high: item.high, step: increment)
+        let warm = autoWarmup && length != .minimal
+            ? SetPlanner.warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion, step: increment)
+            : []
+        let sets = (warm + work).map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind) }
         var lastText = ""
         if !last.isEmpty {
             let reps = last.map { String($0.reps) }.joined(separator: "、")
@@ -266,7 +401,7 @@ struct WorkoutView: View {
                 ? "上次 \(Progression.format(w)) kg × \(reps)"
                 : "上次 \(reps) \(item.exercise.unit.label)"
         }
-        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets)
+        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets, chosen: chosen, scheme: scheme)
     }
 
     /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
@@ -292,19 +427,26 @@ struct WorkoutView: View {
             }
         }
         bests = b
-        let plan = ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, length: length)
-        drafts = plan.map(makeDraft)
+        let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length)
+        var seen = Set<String>()
+        drafts = plan.map { item in
+            let region = item.exercise.pattern.region
+            let first = region.map { !seen.contains($0) } ?? false
+            if let region { seen.insert(region) }
+            return makeDraft(item, firstInRegion: first)
+        }
     }
 
     private func addSet() {
-        guard var lastDraft = drafts.last, let lastSet = lastDraft.sets.last else { return }
+        guard var lastDraft = drafts.last,
+              let lastSet = lastDraft.sets.last(where: { $0.kind == .work }) ?? lastDraft.sets.last else { return }
         lastDraft.sets.append(SetDraft(weight: lastSet.weight, reps: lastSet.reps))
         drafts[drafts.count - 1] = lastDraft
     }
 
     private func addNextExercise() {
         guard let item = nextExtra else { return }
-        drafts.append(makeDraft(item))
+        drafts.append(makeDraft(item, firstInRegion: isFirstInRegion(item.exercise, before: drafts.count)))
     }
 
     private func finish() {
@@ -320,7 +462,7 @@ struct WorkoutView: View {
             for (i, set) in d.sets.enumerated() where set.done {
                 let entry = SetEntry(exerciseId: d.item.exercise.id, setIndex: i,
                                      weight: d.item.exercise.loaded ? set.weight : 0,
-                                     reps: set.reps, date: now)
+                                     reps: set.reps, date: now, kind: set.kind, rir: set.rir)
                 entry.session = session
                 context.insert(entry)
             }
@@ -330,7 +472,7 @@ struct WorkoutView: View {
         let dates = sessions.filter { $0 !== session }.map(\.date)
         withAnimation(.easeOut(duration: 0.25)) {
             summary = WorkoutSummary(
-                sets: doneSets,
+                sets: drafts.reduce(0) { $0 + $1.sets.filter { $0.done && $0.kind == .work }.count },
                 seconds: session.durationSeconds,
                 prs: prCount.count,
                 points: RankEngine.points(for: length) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
@@ -354,8 +496,12 @@ struct ExerciseCard: View {
     let total: Int
     let activeSetId: UUID?
     let increment: Double
+    var swapOptions: [Exercise] = []
     let onFocus: (UUID) -> Void
     let onComplete: (UUID) -> Void
+    var onScheme: (SetScheme) -> Void = { _ in }
+    var onToggleWarmup: () -> Void = {}
+    var onSwap: (Exercise) -> Void = { _ in }
 
     private var ex: Exercise { draft.item.exercise }
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
@@ -396,10 +542,17 @@ struct ExerciseCard: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title2)
                         .foregroundStyle(Theme.accent)
+                } else if !draft.locked && (ex.loaded || !swapOptions.isEmpty) {
+                    optionsMenu
                 }
             }
 
             if hasActive {
+                if draft.scheme != .straight {
+                    Label(draft.scheme.explain, systemImage: "chart.bar.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.accentSoft)
+                }
                 Text(draft.suggestion.note)
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(draft.suggestion.note.contains("加重") ? Theme.hotText : Theme.accentSoft)
@@ -410,13 +563,13 @@ struct ExerciseCard: View {
 
             VStack(spacing: 8) {
                 ForEach($draft.sets) { $set in
-                    let index = (draft.sets.firstIndex { $0.id == set.id } ?? 0) + 1
+                    let tag = label(for: set)
                     if set.id == activeSetId {
-                        ActiveSetEditor(set: $set, index: index, exercise: ex, increment: increment) {
+                        ActiveSetEditor(set: $set, tag: tag, exercise: ex, increment: increment) {
                             onComplete(set.id)
                         }
                     } else {
-                        CompactSetRow(set: set, index: index, exercise: ex) {
+                        CompactSetRow(set: set, tag: tag, exercise: ex) {
                             if set.done { onComplete(set.id) } else { onFocus(set.id) }
                         }
                     }
@@ -432,23 +585,58 @@ struct ExerciseCard: View {
     }
 
     private var target: String {
-        let base = "目標 \(draft.item.sets) 組 × \(draft.item.low)–\(draft.item.high) \(ex.unit.label)"
+        var base = "目標 \(draft.item.sets) 組 × \(draft.item.low)–\(draft.item.high) \(ex.unit.label)"
+        if draft.scheme != .straight { base += " · " + draft.scheme.short }
         return draft.lastText.isEmpty ? base : base + " · " + draft.lastText
+    }
+
+    /// 正式組顯示第幾組，熱身組、遞減組顯示「熱」「降」。
+    private func label(for set: SetDraft) -> String {
+        if let b = set.kind.badge { return b }
+        guard let i = draft.sets.firstIndex(where: { $0.id == set.id }) else { return "" }
+        return "\(draft.sets[...i].filter { $0.kind == .work }.count)"
+    }
+
+    private var optionsMenu: some View {
+        Menu {
+            if ex.loaded {
+                Picker("組數排法", selection: Binding(get: { draft.chosen }, set: { onScheme($0) })) {
+                    ForEach(SetScheme.allCases) { s in
+                        Text(s == .auto ? "自動（\(draft.chosen == .auto ? draft.scheme.short : "依課表")）" : s.title).tag(s)
+                    }
+                }
+                Button(draft.hasWarmups ? "移除熱身組" : "加熱身組", systemImage: "flame") { onToggleWarmup() }
+            }
+            if !swapOptions.isEmpty {
+                Menu("換動作（器材被佔用）") {
+                    ForEach(swapOptions) { e in
+                        Button(e.name) { onSwap(e) }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.headline)
+                .foregroundStyle(Theme.accentSoft)
+                .frame(width: 40, height: 40)
+                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .accessibilityLabel("組數排法與熱身")
     }
 }
 
 struct CompactSetRow: View {
     let set: SetDraft
-    let index: Int
+    let tag: String
     let exercise: Exercise
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 10) {
-                Text("\(index)")
-                    .font(Theme.number(15))
-                    .foregroundStyle(Theme.muted)
+                Text(tag)
+                    .font(set.kind == .work ? Theme.number(15) : .caption.weight(.heavy))
+                    .foregroundStyle(set.kind == .work ? Theme.muted : (set.kind == .warmup ? Theme.accentSoft : Theme.hotText))
                     .frame(width: 24, alignment: .leading)
                 Text(label)
                     .font(Theme.number(17))
@@ -467,6 +655,7 @@ struct CompactSetRow: View {
             .padding(.horizontal, 12)
             .frame(minHeight: 52)
             .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .opacity(set.kind == .warmup && !set.done ? 0.8 : 1)
         }
         .buttonStyle(.plain)
         .accessibilityHint(set.done ? "點一下取消完成" : "點一下改做這一組")
@@ -481,16 +670,16 @@ struct CompactSetRow: View {
 
 struct ActiveSetEditor: View {
     @Binding var set: SetDraft
-    let index: Int
+    let tag: String
     let exercise: Exercise
     let increment: Double
     let onDone: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("第 \(index) 組")
+            Text(set.kind == .work ? "第 \(tag) 組" : set.kind.title)
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.fg)
+                .foregroundStyle(set.kind == .work ? Theme.fg : (set.kind == .warmup ? Theme.accentSoft : Theme.hotText))
             HStack(spacing: 10) {
                 if exercise.loaded {
                     stepperBox(
@@ -521,6 +710,9 @@ struct ActiveSetEditor: View {
                     .frame(minWidth: 52)
                 }
             }
+            if set.kind == .work {
+                rirPicker
+            }
             Button(action: onDone) {
                 Text("完成這一組")
             }
@@ -532,6 +724,30 @@ struct ActiveSetEditor: View {
     }
 
     private var repStep: Int { exercise.unit == .seconds ? 5 : 1 }
+
+    /// 做完還剩幾下力氣（選填）：用來自動調整下一組。
+    private var rirPicker: some View {
+        HStack(spacing: 6) {
+            Text("還剩幾下力氣？")
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
+            Spacer(minLength: 0)
+            ForEach(0..<5, id: \.self) { v in
+                let on = set.rir == v
+                Button {
+                    set.rir = on ? -1 : v
+                } label: {
+                    Text(v == 4 ? "4+" : "\(v)")
+                        .font(Theme.number(14))
+                        .foregroundStyle(on ? Theme.bg : Theme.fg)
+                        .frame(width: 36, height: 32)
+                        .background(on ? Theme.accent : Theme.sunken, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(v == 4 ? "還剩 4 下以上" : "還剩 \(v) 下")
+            }
+        }
+    }
 
     private func stepperBox<Content: View>(minus: @escaping () -> Void, plus: @escaping () -> Void,
                                            minusLabel: String, plusLabel: String,

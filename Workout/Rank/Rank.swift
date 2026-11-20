@@ -134,7 +134,7 @@ enum RankEngine {
         for s in ordered {
             events.append(RankEvent(date: s.date, delta: points(for: s.length), reason: "完成訓練（\(s.length.title)）"))
             var prs = 0
-            let byExercise = Dictionary(grouping: s.entries.filter { $0.weight > 0 }, by: \.exerciseId)
+            let byExercise = Dictionary(grouping: s.entries.filter { $0.weight > 0 && $0.isWork }, by: \.exerciseId)
             for (id, sets) in byExercise {
                 guard ExerciseLibrary.byId(id)?.loaded == true else { continue }
                 let top = sets.map(\.weight).max() ?? 0

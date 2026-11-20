@@ -26,7 +26,7 @@ struct HistoryView: View {
                                                 .background(.orange.opacity(0.2), in: Capsule())
                                         }
                                     }
-                                    Text("\(s.date.formatted(date: .abbreviated, time: .shortened)) · \(s.durationSeconds / 60) 分鐘 · \(s.entries.count) 組")
+                                    Text("\(s.date.formatted(date: .abbreviated, time: .shortened)) · \(s.durationSeconds / 60) 分鐘 · \(s.entries.filter(\.isWork).count) 組")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }

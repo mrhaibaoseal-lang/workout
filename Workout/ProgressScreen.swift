@@ -19,11 +19,15 @@ struct PersonalRecord: Identifiable {
 }
 
 struct ProgressScreen: View {
-    @Query(sort: \SetEntry.date) private var entries: [SetEntry]
+    @Query(sort: \SetEntry.date) private var allEntries: [SetEntry]
+    /// 只看正式組（熱身組、Drop set 不算進步）
+    private var entries: [SetEntry] { allEntries.filter(\.isWork) }
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @State private var selectedId: String?
     @State private var showHistory = false
+    @Query(sort: \BodyLog.date, order: .reverse) private var bodyLogs: [BodyLog]
+    private var latestBody: BodyLog? { bodyLogs.first }
 
     /// Exercises with history, most-trained first.
     private var exerciseIds: [String] {
@@ -62,6 +66,8 @@ struct ProgressScreen: View {
                 VStack(spacing: 12) {
                     header
                     RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal))
+                    NavigationLink { BodyScreen() } label: { bodyLink }
+                        .buttonStyle(.plain)
                     if entries.isEmpty {
                         ContentUnavailableView("還沒有紀錄", systemImage: "chart.line.uptrend.xyaxis",
                                                description: Text("練完第一次後，這裡會出現你的進步曲線。"))
@@ -86,6 +92,25 @@ struct ProgressScreen: View {
                 HistoryView()
             }
         }
+    }
+
+    private var bodyLink: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "figure.arms.open")
+                .font(.title3)
+                .foregroundStyle(Theme.accent)
+                .frame(width: 40, height: 40)
+                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("身體數據").font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
+                Text(latestBody.map { "上次量 \($0.date.formatted(.dateTime.month(.defaultDigits).day()))" + ($0.weight > 0 ? " · \(Progression.format($0.weight)) kg" : "") }
+                     ?? "體重、圍度，用身形圖看變化（不用拍照）")
+                    .font(.caption).foregroundStyle(Theme.muted)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
+        }
+        .themeCard(padding: 14, radius: 20)
     }
 
     private var header: some View {
