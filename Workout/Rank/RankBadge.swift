@@ -15,7 +15,7 @@ struct RankBadge: View {
             RankBadgeArt.tiers[tier.rawValue].draw(&c)
             if let d = division {
                 RankBadgeArt.ribbons[tier.rawValue].draw(&c)
-                RankBadgeArt.chevrons[max(0, min(3, 4 - d))].draw(&c)
+                RankBadgeArt.numerals[max(0, min(3, d))].draw(&c)
             }
         }
         .frame(width: size * 1.2, height: size * 1.2)

@@ -228,20 +228,20 @@ enum RankBadgeArt {
         ]
     ]
 
-    /// chevrons[n] = n 個 ^
-    static let chevrons: [[ArtLayer]] = [
+    /// numerals[n] = 羅馬數字 n（1 = I … 3 = III）；numerals[0] 為空
+    static let numerals: [[ArtLayer]] = [
         [],
         [
-            ArtLayer("M55.5 108 L60 100 L64.5 108 L62.5 108 L60 104 L57.5 108 Z", .solid("#FFFFFF", 1))
+            ArtLayer("M56.8 98 L63.2 98 L63.2 100 L61.7 100 L61.7 108 L63.2 108 L63.2 110 L56.8 110 L56.8 108 L58.3 108 L58.3 100 L56.8 100 Z", .solid("#FFFFFF", 1))
         ],
         [
-            ArtLayer("M50.5 108 L55 100 L59.5 108 L57.5 108 L55 104 L52.5 108 Z", .solid("#FFFFFF", 1)),
-            ArtLayer("M60.5 108 L65 100 L69.5 108 L67.5 108 L65 104 L62.5 108 Z", .solid("#FFFFFF", 1))
+            ArtLayer("M52.5 98 L58.9 98 L58.9 100 L57.4 100 L57.4 108 L58.9 108 L58.9 110 L52.5 110 L52.5 108 L54 108 L54 100 L52.5 100 Z", .solid("#FFFFFF", 1)),
+            ArtLayer("M61.1 98 L67.5 98 L67.5 100 L66 100 L66 108 L67.5 108 L67.5 110 L61.1 110 L61.1 108 L62.6 108 L62.6 100 L61.1 100 Z", .solid("#FFFFFF", 1))
         ],
         [
-            ArtLayer("M45.5 108 L50 100 L54.5 108 L52.5 108 L50 104 L47.5 108 Z", .solid("#FFFFFF", 1)),
-            ArtLayer("M55.5 108 L60 100 L64.5 108 L62.5 108 L60 104 L57.5 108 Z", .solid("#FFFFFF", 1)),
-            ArtLayer("M65.5 108 L70 100 L74.5 108 L72.5 108 L70 104 L67.5 108 Z", .solid("#FFFFFF", 1))
+            ArtLayer("M48.2 98 L54.6 98 L54.6 100 L53.1 100 L53.1 108 L54.6 108 L54.6 110 L48.2 110 L48.2 108 L49.7 108 L49.7 100 L48.2 100 Z", .solid("#FFFFFF", 1)),
+            ArtLayer("M56.8 98 L63.2 98 L63.2 100 L61.7 100 L61.7 108 L63.2 108 L63.2 110 L56.8 110 L56.8 108 L58.3 108 L58.3 100 L56.8 100 Z", .solid("#FFFFFF", 1)),
+            ArtLayer("M65.4 98 L71.8 98 L71.8 100 L70.3 100 L70.3 108 L71.8 108 L71.8 110 L65.4 110 L65.4 108 L66.9 108 L66.9 100 L65.4 100 Z", .solid("#FFFFFF", 1))
         ]
     ]
 }

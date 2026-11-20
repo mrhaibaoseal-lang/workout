@@ -319,11 +319,19 @@ function ribbon(ti) {
   const [, lt, md, dk] = PAL[ti];
   return [L(P([[38, 96], [82, 96], [87, 104], [82, 112], [38, 112], [33, 104]]), solid(dk), lt, 1.5)];
 }
-function chevrons(n) {
+// 小段：緞帶上的羅馬數字 I / II / III（有上下襯線的字形，畫成路徑，不靠字型）。
+// n = 1 → I（最高小段）、3 → III（最低）。
+function numerals(n) {
+  const top = 98, bot = 110, stem = 3.4, serifW = 6.4, serifH = 2, gap = 8.6;
   const o = [];
   for (let i = 0; i < n; i++) {
-    const cx = 60 + (i - (n - 1) / 2) * 10;
-    o.push(L(P([[cx - 4.5, 108], [cx, 100], [cx + 4.5, 108], [cx + 2.5, 108], [cx, 104], [cx - 2.5, 108]]), solid('#FFFFFF')));
+    const cx = 60 + (i - (n - 1) / 2) * gap;
+    const s = stem / 2, w = serifW / 2;
+    o.push(L(P([
+      [cx - w, top], [cx + w, top], [cx + w, top + serifH], [cx + s, top + serifH],
+      [cx + s, bot - serifH], [cx + w, bot - serifH], [cx + w, bot], [cx - w, bot],
+      [cx - w, bot - serifH], [cx - s, bot - serifH], [cx - s, top + serifH], [cx - w, top + serifH],
+    ]), solid('#FFFFFF')));
   }
   return o;
 }
@@ -354,7 +362,7 @@ function svg(layers, size) {
 }
 function badge(ti, div, size) {
   const layers = [...tiers[ti]];
-  if (div) layers.push(...ribbon(ti), ...chevrons(4 - div));
+  if (div) layers.push(...ribbon(ti), ...numerals(div));
   return svg(layers, size);
 }
 
@@ -363,7 +371,9 @@ if (preview) {
   let h = '<!doctype html><meta charset=utf-8><body style="background:#0E1116;color:#ccc;font-family:sans-serif;margin:0;padding:10px">';
   for (const sz of [150, 58, 44]) {
     h += '<div>';
-    PAL.forEach((p, i) => { h += `<span style="display:inline-block;text-align:center;width:${sz + 14}px">${badge(i, i < 6 ? 2 : null, sz)}<br><small>${p[0]}</small></span>`; });
+    PAL.forEach((p, i) => {
+      for (const d of i < 6 ? [3, 2, 1] : [null]) h += `<span style="display:inline-block;text-align:center;width:${sz + 14}px">${badge(i, d, sz)}<br><small>${p[0]}${d ? ' ' + ['I', 'II', 'III'][d - 1] : ''}</small></span>`;
+    });
     h += '</div>';
   }
   fs.writeFileSync(preview, h);
@@ -382,5 +392,5 @@ function swLayers(ls, ind) {
 let out = `// 自動產生，請勿手改：node scripts/art/badges.js\n// 牌位獎章形狀（120×120 座標），每階一組圖層。\n\nenum RankBadgeArt {\n`;
 out += `    static let tiers: [[ArtLayer]] = [\n` + tiers.map((t) => '        ' + swLayers(t, '            ')).join(',\n') + '\n    ]\n\n';
 out += `    static let ribbons: [[ArtLayer]] = [\n` + PAL.map((_, i) => '        ' + swLayers(ribbon(i), '            ')).join(',\n') + '\n    ]\n\n';
-out += `    /// chevrons[n] = n 個 ^\n    static let chevrons: [[ArtLayer]] = [\n` + [0, 1, 2, 3].map((n) => '        ' + (n === 0 ? '[]' : swLayers(chevrons(n), '            '))).join(',\n') + '\n    ]\n}\n';
+out += `    /// numerals[n] = 羅馬數字 n（1 = I … 3 = III）；numerals[0] 為空\n    static let numerals: [[ArtLayer]] = [\n` + [0, 1, 2, 3].map((n) => '        ' + (n === 0 ? '[]' : swLayers(numerals(n), '            '))).join(',\n') + '\n    ]\n}\n';
 fs.writeFileSync(path.join(__dirname, '../../Workout/Rank/RankBadgeArt.swift'), out);
