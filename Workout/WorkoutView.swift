@@ -26,6 +26,8 @@ struct WorkoutView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.increment) private var increment = 2.5
+    @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
+    @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
 
     @State private var drafts: [ExerciseDraft] = []
     @State private var startedAt = Date()
@@ -132,7 +134,8 @@ struct WorkoutView: View {
         let plan = ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, short: short)
         drafts = plan.map { item in
             let last = Progression.lastSets(for: item.exercise.id, in: sessions)
-            let s = Progression.suggest(item, last: last, phase: phase, increment: increment)
+            let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
+            let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap)
             let sets = (0..<item.sets).map { _ in SetDraft(weight: s.weight, reps: s.reps) }
             return ExerciseDraft(item: item, suggestion: s, sets: sets)
         }

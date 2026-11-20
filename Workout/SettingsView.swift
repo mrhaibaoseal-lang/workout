@@ -27,6 +27,8 @@ struct SettingsView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
+    @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
+    @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @State private var confirmRestart = false
 
@@ -44,6 +46,8 @@ struct SettingsView: View {
                 Section("目標") {
                     Stepper("每週 \(weeklyGoal) 次", value: $weeklyGoal, in: 2...6)
                     Stepper("每次加重 \(Progression.format(increment)) kg", value: $increment, in: 0.5...5, step: 0.5)
+                    Stepper("啞鈴最重（每支）\(Progression.format(maxDumbbell)) kg", value: $maxDumbbell, in: 5...60, step: 2.5)
+                    Stepper("槓鈴最重（含槓）\(Progression.format(maxBarbell)) kg", value: $maxBarbell, in: 10...150, step: 5)
                 }
 
                 Section {

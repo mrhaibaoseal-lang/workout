@@ -47,6 +47,8 @@ enum Keys {
     static let startDate = "startDate"
     static let weeklyGoal = "weeklyGoal"
     static let increment = "increment"
+    static let maxDumbbell = "maxDumbbell"
+    static let maxBarbell = "maxBarbell"
 }
 
 enum Equipment: String, CaseIterable, Identifiable {

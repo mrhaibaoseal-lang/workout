@@ -158,7 +158,8 @@ enum Progression {
         return []
     }
 
-    static func suggest(_ item: PlannedExercise, last: [SetEntry], phase: Phase, increment: Double) -> Suggestion {
+    static func suggest(_ item: PlannedExercise, last: [SetEntry], phase: Phase, increment: Double,
+                        maxWeight: Double? = nil) -> Suggestion {
         let ex = item.exercise
         guard !last.isEmpty else {
             let note = ex.loaded
@@ -180,6 +181,10 @@ enum Progression {
                               note: "適應期：用上次的重量，別拚到力竭")
         case .normal:
             if allHitTop {
+                if ex.loaded, let cap = maxWeight, lastWeight + increment > cap {
+                    return Suggestion(weight: lastWeight, reps: bestReps + 1,
+                                      note: "已到器材最大重量，改成多做 1 下或下放放慢到 3 秒")
+                }
                 if ex.loaded {
                     return Suggestion(weight: lastWeight + increment, reps: item.low,
                                       note: "上次全部達標 💪 加重 \(format(increment)) kg")
@@ -190,6 +195,13 @@ enum Progression {
             return Suggestion(weight: lastWeight, reps: min(bestReps + 1, item.high),
                               note: "目標：比上次多做 1 \(ex.unit.label)")
         }
+    }
+
+    /// Heaviest load the user's equipment allows for this exercise.
+    static func maxWeight(for ex: Exercise, dumbbell: Double, barbell: Double) -> Double? {
+        if ex.requires.contains(.barbell) { return barbell }
+        if ex.requires.contains(.dumbbell) { return dumbbell }
+        return nil
     }
 
     static func roundHalf(_ x: Double) -> Double {
