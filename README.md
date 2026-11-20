@@ -16,24 +16,15 @@
 - **休息計時器**：每打勾一組就開始倒數。
 - 資料只存在手機上，不需要帳號。
 
-## 雲端編譯
+## 雲端編譯與安裝
 
 每次 push 都會觸發 GitHub Actions（`.github/workflows/build.yml`）：
-在 macOS 機器上用 XcodeGen 從 `project.yml` 產生專案，編出**未簽名**的 `Workout.ipa`。
 
-下載方式：GitHub 的 repo → **Actions** → 點最新一次成功的執行紀錄 → 最下面 **Artifacts** 的 `Workout-ipa`（下載下來是 zip，解開就是 `.ipa`）。
+1. 在 macOS 機器上用 XcodeGen 從 `project.yml` 產生專案，編出**未簽名**的 `Workout.ipa`。
+2. build 號自動使用 Actions 的執行編號，每次都會遞增，Feather 才會顯示「有更新」。
+3. 透過 [`mrhaibaoseal-lang/feather-source`](https://github.com/mrhaibaoseal-lang/feather-source) 的 action 發佈成 GitHub Release，私人 Feather 來源會自動收錄。
 
-## 安裝到 iPhone
-
-未簽名的 IPA 要先簽名才能裝。最簡單的方式：
-
-1. 電腦（Windows 或 Mac）安裝 [Sideloadly](https://sideloadly.io/)。
-2. iPhone 用線接電腦，把 `Workout.ipa` 拖進 Sideloadly，輸入你的 Apple ID，按 Start。
-3. iPhone：**設定 → 一般 → VPN 與裝置管理**，信任你的 Apple ID。
-4. iPhone：**設定 → 隱私權與安全性 → 開發者模式**，打開（第一次需要重開機）。
-
-用免費 Apple ID 簽名，App 每 **7 天**要重新簽一次（資料不會消失）。
-付費 Apple Developer（每年 US$99）可以改成 TestFlight 安裝，簽名一年有效。
+安裝：在 Feather 重新整理私人來源 → 下載「練壯」→ 用 FlareStore 憑證簽名安裝。
 
 ## 專案結構
 

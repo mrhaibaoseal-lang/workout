@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -28,6 +31,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             build
 
       - name: Package IPA
@@ -46,3 +50,9 @@ jobs:
         with:
           name: Workout-ipa
           path: Workout.ipa
+
+      - name: Publish to private Feather source
+        uses: mrhaibaoseal-lang/feather-source@main
+        with:
+          ipa: Workout.ipa
+          description: 在家用自己的器材練壯。每週 4 天課表、自動加重建議、60/20 分鐘與「只做 1 組」模式、練習提醒。
