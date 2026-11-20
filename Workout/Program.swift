@@ -7,6 +7,8 @@ struct Slot {
     let high: Int
     /// Kept in the 20-minute short version.
     let essential: Bool
+    /// 「少排槓鈴」時，這個位置仍然優先用槓鈴（槓鈴臀推：啞鈴壓髖部太輕）。
+    var keepBarbell = false
 }
 
 struct DayTemplate: Identifiable {
@@ -108,7 +110,7 @@ enum ProgramBuilder {
         ]),
         DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、大腿後側", variant: 1, slots: [
             Slot(pattern: .hinge, sets: 3, low: 6, high: 10, essential: true),
-            Slot(pattern: .glute, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .glute, sets: 3, low: 8, high: 12, essential: true, keepBarbell: true),
             Slot(pattern: .lunge, sets: 3, low: 10, high: 15, essential: true),
             Slot(pattern: .hamCurl, sets: 3, low: 10, high: 15, essential: false),
             Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
@@ -132,18 +134,31 @@ enum ProgramBuilder {
         (week - 1) / blockWeeks
     }
 
-    static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength) -> [PlannedExercise] {
+    /// limitBarbell：槓鈴組裝麻煩時，除了 keepBarbell 的位置，其他都先用啞鈴等器材。
+    static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength,
+                     limitBarbell: Bool = false) -> [PlannedExercise] {
         let phase = phase(week: week)
         let block = block(week: week)
         var usedIds = Set<String>()
 
         let all: [PlannedExercise] = day.slots.compactMap { slot in
             if length != .full && !slot.essential { return nil }
-            let options = ExerciseLibrary.candidates(for: slot.pattern, equipment: equipment)
+            var options = ExerciseLibrary.candidates(for: slot.pattern, equipment: equipment)
                 .filter { !usedIds.contains($0.id) }
+            if limitBarbell && !slot.keepBarbell {
+                let noBar = options.filter { !$0.requires.contains(.barbell) }
+                if !noBar.isEmpty { options = noBar + options.filter { $0.requires.contains(.barbell) } }
+            }
             guard !options.isEmpty else { return nil }
-            let top = Array(options.prefix(2))
-            let exercise = top[(block + day.variant) % top.count]
+            // 有負重的動作優先輪替（避免 B 日掉到徒手版）
+            let loaded = options.filter(\.loaded)
+            let top = Array((loaded.isEmpty ? options : loaded).prefix(2))
+            // 這類動作在另一天（同為上半身或下半身）也有，B 日才換第二個動作；一週只練一次的就用首選
+            let half = day.id.prefix(5)
+            let shared = days.contains { d in
+                d.id != day.id && d.id.prefix(5) == half && d.slots.contains { $0.pattern == slot.pattern }
+            }
+            let exercise = slot.keepBarbell ? top[0] : top[(block + (shared ? day.variant : 0)) % top.count]
             usedIds.insert(exercise.id)
 
             var sets = slot.sets

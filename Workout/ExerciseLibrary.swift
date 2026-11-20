@@ -40,6 +40,7 @@ enum ExerciseLibrary {
         Exercise(id: "bb_bench", name: "槓鈴臥推", pattern: .hPush, requires: [.barbell, .rack, .bench], loaded: true, tip: "肩胛骨夾緊、腳踩穩，槓下放到胸口下緣再推起"),
         Exercise(id: "machine_chest_press", name: "坐姿推胸機", pattern: .hPush, requires: [.machine], loaded: true, tip: "把手對齊胸口中段，推到手臂快打直就收回"),
         Exercise(id: "db_bench", name: "啞鈴臥推", pattern: .hPush, requires: [.dumbbell, .bench], loaded: true, tip: "肩胛骨夾緊貼椅，啞鈴下放到胸側"),
+        Exercise(id: "db_neutral_press", name: "啞鈴對握臥推", pattern: .hPush, requires: [.dumbbell, .bench], loaded: true, tip: "掌心相對、手肘貼近身體，比較護肩，也多練到三頭"),
         Exercise(id: "bb_floor_press", name: "槓鈴地板臥推", pattern: .hPush, requires: [.barbell], loaded: true, tip: "沒有深蹲架，所以躺地上推最安全，手肘碰地再推"),
         Exercise(id: "db_floor_press", name: "啞鈴地板臥推", pattern: .hPush, requires: [.dumbbell], loaded: true, tip: "躺地上，手肘輕碰地面停一下再推"),
         Exercise(id: "pushup", name: "伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "身體一直線，胸口貼近地面"),
@@ -69,6 +70,7 @@ enum ExerciseLibrary {
         Exercise(id: "assisted_pullup", name: "輔助引體向上機", pattern: .vPull, requires: [.machine], loaded: true, tip: "重量是「幫你減輕」的重量，越輕越難"),
         Exercise(id: "cable_pulldown", name: "高位下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "寬握長槓，挺胸，拉到上胸，不要往後倒"),
         Exercise(id: "cable_close_pulldown", name: "窄握下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "換上兩個橡膠把手，手肘往下往後拉到身側"),
+        Exercise(id: "cable_straight_arm", name: "直臂下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "用直槓或三頭繩，手臂打直往下壓到大腿，感覺背在出力"),
         Exercise(id: "pullup", name: "引體向上", pattern: .vPull, requires: [.pullupBar], loaded: false, tip: "做不到就跳上去，花 3-5 秒慢慢放下"),
         Exercise(id: "chinup", name: "反手引體向上", pattern: .vPull, requires: [.pullupBar], loaded: false, tip: "掌心朝自己，下巴過槓"),
         Exercise(id: "band_pulldown", name: "彈力帶下拉", pattern: .vPull, requires: [.band], loaded: false, tip: "彈力帶掛高處，手肘往下往後拉"),
@@ -84,6 +86,7 @@ enum ExerciseLibrary {
         // 髖鉸鏈
         Exercise(id: "bb_rdl", name: "槓鈴羅馬尼亞硬舉", pattern: .hinge, requires: [.barbell], loaded: true, tip: "槓貼著大腿往下滑，屁股往後推，背打直"),
         Exercise(id: "db_rdl", name: "啞鈴羅馬尼亞硬舉", pattern: .hinge, requires: [.dumbbell], loaded: true, tip: "膝微彎，屁股往後推，背保持平直"),
+        Exercise(id: "db_sl_rdl", name: "啞鈴單腳羅馬尼亞硬舉", pattern: .hinge, requires: [.dumbbell], loaded: true, tip: "單手拿啞鈴、對側腳站，屁股往後推，可以扶著下拉架保持平衡（每邊做）"),
         Exercise(id: "kb_swing", name: "壺鈴擺盪", pattern: .hinge, requires: [.kettlebell], loaded: true, tip: "用屁股發力把壺鈴甩出去，不是用手舉"),
         Exercise(id: "sl_rdl", name: "單腳羅馬尼亞硬舉", pattern: .hinge, requires: [], loaded: false, tip: "單腳站，上身往前傾到與地面平行（每邊做）"),
 
@@ -128,6 +131,7 @@ enum ExerciseLibrary {
 
         // 側肩
         Exercise(id: "db_lateral", name: "啞鈴側平舉", pattern: .lateral, requires: [.dumbbell], loaded: true, tip: "用輕重量，舉到肩膀高度就好"),
+        Exercise(id: "db_lean_lateral", name: "單手扶柱側平舉", pattern: .lateral, requires: [.dumbbell], loaded: true, tip: "一手抓下拉架的柱子、身體往外傾，另一手做側平舉，頂端更吃力（每邊做）"),
         Exercise(id: "cable_lateral", name: "單手滑輪側平舉", pattern: .lateral, requires: [.machine], loaded: true, tip: "滑輪放最低，從身體前方往側邊舉"),
         Exercise(id: "band_lateral", name: "彈力帶側平舉", pattern: .lateral, requires: [.band], loaded: false, tip: "腳踩彈力帶，手臂微彎往兩側舉"),
 

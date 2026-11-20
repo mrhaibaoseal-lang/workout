@@ -12,6 +12,7 @@ struct TodayView: View {
     @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.place) private var placeRaw = TrainingPlace.home.rawValue
+    @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
@@ -52,7 +53,8 @@ struct TodayView: View {
     private var day: DayTemplate { pickedDay ?? ProgramBuilder.nextDay(after: sessions) }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
-        ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length)
+        ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
+                            limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue)
     }
     private var trainedToday: Bool {
         sessions.first.map { Calendar.current.isDateInToday($0.date) } ?? false

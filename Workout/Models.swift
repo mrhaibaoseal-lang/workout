@@ -108,6 +108,8 @@ enum Keys {
     static let autoWarmup = "autoWarmup"
     /// 身高（公分），身體數據用
     static let height = "height"
+    /// 槓鈴要自己用啞鈴組裝：在家少排槓鈴
+    static let limitBarbell = "limitBarbell"
     /// 上次看到的牌位分數，用來播「分數入帳」動畫。
     static let lastRankPoints = "lastRankPoints"
     /// 上次看到分數的時間（找出這段時間新增的加減分）。
@@ -139,9 +141,9 @@ enum Equipment: String, CaseIterable, Identifiable {
         case .barbell: "槓鈴"
         case .bench: "可調式健身椅"
         case .cable: "高位下拉架（滑輪）"
-        case .band: "彈力帶"
+        case .band: "彈力帶／彈力繩"
         case .pullupBar: "單槓"
-        case .kettlebell: "壺鈴"
+        case .kettlebell: "壺鈴（含啞鈴改壺鈴把手）"
         case .rack: "深蹲架／臥推架"
         case .machine: "健身房器械"
         }

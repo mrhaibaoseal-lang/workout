@@ -80,6 +80,7 @@ struct EquipmentPicker: View {
 struct SettingsView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.autoWarmup) private var autoWarmup = true
+    @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
@@ -174,10 +175,13 @@ struct SettingsView: View {
                     Toggle(isOn: $autoWarmup) {
                         Label("自動排熱身組", systemImage: "flame")
                     }
+                    Toggle(isOn: $limitBarbell) {
+                        Label("槓鈴要組裝，在家少排槓鈴", systemImage: "wrench.adjustable")
+                    }
                 } header: {
                     SectionLabel("訓練")
                 } footer: {
-                    SectionLabel("依正式組的重量自動算熱身組（例如 50% × 10、75% × 5），每個部位的第一個動作才做完整熱身。熱身組不算進步和破紀錄。每個動作的「遞增／遞減／Drop set」在訓練畫面右上角的按鈕調整。")
+                    SectionLabel("依正式組的重量自動算熱身組（例如 50% × 10、75% × 5），每個部位的第一個動作才做完整熱身。熱身組不算進步和破紀錄。每個動作的「遞增／遞減／Drop set」在訓練畫面右上角的按鈕調整。開啟「少排槓鈴」時，在家只有下半身 B 的臀推用槓鈴，其他都用啞鈴。")
                 }
 
                 Section {

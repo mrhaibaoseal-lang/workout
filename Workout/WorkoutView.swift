@@ -40,6 +40,7 @@ struct WorkoutView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.place) private var placeRaw = TrainingPlace.home.rawValue
     @AppStorage(Keys.autoWarmup) private var autoWarmup = true
+    @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
     @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
@@ -82,6 +83,7 @@ struct WorkoutView: View {
 
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var isGym: Bool { placeRaw == TrainingPlace.gym.rawValue }
+    private var lessBarbell: Bool { limitBarbell && !isGym }
 
     private var doneSets: Int { drafts.reduce(0) { $0 + $1.sets.filter(\.done).count } }
     private var totalSets: Int { drafts.reduce(0) { $0 + $1.sets.count } }
@@ -89,7 +91,7 @@ struct WorkoutView: View {
     /// Next exercise from the full plan that isn't on screen yet (for the "1 set" ladder).
     private var nextExtra: PlannedExercise? {
         let shown = Set(drafts.map(\.id))
-        return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: .full)
+        return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: .full, limitBarbell: lessBarbell)
             .first { !shown.contains($0.id) }
     }
 
@@ -427,7 +429,7 @@ struct WorkoutView: View {
             }
         }
         bests = b
-        let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length)
+        let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length, limitBarbell: lessBarbell)
         var seen = Set<String>()
         drafts = plan.map { item in
             let region = item.exercise.pattern.region
