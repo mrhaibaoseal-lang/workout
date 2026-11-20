@@ -12,6 +12,7 @@ struct ProgressScreen: View {
     @Query(sort: \SetEntry.date) private var entries: [SetEntry]
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @State private var selectedId: String?
+    @State private var showHistory = false
 
     /// Exercises with history, most-trained first.
     private var exerciseIds: [String] {
@@ -40,6 +41,14 @@ struct ProgressScreen: View {
                 .padding()
             }
             .navigationTitle("進步")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showHistory = true } label: {
+                        Label("訓練紀錄", systemImage: "list.bullet.rectangle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showHistory) { HistoryView() }
         }
     }
 

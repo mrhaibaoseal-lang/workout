@@ -28,6 +28,13 @@ struct TodayView: View {
     @State private var length: WorkoutLength = .full
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
+    @AppStorage(CareerStore.planLogKey) private var planLogRaw = ""
+    @AppStorage(CareerStore.leaveKey) private var leaveRaw = ""
+    @AppStorage(CareerStore.betKey) private var betRaw = ""
+    @AppStorage(CareerStore.cardBuyKey) private var cardRaw = ""
+    @AppStorage(CareerStore.equippedKey) private var equippedRaw = ""
+    @State private var showLeave = false
+    @State private var leaveDay: Date?
 
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
     private var phase: Phase { ProgramBuilder.phase(week: week) }
@@ -42,6 +49,11 @@ struct TodayView: View {
     private var missed: Bool {
         Stats.missedLastPlanned(sessions, weekdays: [])
     }
+    private var career: CareerState {
+        _ = refresh
+        _ = (planLogRaw, leaveRaw, betRaw, cardRaw, equippedRaw, weeklyGoal)
+        return CareerEngine.current(sessions)
+    }
     private var plans: [DayPlan] {
         _ = refresh
         _ = (classesRaw, commuteSchool, commuteWork, earliestHour, preferredHour, latestHour, weeklyGoal, eventsRaw, tiredHours)
@@ -52,10 +64,15 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if missed {
-                        MissedCard {
+                    let career = self.career
+                    CareerSummaryCard(state: career)
+                    if missed || career.pendingMiss != nil {
+                        MissedCard(forfeitWarning: career.pendingMiss != nil, onStart: {
                             active = ActiveWorkout(day: day, length: .minimal)
-                        }
+                        }, onLeave: career.pendingMiss == nil ? nil : {
+                            leaveDay = career.pendingMiss
+                            showLeave = true
+                        })
                     }
                     let plans = self.plans
                     if let today = plans.first {
@@ -64,7 +81,8 @@ struct TodayView: View {
                     WeekStrip(plans: plans)
                     WeekCard(week: week, phase: phase,
                              done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
-                             streak: Stats.weekStreak(sessions))
+                             streak: career.displayStreak)
+                    QuestCard(quests: career.quests)
                     if trainedToday {
                         Label("今天已經練完了，好好休息！", systemImage: "checkmark.seal.fill")
                             .font(.headline)
@@ -86,6 +104,7 @@ struct TodayView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { refresh += 1 }
             }
+            .sheet(isPresented: $showLeave) { LeaveSheet(preset: leaveDay) }
             .fullScreenCover(item: $active) { a in
                 WorkoutView(day: a.day, length: a.length, week: week) {
                     pickedDay = nil
@@ -170,15 +189,22 @@ struct TodayView: View {
 }
 
 struct MissedCard: View {
+    var forfeitWarning = false
     let onStart: () -> Void
+    var onLeave: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("上次排定的練習沒做到", systemImage: "exclamationmark.triangle.fill")
+            Label(forfeitWarning ? "黃牌警告：上次排定的練習沒做到" : "上次排定的練習沒做到",
+                  systemImage: "exclamationmark.triangle.fill")
                 .font(.headline)
                 .foregroundStyle(.orange)
             Text("沒關係，但規則是**絕不連續兩次**。以前放棄，都是從漏練一次、再漏一次開始的。今天就算只做 1 組也算數。")
                 .font(.subheadline)
+            if forfeitWarning {
+                Text("下一個排定日再沒練，就會記一場**棄權敗**、扣 15 排名積分。現在練完還有「逆轉」+50 XP。")
+                    .font(.subheadline)
+            }
             Button(action: onStart) {
                 Text("現在做 1 組")
                     .font(.headline)
@@ -186,6 +212,11 @@ struct MissedCard: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.orange)
+            if let onLeave {
+                Button("那天其實有事，請假", action: onLeave)
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity)
+            }
         }
         .padding()
         .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))

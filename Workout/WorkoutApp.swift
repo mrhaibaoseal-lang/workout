@@ -39,12 +39,12 @@ struct RootView: View {
                 TabView {
                     TodayView()
                         .tabItem { Label("今天", systemImage: "figure.strengthtraining.traditional") }
+                    CareerView()
+                        .tabItem { Label("選手", systemImage: "figure.boxing") }
                     ProgressScreen()
                         .tabItem { Label("進步", systemImage: "chart.line.uptrend.xyaxis") }
                     AgendaView()
                         .tabItem { Label("行程", systemImage: "calendar") }
-                    HistoryView()
-                        .tabItem { Label("紀錄", systemImage: "list.bullet.rectangle") }
                     SettingsView()
                         .tabItem { Label("設定", systemImage: "gearshape") }
                 }
@@ -52,6 +52,7 @@ struct RootView: View {
                 OnboardingView()
             }
         }
+        .onAppear { sync() }
         .onChange(of: syncKey) { sync() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { sync() }
@@ -61,6 +62,9 @@ struct RootView: View {
     private func sync() {
         guard onboarded else { return }
         let plans = Planner.makePlan(sessions: sessions)
+        // Remember what was planned for each day, so a missed day can be judged later.
+        let dayStart = Calendar.current.startOfDay(for: .now)
+        CareerStore.record(plans: Planner.makePlan(sessions: sessions, now: dayStart))
         let next = plans.first { !$0.done && $0.length != nil }
         let nextText: String
         if let n = next, let start = n.start, let length = n.length {

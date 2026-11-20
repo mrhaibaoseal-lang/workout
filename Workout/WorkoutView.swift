@@ -35,6 +35,7 @@ struct WorkoutView: View {
     @State private var confirmQuit = false
     @State private var showNothingDone = false
     @State private var askMore = false
+    @State private var result: FightResult?
 
     private var allDone: Bool {
         drafts.allSatisfy { $0.sets.allSatisfy(\.done) }
@@ -47,7 +48,23 @@ struct WorkoutView: View {
             .first { !shown.contains($0.id) }
     }
 
+    private var doneSets: Int {
+        drafts.reduce(0) { $0 + $1.sets.filter(\.done).count }
+    }
+
     var body: some View {
+        if let result {
+            FightResultView(result: result) {
+                onFinish()
+                dismiss()
+            }
+            .transition(.opacity)
+        } else {
+            workoutScreen
+        }
+    }
+
+    private var workoutScreen: some View {
         NavigationStack {
             List {
                 ForEach($drafts) { $draft in
@@ -81,9 +98,18 @@ struct WorkoutView: View {
                     Button("離開") { confirmQuit = true }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text(startedAt, style: .timer)
-                        .monospacedDigit()
-                        .font(.headline)
+                    VStack(spacing: 0) {
+                        Text(startedAt, style: .timer)
+                            .monospacedDigit()
+                            .font(.headline)
+                        if doneSets > 0 {
+                            Text("+\(doneSets * 10) XP")
+                                .font(.caption2.bold())
+                                .foregroundStyle(CareerColors.gold)
+                                .contentTransition(.numericText())
+                        }
+                    }
+                    .animation(.snappy, value: doneSets)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { finish() }.bold()
@@ -123,8 +149,8 @@ struct WorkoutView: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 if context.date < end {
                     HStack {
-                        Image(systemName: "timer")
-                        Text("休息")
+                        Image(systemName: "bell.fill")
+                        Text("回合間休息")
                         Text(timerInterval: context.date...end, countsDown: true)
                             .monospacedDigit()
                             .bold()
@@ -136,7 +162,7 @@ struct WorkoutView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
                     .padding(.horizontal)
                 } else {
-                    Label("休息結束，下一組！", systemImage: "bolt.fill")
+                    Label("鈴響！下一回合", systemImage: "bolt.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -185,8 +211,7 @@ struct WorkoutView: View {
     }
 
     private func finish() {
-        let doneCount = drafts.reduce(0) { $0 + $1.sets.filter(\.done).count }
-        guard doneCount > 0 else {
+        guard doneSets > 0 else {
             showNothingDone = true
             return
         }
@@ -205,8 +230,30 @@ struct WorkoutView: View {
         }
         try? context.save()
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        onFinish()
-        dismiss()
+        showResult(now: now)
+    }
+
+    private func showResult(now: Date) {
+        let newFight = FightInput(
+            date: now, length: length, dayKey: day.id,
+            sets: drafts.flatMap { d in
+                d.sets.filter(\.done).map {
+                    FightSet(exerciseId: d.item.exercise.id, weight: d.item.exercise.loaded ? $0.weight : 0, reps: $0.reps)
+                }
+            })
+        let old = sessions.filter { $0.date != now }.map(FightInput.init)
+        let all = old + [newFight]
+        let state = CareerEngine.run(CareerInputs.load(all, now: now))
+        guard let report = state.reports.last else {
+            onFinish()
+            dismiss()
+            return
+        }
+        let before = Attributes.compute(old, streak: state.displayStreak, now: now)
+        let after = Attributes.compute(all, streak: state.displayStreak, now: now)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            result = FightResult(report: report, length: length, before: before, after: after)
+        }
     }
 
     private func hideKeyboard() {
