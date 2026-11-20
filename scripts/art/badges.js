@@ -74,8 +74,53 @@ const solid = (h, a = 1) => ['solid', h, a];
 const lin = (...hs) => ['lin', hs];
 const rad = (h, a0, a1 = 0) => ['rad', [[h, a0], [h, a1]]];
 
+// 中央圖案改成「肌肉手臂」的試做：BADGE_EMBLEM=muscle node scripts/art/badges.js 預覽.html
+const MUSCLE = process.env.BADGE_EMBLEM === 'muscle';
+const EMBLEM_TIER = { dumbbell: 0, kettlebell: 1, barbell: 2, star: 3, hexgem: 4, brilliant: 5, eye: 6, trophy: 7 };
+
+// 彎手臂秀二頭肌（側面，拳頭朝頭部彎回來）：t = 0（鐵，細手臂）→ 7（王者，巨大二頭肌）。
+function muscleArm(t, lt, md, dk) {
+  const m = t / 7;
+  const W = '#FFFFFF';
+  const k = 0.72 + m * 0.1;
+  const pt = (x, y) => `${f(61.5 + x * k)} ${f(65 + y * k)}`;
+  const o = [];
+  const bul = 1 + m * 10;     // 二頭肌隆起
+  const fore = 12 + m * 5;    // 前臂外側肌肉
+  const tri = 10 + m * 2;     // 三頭肌下緣
+  const d = `M${pt(-17, 0)}` +
+    ` Q${pt(-8, -6 - bul * 1.4)} ${pt(1, -4)}` +                        // 二頭肌上緣
+    ` Q${pt(1.2, -9)} ${pt(2, -13)}` +                                  // 前臂內側到手腕
+    ` L${pt(-1.5, -13)}` +
+    ` Q${pt(-4.4, -14.6)} ${pt(-2.2, -17)}` +                           // 手指 1
+    ` Q${pt(-4.6, -19.2)} ${pt(-2.2, -21.4)}` +                         // 手指 2
+    ` Q${pt(-4.4, -25.4)} ${pt(0.5, -26)}` +                            // 手指 3
+    ` Q${pt(8, -27)} ${pt(11, -24)}` +                                  // 拳頭上緣
+    ` Q${pt(12.6, -19)} ${pt(10.6, -15)}` +                             // 拳頭外側
+    ` Q${pt(10, -13.4)} ${pt(9, -13)}` +                                // 手腕
+    ` Q${pt(fore, -5)} ${pt(13, 5)}` +                                  // 前臂外側
+    ` Q${pt(13.5, 11)} ${pt(7, 11)}` +                                  // 手肘
+    ` Q${pt(-5, tri + 2 + m * 2)} ${pt(-17, tri)} Z`;                   // 三頭肌下緣
+  o.push(L(d, lin(W, lt, md), dk, 1.6));
+  for (const y of [-17, -21.4]) o.push(L(`M${pt(-2.2, y)} L${pt(2.8, y)}`, solid(W, 0), dk, 1.1));   // 手指分隔
+  o.push(L(`M${pt(2.8, -25.6)} Q${pt(4, -20)} ${pt(10.4, -17.5)}`, solid(W, 0), dk, 1.1));           // 拇指
+  o.push(L(`M${pt(1, -4)} Q${pt(4, 0)} ${pt(8, 2)}`, solid(W, 0), dk, 1.1));             // 手肘內側摺線
+  if (t >= 2) o.push(L(ellipseRot(61.5 - 8 * k, 65 + (0.5 - bul * 0.45) * k, (4.5 + m * 2.5) * k, (1.5 + m * 1.2) * k, -10), solid(W, 0.8)));   // 光澤
+  if (t >= 4) o.push(L(`M${pt(-15, 6)} Q${pt(-9, 2.5)} ${pt(-4, 6)} Q${pt(1, 8.5)} ${pt(5, 4)}`, solid(W, 0), dk, 0.9));   // 青筋
+  if (t >= 6) for (const dx of [-12, -6]) o.push(L(`M${pt(dx, -2 - bul * 0.6)} Q${pt(dx + 1.8, 0)} ${pt(dx + 0.6, 4)}`, solid(W, 0), dk, 0.8)); // 肌肉線條
+  if (t >= 3) { // 力量線
+    const n = t >= 7 ? 3 : t >= 5 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = (-80 + i * 35) * Math.PI / 180, c = [5, -20];
+      o.push(L(`M${pt(c[0] + 10 * Math.cos(a), c[1] + 10 * Math.sin(a))} L${pt(c[0] + 15 * Math.cos(a), c[1] + 15 * Math.sin(a))}`, solid(W, 0), W, 1.6));
+    }
+  }
+  return o;
+}
+
 // 中央圖案
 function emblem(kind, lt, md, dk) {
+  if (MUSCLE && kind in EMBLEM_TIER) return muscleArm(EMBLEM_TIER[kind], lt, md, dk);
   const o = [];
   const W = '#FFFFFF';
   switch (kind) {
