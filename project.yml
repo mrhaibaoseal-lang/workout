@@ -20,7 +20,7 @@ targets:
     entitlements:
       path: Workout/Workout.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.mrhaibaoseal.workout]
+        com.apple.security.application-groups: [group.81c139ae9a27a7f8.1]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mrhaibaoseal.workout
@@ -43,7 +43,7 @@ targets:
     entitlements:
       path: WorkoutWidget/WorkoutWidget.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.mrhaibaoseal.workout]
+        com.apple.security.application-groups: [group.81c139ae9a27a7f8.1]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mrhaibaoseal.workout.widget

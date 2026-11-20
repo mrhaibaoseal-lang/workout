@@ -2,11 +2,21 @@ import Foundation
 
 /// Data shared between the app and the home-screen widget through an App Group.
 enum SharedStore {
-    static let groupId = "group.com.mrhaibaoseal.workout"
+    /// The FlareStore profile only grants these fixed App Group IDs, so pick the
+    /// first one this signed build can actually open. The bundle's own group is a
+    /// fallback for other certificates.
+    static let candidateGroups = (1...5).map { "group.81c139ae9a27a7f8.\($0)" } + ["group.com.mrhaibaoseal.workout"]
+
+    static let groupId: String? = candidateGroups.first {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+    }
 
     private static var defaults: UserDefaults {
-        UserDefaults(suiteName: groupId) ?? .standard
+        groupId.flatMap { UserDefaults(suiteName: $0) } ?? .standard
     }
+
+    /// Other apps signed with the same certificate may share the group, so prefix keys.
+    private static func key(_ name: String) -> String { "workout." + name }
 
     struct Snapshot {
         var sessionDates: [Date]
@@ -16,18 +26,18 @@ enum SharedStore {
 
     static func save(_ s: Snapshot) {
         let d = defaults
-        d.set(s.sessionDates.prefix(200).map(\.timeIntervalSince1970), forKey: "sessionDates")
-        d.set(s.goal, forKey: "goal")
-        d.set(s.nextDay, forKey: "nextDay")
+        d.set(s.sessionDates.prefix(200).map(\.timeIntervalSince1970), forKey: key("sessionDates"))
+        d.set(s.goal, forKey: key("goal"))
+        d.set(s.nextDay, forKey: key("nextDay"))
     }
 
     static func load() -> Snapshot {
         let d = defaults
-        let dates = (d.array(forKey: "sessionDates") as? [Double] ?? []).map(Date.init(timeIntervalSince1970:))
-        let goal = d.integer(forKey: "goal")
+        let dates = (d.array(forKey: key("sessionDates")) as? [Double] ?? []).map(Date.init(timeIntervalSince1970:))
+        let goal = d.integer(forKey: key("goal"))
         return Snapshot(sessionDates: dates,
                         goal: goal == 0 ? 4 : goal,
-                        nextDay: d.string(forKey: "nextDay") ?? "上半身 A")
+                        nextDay: d.string(forKey: key("nextDay")) ?? "上半身 A")
     }
 
     // MARK: - Week math (Monday-first weeks)

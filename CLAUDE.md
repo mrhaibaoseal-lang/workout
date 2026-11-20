@@ -12,5 +12,8 @@
 - Feather 靠版本號判斷「有更新」：build 號用 `${{ github.run_number }}`，每次都會遞增。
 
 ## FlareStore 憑證能力
-- **支援 App Groups**（使用者已確認）。App 與小工具共用資料可以用 App Group：`group.com.mrhaibaoseal.workout`。
-- 其他權限（推播、iCloud、Keychain 共用等）：待使用者補充。
+完整清單見共用說明：https://github.com/mrhaibaoseal-lang/feather-source/blob/main/CLAUDE.md
+
+- App Groups 只有 `group.81c139ae9a27a7f8.1` ～ `.5` 這 5 個固定 ID。本專案的 entitlements 寫 `.1`，
+  `Shared/SharedStore.swift` 執行時逐一測試，取第一個可用的；存資料的 key 都加 `workout.` 前綴。
+- 不支援 CloudKit（沒有 iCloud 同步）。
