@@ -19,6 +19,7 @@ struct WorkoutApp: App {
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
+    @StateObject private var inventory = InventoryStore()
     @AppStorage(Keys.onboarded) private var onboarded = false
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.reminderOn) private var reminderOn = true
@@ -43,12 +44,13 @@ struct RootView: View {
                 TabView {
                     TodayView()
                         .tabItem { Label("今天", systemImage: "figure.strengthtraining.traditional") }
+                    CharacterScreen()
+                        .tabItem { Label("角色", systemImage: "figure.strengthtraining.functional") }
+                        .badge(inventory.boxesAvailable(sessionCount: sessions.count))
                     ProgressScreen()
                         .tabItem { Label("進步", systemImage: "chart.line.uptrend.xyaxis") }
                     AgendaView()
                         .tabItem { Label("行程", systemImage: "calendar") }
-                    HistoryView()
-                        .tabItem { Label("紀錄", systemImage: "list.bullet.rectangle") }
                     SettingsView()
                         .tabItem { Label("設定", systemImage: "gearshape") }
                 }
@@ -56,6 +58,7 @@ struct RootView: View {
                 OnboardingView()
             }
         }
+        .environmentObject(inventory)
         .onChange(of: syncKey) { sync() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { sync() }
