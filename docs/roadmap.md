@@ -1,6 +1,6 @@
 # 待辦清單（健身系統）
 
-最後更新：2026-11-20，版本 0.13.0。做完一項就從這裡刪掉或移到「已完成」，並升版號。
+最後更新：2026-11-20，版本 0.14.0。做完一項就從這裡刪掉或移到「已完成」，並升版號。
 已經做好的設計細節見 `docs/training-system.md`。
 
 ## 使用者的情況（排功能時要記得）
@@ -53,6 +53,7 @@
 
 ## 還沒合進 main 的分支
 
-- `claude/fitness-app-design-style-yohbte`：拳手生涯模式（XP、戰績、排名、裝備、賭注）。
-  跟 `TodayView`、`WorkoutView`、`ProgressScreen`、`WorkoutApp` 衝突，要的話得手動合。使用者還沒決定要不要。
+- `claude/fitness-app-design-style-yohbte`：拳手生涯模式。0.14.0 已挑出請假、保護卡、週任務、押注、逆轉、
+  影子對手、總重量、狀態、屬性改接進牌位和角色系統（見 `docs/goals-system.md`）；其餘（XP、等級、排名、獎金、
+  選手裝備、掉落、腰帶、6 週訓練營）不要。分支可以刪。
 - `claude/amazing-curie-55u0ey`：舊版 App 圖示，main 已經有更新的，不用合。
