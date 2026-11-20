@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 牌位獎章。每一階外框都不同（鐵＝八角鐵板、銅＝齒輪＋月桂、銀＝盾＋雙劍、金＝太陽圓牌＋翅膀、
 /// 白金＝六角水晶、鑽石＝菱形水晶＋羽翼、大師＝星徽＋皇冠、王者＝火焰盾＋寶石皇冠）。
-/// 形狀資料在 RankBadgeArt.swift，由 scripts/art/badges.js 產生。
+/// 中央是肌肉手臂，牌位越高肌肉越大。形狀資料在 RankBadgeArt.swift，由 scripts/art/badges.js 產生。
 struct RankBadge: View {
     let tier: RankTier
     var division: Int? = nil

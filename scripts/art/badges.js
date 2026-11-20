@@ -74,8 +74,9 @@ const solid = (h, a = 1) => ['solid', h, a];
 const lin = (...hs) => ['lin', hs];
 const rad = (h, a0, a1 = 0) => ['rad', [[h, a0], [h, a1]]];
 
-// 中央圖案改成「肌肉手臂」的試做：BADGE_EMBLEM=muscle node scripts/art/badges.js 預覽.html
-const MUSCLE = process.env.BADGE_EMBLEM === 'muscle';
+// 中央圖案（0.8.0 起）：肌肉手臂，牌位越高肌肉越大。
+// 舊的器材圖示（啞鈴、壺鈴、槓鈴…）保留在 emblem() 裡，BADGE_EMBLEM=tool 可產生舊版預覽對照。
+const MUSCLE = process.env.BADGE_EMBLEM !== 'tool';
 const EMBLEM_TIER = { dumbbell: 0, kettlebell: 1, barbell: 2, star: 3, hexgem: 4, brilliant: 5, eye: 6, trophy: 7 };
 
 // 彎手臂秀二頭肌，拳頭正面朝前：t = 0（鐵，細瘦平直的手臂）→ 7（王者，巨大二頭肌、粗前臂）。
