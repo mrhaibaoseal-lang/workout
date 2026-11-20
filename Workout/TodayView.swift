@@ -3,8 +3,8 @@ import SwiftData
 
 struct ActiveWorkout: Identifiable {
     let day: DayTemplate
-    let short: Bool
-    var id: String { day.id + (short ? "-short" : "") }
+    let length: WorkoutLength
+    var id: String { day.id + "-" + length.rawValue }
 }
 
 struct TodayView: View {
@@ -12,25 +12,36 @@ struct TodayView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
+    @AppStorage(Keys.reminderOn) private var reminderOn = true
+    @AppStorage(Keys.reminderWeekdays) private var weekdaysRaw = Keys.defaultWeekdays
 
-    @State private var short = false
+    @State private var length: WorkoutLength = .full
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
 
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
     private var phase: Phase { ProgramBuilder.phase(week: week) }
     private var day: DayTemplate { pickedDay ?? ProgramBuilder.nextDay(after: sessions) }
+    private var equipment: Set<Equipment> { Equipment.parse(equipmentRaw) }
     private var plan: [PlannedExercise] {
-        ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, short: short)
+        ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length)
     }
     private var trainedToday: Bool {
         sessions.first.map { Calendar.current.isDateInToday($0.date) } ?? false
+    }
+    private var missed: Bool {
+        Stats.missedLastPlanned(sessions, weekdays: reminderOn ? Keys.parseWeekdays(weekdaysRaw) : [])
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if missed {
+                        MissedCard {
+                            active = ActiveWorkout(day: day, length: .minimal)
+                        }
+                    }
                     WeekCard(week: week, phase: phase,
                              done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
                              streak: Stats.weekStreak(sessions))
@@ -48,10 +59,18 @@ struct TodayView: View {
             }
             .navigationTitle("今天練什麼")
             .fullScreenCover(item: $active) { a in
-                WorkoutView(day: a.day, short: a.short, week: week) {
+                WorkoutView(day: a.day, length: a.length, week: week) {
                     pickedDay = nil
                 }
             }
+        }
+    }
+
+    private var lengthHint: String {
+        switch length {
+        case .full: "有空、有心情的日子，練好練滿"
+        case .short: "很累、很忙的日子，只做最重要的 3 個動作"
+        case .minimal: "超懶的日子：換好衣服，做 1 組就好。做完再決定要不要繼續"
         }
     }
 
@@ -73,15 +92,21 @@ struct TodayView: View {
                 }
             }
 
-            Picker("長度", selection: $short) {
-                Text("完整版").tag(false)
-                Text("忙碌精簡版").tag(true)
+            Picker("長度", selection: $length) {
+                ForEach(WorkoutLength.allCases) { l in
+                    Text(l.title).tag(l)
+                }
             }
             .pickerStyle(.segmented)
 
-            Text("約 \(ProgramBuilder.estimatedMinutes(plan)) 分鐘 · \(plan.count) 個動作")
+            Text(lengthHint)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            if length != .minimal {
+                Text("約 \(ProgramBuilder.estimatedMinutes(plan)) 分鐘 · \(plan.count) 個動作")
+                    .font(.subheadline.bold())
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(plan) { item in
@@ -92,7 +117,6 @@ struct TodayView: View {
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
-                    .font(.body)
                 }
             }
 
@@ -102,9 +126,9 @@ struct TodayView: View {
             }
 
             Button {
-                active = ActiveWorkout(day: day, short: short)
+                active = ActiveWorkout(day: day, length: length)
             } label: {
-                Text("開始訓練")
+                Text(length == .minimal ? "做 1 組就好" : "開始訓練")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -114,6 +138,29 @@ struct TodayView: View {
         }
         .padding()
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct MissedCard: View {
+    let onStart: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("上次排定的練習沒做到", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundStyle(.orange)
+            Text("沒關係，但規則是**絕不連續兩次**。以前放棄，都是從漏練一次、再漏一次開始的。今天就算只做 1 組也算數。")
+                .font(.subheadline)
+            Button(action: onStart) {
+                Text("現在做 1 組")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+        }
+        .padding()
+        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

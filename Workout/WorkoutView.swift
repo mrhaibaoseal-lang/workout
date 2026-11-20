@@ -17,7 +17,7 @@ struct ExerciseDraft: Identifiable {
 
 struct WorkoutView: View {
     let day: DayTemplate
-    let short: Bool
+    let length: WorkoutLength
     let week: Int
     var onFinish: () -> Void = {}
 
@@ -34,6 +34,18 @@ struct WorkoutView: View {
     @State private var restEnd: Date?
     @State private var confirmQuit = false
     @State private var showNothingDone = false
+    @State private var askMore = false
+
+    private var allDone: Bool {
+        drafts.allSatisfy { $0.sets.allSatisfy(\.done) }
+    }
+
+    /// Next exercise from the full plan that isn't on screen yet (for the "1 set" ladder).
+    private var nextExtra: PlannedExercise? {
+        let shown = Set(drafts.map(\.id))
+        return ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, length: .full)
+            .first { !shown.contains($0.id) }
+    }
 
     var body: some View {
         NavigationStack {
@@ -49,8 +61,7 @@ struct WorkoutView: View {
                         ForEach($draft.sets) { $set in
                             let index = draft.sets.firstIndex { $0.id == set.id } ?? 0
                             SetRow(set: $set, index: index, exercise: draft.item.exercise) {
-                                restEnd = Date().addingTimeInterval(TimeInterval(draft.item.restSeconds))
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                setCompleted(rest: draft.item.restSeconds)
                             }
                         }
                     } header: {
@@ -63,7 +74,7 @@ struct WorkoutView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) { restBanner }
-            .navigationTitle(day.name + (short ? "（精簡）" : ""))
+            .navigationTitle(day.name + (length.tag.map { "（\($0)）" } ?? ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -86,12 +97,21 @@ struct WorkoutView: View {
                 Button("放棄，不儲存", role: .destructive) { dismiss() }
                 Button("繼續練", role: .cancel) {}
             } message: {
-                Text("就算只做一個動作也值得按「完成」存起來。")
+                Text("就算只做一組也值得按「完成」存起來。")
             }
             .alert("還沒有完成任何一組", isPresented: $showNothingDone) {
                 Button("好") {}
             } message: {
                 Text("做完一組後按右邊的圓圈打勾。")
+            }
+            .alert("做到了！🎉", isPresented: $askMore) {
+                Button("再一組") { addSet() }
+                if nextExtra != nil {
+                    Button("再加一個動作") { addNextExercise() }
+                }
+                Button("今天這樣就好", role: .cancel) { finish() }
+            } message: {
+                Text("你已經贏過想偷懶的自己了，這次也算數。還想再多做一點嗎？")
             }
             .onAppear(perform: buildDrafts)
         }
@@ -128,27 +148,50 @@ struct WorkoutView: View {
         }
     }
 
-    private func buildDrafts() {
-        guard drafts.isEmpty else { return }
-        let phase = ProgramBuilder.phase(week: week)
-        let plan = ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, short: short)
-        drafts = plan.map { item in
-            let last = Progression.lastSets(for: item.exercise.id, in: sessions)
-            let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
-            let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap)
-            let sets = (0..<item.sets).map { _ in SetDraft(weight: s.weight, reps: s.reps) }
-            return ExerciseDraft(item: item, suggestion: s, sets: sets)
+    private func setCompleted(rest: Int) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        if length == .minimal && allDone {
+            restEnd = nil
+            askMore = true
+        } else {
+            restEnd = Date().addingTimeInterval(TimeInterval(rest))
         }
     }
 
+    private func makeDraft(_ item: PlannedExercise) -> ExerciseDraft {
+        let phase = ProgramBuilder.phase(week: week)
+        let last = Progression.lastSets(for: item.exercise.id, in: sessions)
+        let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
+        let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap)
+        let sets = (0..<item.sets).map { _ in SetDraft(weight: s.weight, reps: s.reps) }
+        return ExerciseDraft(item: item, suggestion: s, sets: sets)
+    }
+
+    private func buildDrafts() {
+        guard drafts.isEmpty else { return }
+        let plan = ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, length: length)
+        drafts = plan.map(makeDraft)
+    }
+
+    private func addSet() {
+        guard var lastDraft = drafts.last, let lastSet = lastDraft.sets.last else { return }
+        lastDraft.sets.append(SetDraft(weight: lastSet.weight, reps: lastSet.reps))
+        drafts[drafts.count - 1] = lastDraft
+    }
+
+    private func addNextExercise() {
+        guard let item = nextExtra else { return }
+        drafts.append(makeDraft(item))
+    }
+
     private func finish() {
-        let doneSets = drafts.flatMap { d in d.sets.filter(\.done).map { (d.item.exercise, $0) } }
-        guard !doneSets.isEmpty else {
+        let doneCount = drafts.reduce(0) { $0 + $1.sets.filter(\.done).count }
+        guard doneCount > 0 else {
             showNothingDone = true
             return
         }
         let now = Date()
-        let session = WorkoutSession(date: now, dayKey: day.id, isShort: short,
+        let session = WorkoutSession(date: now, dayKey: day.id, length: length,
                                      durationSeconds: Int(now.timeIntervalSince(startedAt)))
         context.insert(session)
         for d in drafts {

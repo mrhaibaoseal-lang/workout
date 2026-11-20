@@ -3,21 +3,48 @@ options:
   bundleIdPrefix: com.mrhaibaoseal
   deploymentTarget:
     iOS: "17.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "2"
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
 targets:
   Workout:
     type: application
     platform: iOS
-    sources: [Workout]
+    sources: [Workout, Shared]
     scheme: {}
+    dependencies:
+      - target: WorkoutWidget
+    entitlements:
+      path: Workout/Workout.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.mrhaibaoseal.workout]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mrhaibaoseal.workout
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
-        SWIFT_VERSION: "5.0"
-        TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: 練壯
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+
+  WorkoutWidget:
+    type: app-extension
+    platform: iOS
+    sources: [WorkoutWidget, Shared]
+    info:
+      path: WorkoutWidget/Info.plist
+      properties:
+        CFBundleDisplayName: 練壯
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: WorkoutWidget/WorkoutWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.mrhaibaoseal.workout]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mrhaibaoseal.workout.widget
+        SKIP_INSTALL: YES

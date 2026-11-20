@@ -7,14 +7,20 @@ final class WorkoutSession {
     var dayKey: String
     var isShort: Bool
     var durationSeconds: Int
+    var mode: String = "full"
     @Relationship(deleteRule: .cascade, inverse: \SetEntry.session)
     var entries: [SetEntry] = []
 
-    init(date: Date = .now, dayKey: String, isShort: Bool, durationSeconds: Int) {
+    init(date: Date = .now, dayKey: String, length: WorkoutLength, durationSeconds: Int) {
         self.date = date
         self.dayKey = dayKey
-        self.isShort = isShort
+        self.isShort = length != .full
+        self.mode = length.rawValue
         self.durationSeconds = durationSeconds
+    }
+
+    var length: WorkoutLength {
+        WorkoutLength(rawValue: mode) ?? (isShort ? .short : .full)
     }
 
     var dayName: String {
@@ -49,6 +55,18 @@ enum Keys {
     static let increment = "increment"
     static let maxDumbbell = "maxDumbbell"
     static let maxBarbell = "maxBarbell"
+    static let reminderOn = "reminderOn"
+    /// Calendar weekdays (1 = Sunday ... 7 = Saturday), comma separated.
+    static let reminderWeekdays = "reminderWeekdays"
+    /// Minutes after midnight.
+    static let reminderMinutes = "reminderMinutes"
+
+    static let defaultWeekdays = "2,3,5,7"
+    static let defaultMinutes = 21 * 60
+
+    static func parseWeekdays(_ raw: String) -> Set<Int> {
+        Set(raw.split(separator: ",").compactMap { Int($0) })
+    }
 }
 
 enum Equipment: String, CaseIterable, Identifiable {

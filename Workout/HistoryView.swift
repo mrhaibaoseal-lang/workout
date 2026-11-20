@@ -20,8 +20,8 @@ struct HistoryView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
                                         Text(s.dayName).font(.headline)
-                                        if s.isShort {
-                                            Text("精簡").font(.caption)
+                                        if let tag = s.length.tag {
+                                            Text(tag).font(.caption)
                                                 .padding(.horizontal, 6)
                                                 .background(.orange.opacity(0.2), in: Capsule())
                                         }

@@ -4,3 +4,5 @@ Payload/
 *.ipa
 .DS_Store
 xcuserdata/
+WorkoutWidget/Info.plist
+*.entitlements

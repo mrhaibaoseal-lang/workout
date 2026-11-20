@@ -38,6 +38,28 @@ enum Phase {
     }
 }
 
+enum WorkoutLength: String, CaseIterable, Identifiable {
+    case full, short, minimal
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .full: "完整 60 分"
+        case .short: "精簡 20 分"
+        case .minimal: "只做 1 組"
+        }
+    }
+
+    var tag: String? {
+        switch self {
+        case .full: nil
+        case .short: "精簡"
+        case .minimal: "1 組起"
+        }
+    }
+}
+
 struct PlannedExercise: Identifiable {
     let exercise: Exercise
     let sets: Int
@@ -60,6 +82,7 @@ enum ProgramBuilder {
             Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: false),
             Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
             Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
         ]),
         DayTemplate(id: "lowerA", name: "下半身 A", focus: "腿、臀、核心", slots: [
             Slot(pattern: .squat, sets: 3, low: 8, high: 12, essential: true),
@@ -76,6 +99,7 @@ enum ProgramBuilder {
             Slot(pattern: .vPull, sets: 3, low: 6, high: 10, essential: false),
             Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
             Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .triceps, sets: 3, low: 10, high: 15, essential: false),
         ]),
         DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、後腿、核心", variant: 1, slots: [
             Slot(pattern: .hinge, sets: 3, low: 6, high: 10, essential: true),
@@ -98,13 +122,13 @@ enum ProgramBuilder {
         (week - 1) / blockWeeks
     }
 
-    static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, short: Bool) -> [PlannedExercise] {
+    static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength) -> [PlannedExercise] {
         let phase = phase(week: week)
         let block = block(week: week)
         var usedIds = Set<String>()
 
-        return day.slots.compactMap { slot in
-            if short && !slot.essential { return nil }
+        let all: [PlannedExercise] = day.slots.compactMap { slot in
+            if length != .full && !slot.essential { return nil }
             let options = ExerciseLibrary.candidates(for: slot.pattern, equipment: equipment)
                 .filter { !usedIds.contains($0.id) }
             guard !options.isEmpty else { return nil }
@@ -113,18 +137,27 @@ enum ProgramBuilder {
             usedIds.insert(exercise.id)
 
             var sets = slot.sets
+            if length == .full && slot.essential { sets += 1 }
             if phase != .normal { sets = max(2, sets - 1) }
+
+            let rest: Int
+            switch length {
+            case .full: rest = slot.essential ? 120 : 60
+            case .short: rest = 60
+            case .minimal: rest = 90
+            }
 
             let range = exercise.range ?? slot.low...slot.high
             return PlannedExercise(
                 exercise: exercise,
-                sets: sets,
+                sets: length == .minimal ? 1 : sets,
                 low: range.lowerBound,
                 high: range.upperBound,
-                restSeconds: slot.essential ? 90 : 60,
+                restSeconds: rest,
                 essential: slot.essential
             )
         }
+        return length == .minimal ? Array(all.prefix(1)) : all
     }
 
     static func estimatedMinutes(_ plan: [PlannedExercise]) -> Int {
@@ -214,40 +247,44 @@ enum Progression {
 }
 
 enum Stats {
-    static let calendar: Calendar = {
-        var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = 2 // 週一開始
-        return cal
-    }()
+    static var calendar: Calendar { SharedStore.calendar }
 
     static func weekStart(_ date: Date) -> Date {
-        calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? date
+        SharedStore.weekStart(date)
     }
 
     static func sessionsThisWeek(_ sessions: [WorkoutSession]) -> Int {
-        let start = weekStart(.now)
-        return sessions.filter { $0.date >= start }.count
+        SharedStore.countThisWeek(sessions.map(\.date))
     }
 
-    /// Consecutive weeks (ending this week or last week) with at least `minPerWeek` sessions.
     static func weekStreak(_ sessions: [WorkoutSession], minPerWeek: Int = 2) -> Int {
-        var counts: [Date: Int] = [:]
-        for s in sessions { counts[weekStart(s.date), default: 0] += 1 }
-
-        var week = weekStart(.now)
-        if (counts[week] ?? 0) < minPerWeek {
-            week = calendar.date(byAdding: .weekOfYear, value: -1, to: week)!
-        }
-        var streak = 0
-        while (counts[week] ?? 0) >= minPerWeek {
-            streak += 1
-            week = calendar.date(byAdding: .weekOfYear, value: -1, to: week)!
-        }
-        return streak
+        SharedStore.weekStreak(sessions.map(\.date), minPerWeek: minPerWeek)
     }
 
     static func week(since start: Date) -> Int {
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: .now)).day ?? 0
         return max(1, days / 7 + 1)
+    }
+
+    /// True when the most recent planned training day before today passed with no workout
+    /// on or after it. Without planned weekdays, falls back to "3+ days since last workout".
+    /// `sessions` must be sorted newest first.
+    static func missedLastPlanned(_ sessions: [WorkoutSession], weekdays: Set<Int>) -> Bool {
+        guard let last = sessions.first?.date else { return false }
+        let cal = Calendar.current
+        if cal.isDateInToday(last) { return false }
+        let today = cal.startOfDay(for: .now)
+
+        if weekdays.isEmpty {
+            let gap = cal.dateComponents([.day], from: cal.startOfDay(for: last), to: today).day ?? 0
+            return gap >= 3
+        }
+        for back in 1...7 {
+            let day = cal.date(byAdding: .day, value: -back, to: today)!
+            if weekdays.contains(cal.component(.weekday, from: day)) {
+                return last < day
+            }
+        }
+        return false
     }
 }

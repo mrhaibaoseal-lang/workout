@@ -34,6 +34,11 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Workout.app Payload/
+          # Ad-hoc sign so the App Group entitlement travels with the IPA;
+          # the sideloading tool re-signs with the user's Apple ID.
+          codesign -f -s - --entitlements WorkoutWidget/WorkoutWidget.entitlements Payload/Workout.app/PlugIns/WorkoutWidget.appex
+          codesign -f -s - --entitlements Workout/Workout.entitlements Payload/Workout.app
+          ls Payload/Workout.app/PlugIns
           zip -qry Workout.ipa Payload
 
       - name: Upload IPA

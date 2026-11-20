@@ -30,7 +30,20 @@ struct SettingsView: View {
     @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
     @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
+    @AppStorage(Keys.reminderOn) private var reminderOn = true
+    @AppStorage(Keys.reminderWeekdays) private var weekdaysRaw = Keys.defaultWeekdays
+    @AppStorage(Keys.reminderMinutes) private var reminderMinutes = Keys.defaultMinutes
     @State private var confirmRestart = false
+
+    private var reminderTime: Binding<Date> {
+        Binding(
+            get: { Calendar.current.startOfDay(for: .now).addingTimeInterval(TimeInterval(reminderMinutes * 60)) },
+            set: { date in
+                let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+                reminderMinutes = (c.hour ?? 21) * 60 + (c.minute ?? 0)
+            }
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -41,6 +54,18 @@ struct SettingsView: View {
                     Text("我的器材")
                 } footer: {
                     Text("徒手動作永遠可用。勾選後課表會自動換成適合的動作。")
+                }
+
+                Section {
+                    Toggle("練習提醒", isOn: $reminderOn)
+                    if reminderOn {
+                        WeekdayPicker(raw: $weekdaysRaw)
+                        DatePicker("提醒時間", selection: reminderTime, displayedComponents: .hourAndMinute)
+                    }
+                } header: {
+                    Text("提醒")
+                } footer: {
+                    Text("勾選的日子就是你的練習日。當天已經練過就不會提醒；上次練習日沒練，首頁會出現「絕不連續兩次」提醒。")
                 }
 
                 Section("目標") {
@@ -99,5 +124,35 @@ struct OnboardingView: View {
             }
             .navigationTitle("練壯")
         }
+    }
+}
+
+struct WeekdayPicker: View {
+    @Binding var raw: String
+
+    /// Monday-first display order, as Calendar weekday numbers (1 = Sunday).
+    private let order: [(Int, String)] = [(2, "一"), (3, "二"), (4, "三"), (5, "四"), (6, "五"), (7, "六"), (1, "日")]
+
+    var body: some View {
+        let selected = Keys.parseWeekdays(raw)
+        HStack(spacing: 6) {
+            ForEach(order.indices, id: \.self) { i in
+                let (day, label) = order[i]
+                let on = selected.contains(day)
+                Button {
+                    var s = selected
+                    if on { s.remove(day) } else { s.insert(day) }
+                    raw = s.sorted().map(String.init).joined(separator: ",")
+                } label: {
+                    Text(label)
+                        .font(.subheadline.bold())
+                        .frame(width: 36, height: 36)
+                        .background(on ? Color.accentColor : Color.secondary.opacity(0.15), in: Circle())
+                        .foregroundStyle(on ? Color.white : Color.primary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
