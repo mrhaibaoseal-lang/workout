@@ -1,6 +1,7 @@
 # 角色與裝備系統（交接文件）
 
-視覺參考：`docs/character-design.html`（瀏覽器開啟即可看動畫，`drawGear()` 是畫法的權威來源）。
+視覺參考：`docs/character-design.html`（身體、頭部、特效的畫法來源）。
+裝備造型（0.7.0 起）的權威來源是 `scripts/art/gear.js`，見下方「裝備造型」。
 
 ## 已決定
 - 畫風：**中性灰身體＋貼紙描邊＋酷炫版**（深色舞台、稀有度彩色外框與光暈、倒三角體型、專注眼神）。
@@ -62,4 +63,15 @@
 - 初始不送任何裝備（基本款也要開箱）。舊使用者一次性收回贈送的基本款（flag `workout.character.noStarterGear`）：
   舊版開到基本款一定是重複、已換碎片，所以背包裡的基本款都是贈送的。
 - 手舉過頭（肩推）時，近側手臂從上臂中段起重畫在頭上面，和啞鈴同層；遠側手臂留在頭後。
+
+## 裝備造型（0.7.0）
+- 每件裝備（頭部、特效以外）都有自己的形狀，不再只是換色：資料在 `scripts/art/gear.js`，
+  `node scripts/art/gear.js` 產生 `Workout/Character/GearArt.swift`（不要手改）。
+- 預覽：`node scripts/art/gear-preview.js 輸出.png [系列,系列]`，載入 character-design.html 的身體畫法、套上造型，截 3 個動作。
+  預覽與 App 用同一份 SVG 路徑資料（`Workout/Art/ArtLayer.swift` 解析 M/L/Q/C/Z）。
+- 局部座標：每塊造型掛在一個部位（torso/nape/thigh/shin/foot/upper/fore/fist/grip），y 正向＝前面／上面；
+  z 層：back（外框前）、limb（該肢段後，遠側也畫一份較暗）、over（全部肢段後）、grip（頭之後，啞鈴）。
+  `CharacterRenderer.gearFrame` 與 preview 的 `frame()` 必須一致。
+- 啞鈴改成橫放 3/4 視角，每系列頭部造型不同；沒裝備時用 `default.bell`。
+- 待上機確認：遠側肢段的變暗（`colorMultiply 0.72`）、發光層模糊半徑、披風擺動幅度。
 

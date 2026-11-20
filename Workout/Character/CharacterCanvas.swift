@@ -257,11 +257,12 @@ enum CharacterRenderer {
             fxLayer(&c, pen, fx: it.form, P: P, col: Color(gearHex: se.c2), col2: Color(gearHex: se.c3), t: t, front: false)
         }
 
+        // 裝備造型（GearArt）
+        let gear = gearParts(loadout, kind: move.gearKind)
+        let goblet = move.gearKind == .goblet
+
         // 背部物件（身體後方）
-        let back = loadout.item(.back)
-        if let bk = back {
-            drawBack(&c, pen, bk, P: P, t: t)
-        }
+        drawParts(&c, pen, gear, z: .back, P: P, t: t, goblet: goblet)
 
         // 光暈
         if rr >= 2 {
@@ -277,8 +278,15 @@ enum CharacterRenderer {
         silhouette(&c, pen, shapes, head: P.head, extra: O + (rr > 0 ? 5 : 0), color: rr > 0 ? rc : fg)
         silhouette(&c, pen, shapes, head: P.head, extra: O, color: K)
 
-        // 肢體填色
+        // 肢體填色（每段畫完接著畫掛在這段上的裝備）
         for sh in shapes {
+            defer {
+                if let an = anchorFor(sh.base) {
+                    let set: Set<GearPart.Anchor> = an == .fore ? [.fore, .fist] : [an]
+                    drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, anchors: set,
+                              side: sh.far ? .far : .near)
+                }
+            }
             if !sh.isTorso {
                 fillLimb(&c, pen, sh, stripe: stripe, glow: sglow)
             } else {
@@ -329,8 +337,8 @@ enum CharacterRenderer {
             drawTopDetails(&c, pen, tp, P: P)
         }
 
-        // 手部（護腕／手套）
-        drawHands(&c, pen, loadout.item(.hands), P: P)
+        // 疊在所有肢段上面的裝備（毛領、腰帶、法袍下襬…）
+        drawParts(&c, pen, gear, z: .over, P: P, t: t, goblet: goblet)
 
         // 頭
         drawHead(&c, pen, loadout.item(.head), P: P, t: t)
@@ -350,11 +358,11 @@ enum CharacterRenderer {
                 fillLimb(&c, pen, sh, stripe: stripe, glow: sglow)
                 if sh.w >= 11 { highlight(&c, pen, sh) }
             }
-            drawHands(&c, pen, loadout.item(.hands), P: P)
+            drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, anchors: [.fore, .fist], side: .near)
         }
 
         // 啞鈴
-        drawDumbbell(&c, pen, loadout.item(.bell), P: P, kind: move.gearKind)
+        drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet)
 
         // 前層特效
         if let it = fxItem, let se = fxSeries {
@@ -376,6 +384,91 @@ enum CharacterRenderer {
             }
             let pw = Text("戰力 \(loadout.power)").font(.system(size: 11 * k, weight: .bold)).foregroundColor(fg)
             c.draw(pw, at: pen.map(pt(176, 14)), anchor: .bottomTrailing)
+        }
+    }
+
+    // MARK: 裝備造型
+
+    private enum PartSide { case near, far, both }
+
+    private static func anchorFor(_ base: String) -> GearPart.Anchor? {
+        switch base {
+        case "torso": return .torso
+        case "thigh": return .thigh
+        case "shin": return .shin
+        case "foot": return .foot
+        case "upper": return .upper
+        case "fore": return .fore
+        default: return nil
+        }
+    }
+
+    /// 目前穿戴的所有造型；沒有啞鈴裝備時用預設啞鈴，徒手動作不畫啞鈴。
+    private static func gearParts(_ loadout: Loadout, kind: GearKind) -> [GearPart] {
+        var out: [GearPart] = []
+        for slot in GearSlot.allCases {
+            if slot == .bell && kind == .bare { continue }
+            if let it = loadout.item(slot) {
+                out += GearArt.parts(it.id)
+            } else if slot == .bell {
+                out += GearArt.parts("default.bell")
+            }
+        }
+        return out
+    }
+
+    /// 局部座標 → 200 單位座標。y 正向＝前面／上面。
+    private static func gearFrame(_ a: GearPart.Anchor, P: Joints, far: Bool, t: CGFloat, goblet: Bool) -> CGAffineTransform {
+        func q(_ j: JointName) -> CGPoint { P.point(j, far: far) }
+        func unit(_ v: CGPoint) -> CGPoint {
+            let l = hyp(v)
+            return l == 0 ? pt(1, 0) : pt(v.x / l, v.y / l)
+        }
+        func make(_ o: CGPoint, _ x: CGPoint, _ y: CGPoint) -> CGAffineTransform {
+            CGAffineTransform(a: x.x, b: x.y, c: y.x, d: y.y, tx: o.x, ty: o.y)
+        }
+        func seg(_ a: JointName, _ b: JointName, ccw: Bool) -> CGAffineTransform {
+            let x = unit(sub(q(b), q(a)))
+            return make(q(a), x, ccw ? pt(x.y, -x.x) : pt(-x.y, x.x))
+        }
+        switch a {
+        case .torso: return seg(.hip, .sh, ccw: false)
+        case .nape:
+            let x0 = unit(sub(q(.sh), q(.hip)))
+            let ang = sin(t * 2.2) * 3 * .pi / 180
+            let x = pt(x0.x * cos(ang) - x0.y * sin(ang), x0.x * sin(ang) + x0.y * cos(ang))
+            return make(q(.sh), x, pt(-x.y, x.x))
+        case .thigh: return seg(.hip, .kn, ccw: true)
+        case .shin: return seg(.kn, .an, ccw: true)
+        case .foot: return seg(.an, .to, ccw: true)
+        case .upper: return seg(.sh, .el, ccw: true)
+        case .fore: return seg(.el, .ha, ccw: true)
+        case .fist:
+            let x = unit(sub(q(.ha), q(.el)))
+            return make(q(.ha), x, pt(x.y, -x.x))
+        case .grip:
+            return goblet ? make(q(.ha), pt(0, -1), pt(-1, 0)) : make(q(.ha), pt(1, 0), pt(0, -1))
+        }
+    }
+
+    private static func drawParts(_ c: inout GraphicsContext, _ pen: Pen, _ parts: [GearPart], z: GearPart.Z,
+                                  P: Joints, t: CGFloat, goblet: Bool,
+                                  anchors: Set<GearPart.Anchor>? = nil, side: PartSide = .both) {
+        for part in parts where part.z == z {
+            if let a = anchors, !a.contains(part.anchor) { continue }
+            // 高腳杯深蹲只抱一顆啞鈴
+            let wantFar = part.far && !(part.anchor == .grip && goblet) && side != .near
+            if wantFar {
+                let tf = gearFrame(part.anchor, P: P, far: true, t: t, goblet: goblet).concatenating(pen.tf)
+                c.drawLayer { (l: inout GraphicsContext) in
+                    l.addFilter(.colorMultiply(Color(white: 0.72)))
+                    part.layers.draw(&l, transform: tf, scale: pen.k)
+                }
+            }
+            if side != .far {
+                let tf = gearFrame(part.anchor, P: P, far: false, t: t, goblet: goblet).concatenating(pen.tf)
+                part.layers.draw(&c, transform: tf, scale: pen.k)
+            }
         }
     }
 
@@ -412,19 +505,6 @@ enum CharacterRenderer {
         pen.line(&c, mix(a, b, 0.2), mix(a, b, 0.75), 2.5, Color.white.opacity(0.35))
     }
 
-    private static func drawHands(_ c: inout GraphicsContext, _ pen: Pen, _ hn: GearItem?, P: Joints) {
-        guard let hn = hn else { return }
-        let far0 = P.point(.el, far: true)
-        let far1 = P.point(.ha, far: true)
-        let isWrist = hn.form == "wrist"
-        let lo: CGFloat = isWrist ? 0.62 : 0.7
-        let hi: CGFloat = isWrist ? 0.86 : 1.05
-        let w: CGFloat = isWrist ? 12 : 15
-        let col = Color(gearHex: hn.c)
-        drawBand(&c, pen, mix(far0, far1, lo), mix(far0, far1, hi), w - 1, col)
-        drawBand(&c, pen, mix(P.el, P.ha, lo), mix(P.el, P.ha, hi), w, col)
-    }
-
     // MARK: 輪廓
 
     private static func silhouette(_ c: inout GraphicsContext, _ pen: Pen, _ shapes: [DrawShape],
@@ -442,111 +522,6 @@ enum CharacterRenderer {
             }
         }
         pen.circle(&c, head, 13 + extra / 2, fill: color)
-    }
-
-    // MARK: 背部
-
-    private static func drawBack(_ c: inout GraphicsContext, _ pen: Pen, _ bk: GearItem, P: Joints, t: CGFloat) {
-        let col = Color(gearHex: bk.c)
-        let col2 = Color(gearHex: bk.c2 ?? bk.c)
-        switch bk.form {
-        case "ring":
-            let ctr = pt(P.sh.x - 6, P.sh.y + 4)
-            let r = 26 + sin(t * 3) * 1.5
-            pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
-                pen.circle(&l, ctr, r, stroke: col, sw: 5)
-            }
-            pen.circle(&c, ctr, 26, stroke: col, sw: 2.5)
-        case "cape":
-            let x = P.sh.x
-            let y = P.sh.y
-            let sw = sin(t * 2.2) * 4
-            var body = Path()
-            body.move(to: pt(x + 4, y - 8))
-            body.addQuadCurve(to: pt(x - 26 + sw, y + 80), control: pt(x - 16, y + 18))
-            body.addLine(to: pt(x - 6 + sw * 0.6, y + 84))
-            body.addQuadCurve(to: pt(x + 8, y - 2), control: pt(x + 2, y + 34))
-            body.closeSubpath()
-            pen.fill(&c, body, col)
-            pen.stroke(&c, body, K, 5)
-            pen.line(&c, pt(x - 26 + sw, y + 80), pt(x - 6 + sw * 0.6, y + 84), 4, col2)
-            var fold = Path()
-            fold.move(to: pt(x - 6, y + 6))
-            fold.addQuadCurve(to: pt(x - 16 + sw, y + 76), control: pt(x - 14, y + 40))
-            pen.stroke(&c, fold, Color.black.opacity(0.18), 3)
-        case "sword":
-            let a0 = mix(P.hip, P.sh, 0.15)
-            let b0 = mix(P.hip, P.sh, 1.25)
-            let d = sub(b0, a0)
-            var l = hyp(d)
-            if l == 0 { l = 1 }
-            let nx = -d.y / l
-            let ny = d.x / l
-            let sg: CGFloat = nx > 0 ? -1 : 1
-            let A = pt(a0.x + nx * sg * 13, a0.y + ny * sg * 13)
-            let B = pt(b0.x + nx * sg * 13 - 6, b0.y + ny * sg * 13)
-            pen.line(&c, A, B, 9, K)
-            pen.line(&c, A, B, 5, col)
-            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
-                pen.line(&lc, mix(A, B, 0.2), mix(A, B, 0.95), 1.5, col2)
-            }
-            pen.line(&c, mix(A, B, 0.2), mix(A, B, 0.95), 1, Color.white)
-            let hg = mix(A, B, 1.05)
-            let g1 = pt(hg.x - 7, hg.y + 3)
-            let g2 = pt(hg.x + 7, hg.y - 3)
-            pen.line(&c, g1, g2, 8, K)
-            pen.line(&c, g1, g2, 4, col)
-            let end = mix(A, B, 1.25)
-            pen.line(&c, hg, end, 6, K)
-            pen.line(&c, hg, end, 3, Color(gearHex: "#5A3B22"))
-        case "wings":
-            let x = P.sh.x
-            let y = P.sh.y
-            let fl = sin(t * 3) * 6
-            let opacities: [(CGFloat, Double)] = [(0, 0.5), (8, 0.35)]
-            for (dx, op) in opacities {
-                let path = poly([
-                    pt(x - 4, y + 4),
-                    pt(x - 46 - dx, y - 34 + fl),
-                    pt(x - 34 - dx, y - 8 + fl / 2),
-                    pt(x - 52 - dx, y + 4 + fl / 3),
-                    pt(x - 30 - dx, y + 14),
-                    pt(x - 40 - dx, y + 34)
-                ])
-                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
-                    pen.fill(&l, path, col.opacity(op))
-                    pen.stroke(&l, path, col2.opacity(op), 1.5)
-                }
-                pen.fill(&c, path, col.opacity(op))
-                pen.stroke(&c, path, col2.opacity(op), 1.5)
-            }
-        case "jets":
-            let a0 = mix(P.hip, P.sh, 0.75)
-            let d = sub(P.sh, P.hip)
-            var l = hyp(d)
-            if l == 0 { l = 1 }
-            let nx = -d.y / l
-            let ny = d.x / l
-            let sg: CGFloat = nx > 0 ? -1 : 1
-            let o = pt(a0.x + nx * sg * 15, a0.y + ny * sg * 15)
-            let fl = 10 + sin(t * 20) * 3
-            pen.rect(&c, CGRect(x: o.x - 5, y: o.y - 10, width: 10, height: 20), 4,
-                     fill: Color(gearHex: "#8C98A8"), stroke: K, sw: 2.5)
-            var flame = Path()
-            flame.move(to: pt(o.x - 4, o.y + 10))
-            flame.addQuadCurve(to: pt(o.x + 4, o.y + 10), control: pt(o.x, o.y + 10 + fl * 2))
-            flame.closeSubpath()
-            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
-                pen.fill(&lc, flame, col)
-            }
-            var core = Path()
-            core.move(to: pt(o.x - 2.5, o.y + 10))
-            core.addQuadCurve(to: pt(o.x + 2.5, o.y + 10), control: pt(o.x, o.y + 10 + fl))
-            core.closeSubpath()
-            pen.fill(&c, core, Color.white)
-        default:
-            break
-        }
     }
 
     // MARK: 上衣細節
@@ -623,12 +598,6 @@ enum CharacterRenderer {
         default:
             break
         }
-    }
-
-    private static func drawBand(_ c: inout GraphicsContext, _ pen: Pen, _ a: CGPoint, _ b: CGPoint,
-                                 _ w: CGFloat, _ col: Color) {
-        pen.line(&c, a, b, w + 5, K, cap: .butt)
-        pen.line(&c, a, b, w, col, cap: .butt)
     }
 
     // MARK: 頭
@@ -797,39 +766,6 @@ enum CharacterRenderer {
             brow.addLine(to: pt(hx + 10, ey - 3))
             pen.stroke(&c, brow, K, 2.4)
             pen.rect(&c, CGRect(x: hx + 5, y: ey - 1.6, width: 5, height: 3.2), 1.6, fill: K)
-        }
-    }
-
-    // MARK: 啞鈴
-
-    private static func drawDumbbell(_ c: inout GraphicsContext, _ pen: Pen, _ bl: GearItem?, P: Joints, kind: GearKind) {
-        let bc = Color(gearHex: bl?.c ?? "#1B2027")
-        var glow = false
-        if let b = bl, b.rarity.rawValue >= 3 { glow = true }
-        let h = P.ha
-        let hf = P.point(.ha, far: true)
-        switch kind {
-        case .goblet:
-            let r = CGRect(x: h.x - 7, y: h.y - 5, width: 14, height: 24)
-            if glow {
-                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
-                    pen.rect(&l, r, 5, fill: bc)
-                }
-            }
-            pen.rect(&c, r, 5, fill: bc, stroke: K, sw: 2.5)
-        case .bare:
-            break
-        case .db:
-            let plates: [(CGPoint, CGFloat)] = [(hf, 8), (h, 9)]
-            for (p, rad) in plates {
-                if glow {
-                    pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
-                        pen.circle(&l, p, rad + 2, fill: bc)
-                    }
-                }
-                pen.circle(&c, p, rad, fill: bc, stroke: K, sw: 2.5)
-                pen.circle(&c, p, 3.2, fill: K)
-            }
         }
     }
 

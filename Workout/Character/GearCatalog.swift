@@ -183,7 +183,7 @@ enum GearCatalog {
         d["basic"] = [.head: s("band", "吸汗頭帶", "c2"), .top: s("tank", "灰背心", "c1"),
                   .bottom: s("shorts", "黑短褲", "#22272E"), .feet: s("shoe", "白球鞋", "c2"),
                   .hands: s("wrist", "白護腕", "c2"), .bell: s("bell", "鑄鐵啞鈴", "#1B2027")]
-        d["street"] = [.head: s("cap", "街頭棒球帽", "c1"), .top: s("tee", "街頭 T 恤", "c1", "c2"),
+        d["street"] = [.head: s("cap", "街頭棒球帽", "c1"), .top: s("tee", "街頭帽T", "c1", "c2"),
                    .bottom: s("shorts", "白籃球褲", "c2", "c1"), .feet: s("shoe", "藍色球鞋", "c1"),
                    .hands: s("glove", "街頭手套", "c2"), .bell: s("bell", "電鍍啞鈴", "#C9D1DA")]
         d["neon"] = [.head: s("visor", "霓虹護目鏡", "c2"), .top: s("comp", "霓虹緊身衣", "c1", "c2"),

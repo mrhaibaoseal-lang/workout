@@ -15,52 +15,68 @@ struct ArtLayer {
     let fill: Fill
     let stroke: String?
     let width: CGFloat
+    /// 大於 0 時整層模糊（發光用），單位同座標。
+    let blur: CGFloat
 
-    init(_ d: String, _ fill: Fill, stroke: String? = nil, width: CGFloat = 0) {
+    init(_ d: String, _ fill: Fill, stroke: String? = nil, width: CGFloat = 0, blur: CGFloat = 0) {
         self.d = d
         self.fill = fill
         self.stroke = stroke
         self.width = width
+        self.blur = blur
     }
 
     var path: Path { SVGPathCache.path(d) }
 
-    func draw(_ c: inout GraphicsContext, transform: CGAffineTransform = .identity, alpha: Double = 1) {
-        var p = path
-        if transform != .identity { p = p.applying(transform) }
-        let r = p.boundingRect
-        let shading: GraphicsContext.Shading
+    /// transform：局部座標 → 畫布；scale：線寬、模糊半徑要乘的倍率（transform 裡的縮放）。
+    /// 漸層方向以局部座標的外框為準，和預覽 SVG 的 objectBoundingBox 一致。
+    func draw(_ c: inout GraphicsContext, transform t: CGAffineTransform = .identity,
+              scale k: CGFloat = 1, alpha: Double = 1) {
+        let local = path
+        let p = local.applying(t)
+        let r = local.boundingRect
+        var shading: GraphicsContext.Shading?
         switch fill {
         case .solid(let hex, let a):
-            if a * alpha <= 0.001 && stroke == nil { return }
-            shading = .color(Color(gearHex: hex).opacity(a * alpha))
+            if a * alpha > 0.001 { shading = .color(Color(gearHex: hex).opacity(a * alpha)) }
         case .linear(let hs):
             let n = max(1, hs.count - 1)
             let stops = hs.enumerated().map {
                 Gradient.Stop(color: Color(gearHex: $0.element).opacity(alpha), location: CGFloat($0.offset) / CGFloat(n))
             }
-            shading = .linearGradient(Gradient(stops: stops), startPoint: CGPoint(x: r.midX, y: r.minY),
-                                      endPoint: CGPoint(x: r.midX, y: r.maxY))
+            shading = .linearGradient(Gradient(stops: stops),
+                                      startPoint: CGPoint(x: r.midX, y: r.minY).applying(t),
+                                      endPoint: CGPoint(x: r.midX, y: r.maxY).applying(t))
         case .radial(let hs):
             let n = max(1, hs.count - 1)
             let stops = hs.enumerated().map {
                 Gradient.Stop(color: Color(gearHex: $0.element.0).opacity($0.element.1 * alpha),
                               location: CGFloat($0.offset) / CGFloat(n))
             }
-            shading = .radialGradient(Gradient(stops: stops), center: CGPoint(x: r.midX, y: r.midY),
-                                      startRadius: 0, endRadius: max(r.width, r.height) / 2)
+            shading = .radialGradient(Gradient(stops: stops), center: CGPoint(x: r.midX, y: r.midY).applying(t),
+                                      startRadius: 0, endRadius: max(r.width, r.height) / 2 * k)
         }
-        c.fill(p, with: shading)
-        if let s = stroke, width > 0 {
-            c.stroke(p, with: .color(Color(gearHex: s).opacity(alpha)),
-                     style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+        let strokeCol: Color? = (stroke != nil && width > 0) ? Color(gearHex: stroke!).opacity(alpha) : nil
+        let style = StrokeStyle(lineWidth: width * k, lineCap: .round, lineJoin: .round)
+        func paint(_ g: inout GraphicsContext) {
+            if let sh = shading { g.fill(p, with: sh) }
+            if let sc = strokeCol { g.stroke(p, with: .color(sc), style: style) }
+        }
+        if blur > 0 {
+            c.drawLayer { (l: inout GraphicsContext) in
+                l.addFilter(.blur(radius: blur * k))
+                paint(&l)
+            }
+        } else {
+            paint(&c)
         }
     }
 }
 
 extension Array where Element == ArtLayer {
-    func draw(_ c: inout GraphicsContext, transform: CGAffineTransform = .identity, alpha: Double = 1) {
-        for l in self { l.draw(&c, transform: transform, alpha: alpha) }
+    func draw(_ c: inout GraphicsContext, transform: CGAffineTransform = .identity,
+              scale: CGFloat = 1, alpha: Double = 1) {
+        for l in self { l.draw(&c, transform: transform, scale: scale, alpha: alpha) }
     }
 }
 
