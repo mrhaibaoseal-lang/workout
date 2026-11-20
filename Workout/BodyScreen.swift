@@ -517,14 +517,14 @@ struct BodyFigure: View {
         let aw = 10 * s.arm
         for side in [-1.0, 1.0] {
             var arm = Path()
-            let top = CGPoint(x: side * (sh - 2), y: 72)
-            arm.move(to: CGPoint(x: top.x - side * aw * 0.4, y: top.y))
-            arm.addQuadCurve(to: CGPoint(x: side * (sh + aw + 2), y: 104), control: CGPoint(x: side * (sh + aw * 1.4), y: 80))
-            arm.addQuadCurve(to: CGPoint(x: side * (sh + 8), y: 142), control: CGPoint(x: side * (sh + aw + 1), y: 128))
-            arm.addQuadCurve(to: CGPoint(x: side * (sh + 10), y: 190), control: CGPoint(x: side * (sh + 13), y: 166))
-            arm.addQuadCurve(to: CGPoint(x: side * (sh + 1), y: 190), control: CGPoint(x: side * (sh + 5.5), y: 197))
-            arm.addQuadCurve(to: CGPoint(x: side * (sh - 2), y: 142), control: CGPoint(x: side * (sh - 2), y: 166))
-            arm.addQuadCurve(to: CGPoint(x: side * (sh - aw * 0.5 - 2), y: 100), control: CGPoint(x: side * (sh - aw * 0.6 - 3), y: 122))
+            // 三角肌頂 → 外側 → 手肘 → 手腕 → 內側 → 腋下；內側離腰有空隙，才看得出倒三角
+            arm.move(to: CGPoint(x: side * (sh - 8), y: 62))
+            arm.addQuadCurve(to: CGPoint(x: side * (sh + aw), y: 96), control: CGPoint(x: side * (sh + aw * 1.3), y: 62))
+            arm.addQuadCurve(to: CGPoint(x: side * (sh + aw * 0.6 + 2), y: 142), control: CGPoint(x: side * (sh + aw + 1), y: 122))
+            arm.addQuadCurve(to: CGPoint(x: side * (sh + 7), y: 188), control: CGPoint(x: side * (sh + 10), y: 166))
+            arm.addQuadCurve(to: CGPoint(x: side * (sh - 2), y: 188), control: CGPoint(x: side * (sh + 2), y: 196))
+            arm.addQuadCurve(to: CGPoint(x: side * (sh - 4), y: 142), control: CGPoint(x: side * (sh - 4), y: 166))
+            arm.addQuadCurve(to: CGPoint(x: side * (ch - 4), y: 104), control: CGPoint(x: side * (sh - 5), y: 118))
             arm.closeSubpath()
             parts.append(arm)
         }
