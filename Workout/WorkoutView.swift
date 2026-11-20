@@ -19,6 +19,8 @@ struct ExerciseDraft: Identifiable {
     /// 「上次 10 kg × 12、11、10」, empty the first time.
     var lastText: String
     var sets: [SetDraft]
+    /// 上次這個動作的正式組（休息頁比較用）
+    var last: [LastSet] = []
     /// 使用者選的排法（可能是自動）
     var chosen: SetScheme = .auto
     /// 實際用的排法
@@ -63,8 +65,12 @@ struct WorkoutView: View {
     @State private var toast: String?
     /// 每組器材現在裝成什麼樣子，用來估換重量要多久
     @State private var rigs: [String: RigState] = [:]
-    /// 休息時要做的事（換重量、先裝好 Drop set）
-    @State private var restNote: String?
+    /// 正在休息：剛做完的是第幾個動作（用來算下一組和要換的重量）
+    @State private var restAfter: Int?
+    /// 休息頁縮成底部的小卡
+    @State private var restMinimized = false
+    /// 為什麼休息這麼久
+    @State private var restReasons: [String] = []
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
     private var allDone: Bool {
@@ -179,7 +185,19 @@ struct WorkoutView: View {
             } message: {
                 Text("你已經贏過想偷懶的自己了，這次也算數。還想再多做一點嗎？")
             }
-            .onAppear(perform: buildDrafts)
+            .onAppear {
+                buildDrafts()
+                RestAlerts.requestAuthorization()
+            }
+            .onDisappear { RestAlerts.stop() }
+            .onChange(of: restActivity) { _, state in
+                if let state {
+                    RestAlerts.start(day: day.name, state: state)
+                } else {
+                    RestAlerts.stop()
+                }
+            }
+            .overlay { restScreen }
             .overlay(alignment: .top) {
                 if let t = toast {
                     Text(t)
@@ -277,20 +295,96 @@ struct WorkoutView: View {
 
     @ViewBuilder
     private var restCard: some View {
-        if let end = restEnd {
-            RestCard(end: end, total: restTotal, note: restNote,
-                     onAdd: {
-                         restEnd = end.addingTimeInterval(30)
-                         restTotal += 30
-                     },
-                     onSkip: { restEnd = nil })
+        if let end = restEnd, restMinimized {
+            RestCard(end: end, total: restTotal,
+                     note: changes.isEmpty ? nil : changes.map(\.text).joined(separator: "\n"),
+                     onAdd: addRest, onSkip: endRest,
+                     onExpand: { withAnimation(.spring(duration: 0.35)) { restMinimized = false } })
         }
+    }
+
+    @ViewBuilder
+    private var restScreen: some View {
+        if let end = restEnd, !restMinimized {
+            let pos = restPosition
+            RestScreen(end: end, total: restTotal,
+                       next: pos.map { restNext(j: $0.0, k: $0.1) },
+                       nextSet: pos.map { $drafts[$0.0].sets[$0.1] } ?? .constant(SetDraft(weight: 0, reps: 0)),
+                       changes: changes, reasons: restReasons,
+                       onAdd: addRest, onSkip: endRest,
+                       onMinimize: { withAnimation(.spring(duration: 0.35)) { restMinimized = true } })
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    /// 這次休息要換的器材（下一組的重量改了會跟著變）
+    private var changes: [RigChange] {
+        guard restEnd != nil, let i = restAfter, i < drafts.count else { return [] }
+        return restChanges(after: i)
+    }
+
+    /// 休息後要做的那一組：(第幾個動作, 第幾組)
+    private var restPosition: (Int, Int)? {
+        guard restEnd != nil, let i = restAfter, i < drafts.count, let found = nextSet(after: i),
+              let k = drafts[found.0].sets.firstIndex(where: { $0.id == found.1.id }) else { return nil }
+        return (found.0, k)
+    }
+
+    private func restNext(j: Int, k: Int) -> RestNext {
+        let d = drafts[j]
+        let set = d.sets[k]
+        var tag = set.kind.title
+        var last: LastSet?
+        if set.kind == .work {
+            let n = d.sets[...k].filter { $0.kind == .work }.count
+            tag = "第 \(n) 組"
+            if n - 1 < d.last.count { last = d.last[n - 1] }
+        }
+        return RestNext(exercise: d.item.exercise, tag: tag, ladder: d.ladder, last: last, newExercise: j != restAfter)
+    }
+
+    /// 鎖定畫面／通知要顯示的內容；nil = 沒在休息
+    private var restActivity: RestActivityAttributes.ContentState? {
+        guard let end = restEnd else { return nil }
+        var next = "下一組"
+        var detail = ""
+        if let pos = restPosition {
+            let (j, k) = pos
+            let d = drafts[j]
+            let set = d.sets[k]
+            next = d.item.exercise.name + " · " + restNext(j: j, k: k).tag
+            detail = d.item.exercise.loaded && set.weight > 0
+                ? "\(Progression.format(set.weight)) kg × \(set.reps)"
+                : "\(set.reps) \(d.item.exercise.unit.label)"
+        }
+        return .init(end: end, total: restTotal, next: next, detail: detail, change: changes.first?.short)
+    }
+
+    private func addRest() {
+        guard let end = restEnd else { return }
+        restEnd = end.addingTimeInterval(30)
+        restTotal += 30
+    }
+
+    private func endRest() {
+        commitRest()
+        withAnimation(.easeOut(duration: 0.25)) { restEnd = nil }
+        restMinimized = false
+    }
+
+    /// 休息結束：當作已經照休息頁換好重量。
+    private func commitRest() {
+        if let i = restAfter, i < drafts.count {
+            for c in restChanges(after: i) { rigs[c.kit] = c.target }
+        }
+        restAfter = nil
     }
 
     // MARK: Actions
 
     private func complete(set id: UUID, in exerciseIndex: Int) {
         guard let s = drafts[exerciseIndex].sets.firstIndex(where: { $0.id == id }) else { return }
+        if restEnd != nil { commitRest() }
         if drafts[exerciseIndex].sets[s].done {
             drafts[exerciseIndex].sets[s].done = false
             focused = id
@@ -306,6 +400,7 @@ struct WorkoutView: View {
         }
         if length == .minimal && allDone {
             restEnd = nil
+            restAfter = nil
             askMore = true
         } else if !allDone {
             if let l = loading(of: set, in: drafts[exerciseIndex]) {
@@ -313,19 +408,38 @@ struct WorkoutView: View {
             }
             let next = drafts[exerciseIndex].sets.first { !$0.done }?.kind
             var rest = SetPlanner.rest(after: set.kind, next: next, normal: drafts[exerciseIndex].item.restSeconds)
-            let (change, note) = restChores(after: exerciseIndex)
+            let chores = restChanges(after: exerciseIndex)
+            let change = chores.reduce(0) { $0 + $1.seconds }
             if rest > 0 {
+                var reasons: [String] = []
+                // 做到力竭（還剩 0 下）恢復比較慢
+                if set.kind == .work && set.rir == 0 {
+                    rest += 30
+                    reasons.append("這組做到力竭，多休息 30 秒")
+                }
                 // 換重量也算休息，但換完至少還要喘一下
-                rest = max(rest, change + (set.kind == .warmup ? 20 : 30))
-                restNote = note
+                let needed = change + (set.kind == .warmup ? 20 : 30)
+                if needed > rest {
+                    rest = needed
+                    reasons.append("換重量約 \(change) 秒，換完再喘一下")
+                }
+                restAfter = exerciseIndex
+                restReasons = reasons
+                restMinimized = false
                 restTotal = Double(rest)
-                restEnd = Date().addingTimeInterval(TimeInterval(rest))
+                withAnimation(.spring(duration: 0.4)) {
+                    restEnd = Date().addingTimeInterval(TimeInterval(rest))
+                }
             } else {
                 restEnd = nil
-                showToast(note.map { "馬上減重，不休息！" + $0 } ?? "馬上減重，不休息！")
+                restAfter = nil
+                for c in chores { rigs[c.kit] = c.target }
+                let note = chores.map(\.text).joined(separator: "\n")
+                showToast(note.isEmpty ? "馬上減重，不休息！" : "馬上減重，不休息！" + note)
             }
         } else {
             restEnd = nil
+            restAfter = nil
         }
     }
 
@@ -343,32 +457,35 @@ struct WorkoutView: View {
         return nil
     }
 
-    /// 這次休息要做的事和大概的秒數：換成下一組的重量；下一組是 Drop set 前的最後一組，就先用另一組啞鈴裝好。
-    private func restChores(after i: Int) -> (Int, String?) {
+    /// 這次休息要換的器材：換成下一組的重量；下一組是 Drop set 前的最後一組，就先用另一組啞鈴裝好。
+    /// 不改 rigs，休息結束（或做下一組）時才當作換好了。
+    private func restChanges(after i: Int) -> [RigChange] {
         let kits = WeightKits.load()
-        var seconds = 0
-        var notes: [String] = []
+        var state = rigs
+        var out: [RigChange] = []
         func prepare(_ l: Loading, label: String) {
             guard let kit = kits.first(where: { $0.name == l.kit }) else { return }
             let target = RigState(use: l.use, plates: l.plates)
-            guard rigs[l.kit] != target else { return }
-            let t = WeightKits.changeSeconds(kit: kit, from: rigs[l.kit], to: l)
-            seconds += t
-            notes.append("\(label)\(l.text)（約 \(t) 秒）")
-            rigs[l.kit] = target
+            let from = state[l.kit]
+            guard from != target else { return }
+            let t = WeightKits.changeSeconds(kit: kit, from: from, to: l)
+            if from == nil && l.plates.isEmpty { return }
+            out.append(RigChange(label: label, kit: l.kit, use: l.use, from: from?.plates, to: l.plates, seconds: t,
+                                 assemble: from.map { ($0.use == .barbell) != (l.use == .barbell) } ?? false))
+            state[l.kit] = target
         }
-        guard let found = nextSet(after: i) else { return (0, nil) }
+        guard let found = nextSet(after: i) else { return [] }
         let (j, next) = found
         if let l = loading(of: next, in: drafts[j]) {
-            prepare(l, label: j == i ? "換重量：" : "下一個動作（\(drafts[j].item.exercise.name)）：")
+            prepare(l, label: j == i ? "換重量" : "下一個動作（\(drafts[j].item.exercise.name)）")
         }
         // 下一組做完就要 Drop set：趁現在把另一組啞鈴裝好
         let rest = drafts[j].sets.filter { !$0.done }
         if next.kind == .work, rest.count >= 2, rest[1].kind == .drop, rest[1].kit != nil,
            let l = loading(of: rest[1], in: drafts[j]) {
-            prepare(l, label: "順便裝好 Drop set：")
+            prepare(l, label: "順便裝好 Drop set")
         }
-        return (seconds, notes.isEmpty ? nil : notes.joined(separator: "\n"))
+        return out
     }
 
     /// 依「還剩幾下」自動調整這個動作接下來的正式組：還剩 4 下以上就加重，力竭又沒做到下限就減重。
@@ -479,7 +596,8 @@ struct WorkoutView: View {
                 ? "上次 \(Progression.format(w)) kg × \(reps)"
                 : "上次 \(reps) \(item.exercise.unit.label)"
         }
-        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets, chosen: chosen, scheme: scheme, ladder: ladder)
+        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets, chosen: chosen, scheme: scheme, ladder: ladder,
+                             last: last.map { LastSet(weight: $0.weight, reps: $0.reps) })
     }
 
     /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
@@ -532,6 +650,8 @@ struct WorkoutView: View {
             showNothingDone = true
             return
         }
+        restEnd = nil
+        restAfter = nil
         let now = Date()
         let session = WorkoutSession(date: now, dayKey: day.id, length: length,
                                      durationSeconds: Int(now.timeIntervalSince(startedAt)))
@@ -873,6 +993,7 @@ struct RestCard: View {
     var note: String? = nil
     let onAdd: () -> Void
     let onSkip: () -> Void
+    var onExpand: (() -> Void)? = nil
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
@@ -916,7 +1037,12 @@ struct RestCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(last3 ? "準備！" : "休息中").font(.subheadline.weight(.bold)).foregroundStyle(last3 ? col : Theme.fg)
                     Text("共 \(Int(total)) 秒").font(.caption).foregroundStyle(Theme.muted)
+                    if onExpand != nil {
+                        Label("展開", systemImage: "chevron.up").font(.caption2.weight(.bold)).foregroundStyle(Theme.accentSoft)
+                    }
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { onExpand?() }
                 Spacer(minLength: 0)
                 Button("+30 秒", action: onAdd)
                     .buttonStyle(GhostButtonStyle())
@@ -963,29 +1089,5 @@ struct RestCard: View {
         .scaleEffect(pop)
         .padding(.horizontal, 16)
         .padding(.bottom, 6)
-    }
-}
-
-/// 最後 3 秒每秒震一下，時間到震一下成功。
-private struct SecondTicks: ViewModifier {
-    let end: Date
-    @State private var fired: Set<Int> = []
-
-    func body(content: Content) -> some View {
-        content.background {
-            TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
-                let left = Int(ceil(end.timeIntervalSince(ctx.date)))
-                Color.clear.onChange(of: left) { _, n in
-                    guard n <= 3, n >= 0, !fired.contains(n) else { return }
-                    fired.insert(n)
-                    if n == 0 {
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    } else {
-                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-                    }
-                }
-            }
-        }
-        .onChange(of: end) { fired = [] }
     }
 }

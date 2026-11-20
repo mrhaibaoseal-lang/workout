@@ -106,5 +106,6 @@ struct WeekWidget: Widget {
 struct WorkoutWidgetBundle: WidgetBundle {
     var body: some Widget {
         WeekWidget()
+        RestLiveActivity()
     }
 }

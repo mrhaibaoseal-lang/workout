@@ -11,7 +11,9 @@ enum Reminders {
 
     static func reschedule(enabled: Bool, plans: [DayPlan], leadMinutes: Int, missedLast: Bool) async {
         let center = UNUserNotificationCenter.current()
-        center.removeAllPendingNotificationRequests()
+        // 只清掉訓練提醒，休息結束的通知（RestAlerts）要留著
+        let old = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix("train-") }
+        center.removePendingNotificationRequests(withIdentifiers: old)
         guard enabled else { return }
         guard await requestAuthorization() else { return }
 
