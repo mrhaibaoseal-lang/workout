@@ -1,0 +1,952 @@
+import SwiftUI
+
+/// 角色：用關節座標在 Canvas 上即時繪製（移植自 docs/character-design.html 的 drawGear）。
+struct CharacterView: View {
+    let move: CharacterMove
+    let loadout: Loadout
+    var animated: Bool = true
+    var showStats: Bool = true
+
+    var body: some View {
+        TimelineView(.animation(paused: !animated)) { timeline in
+            Canvas { context, size in
+                let now: Double = animated ? timeline.date.timeIntervalSinceReferenceDate : 0.7
+                let t = CGFloat(now)
+                let p: CGFloat = animated ? CGFloat(0.5 - 0.5 * cos(2.0 * Double.pi * now / 2.6)) : 0
+                CharacterRenderer.draw(&context, size: size, move: move, loadout: loadout,
+                                       t: t, p: p, showStats: showStats)
+            }
+        }
+        .aspectRatio(180.0 / 204.0, contentMode: .fit)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - 畫筆（200 單位座標 -> 畫布）
+
+private struct Pen {
+    let k: CGFloat
+    let tf: CGAffineTransform
+
+    init(size: CGSize) {
+        let vw: CGFloat = 180
+        let vh: CGFloat = 204
+        let s = min(size.width / vw, size.height / vh)
+        let ox = (size.width - vw * s) / 2
+        let oy = (size.height - vh * s) / 2
+        k = s
+        tf = CGAffineTransform(translationX: ox, y: oy).scaledBy(x: s, y: s).translatedBy(x: -20, y: 14)
+    }
+
+    func map(_ p: CGPoint) -> CGPoint { p.applying(tf) }
+
+    func fill(_ c: inout GraphicsContext, _ path: Path, _ col: Color) {
+        c.fill(path.applying(tf), with: .color(col))
+    }
+
+    func stroke(_ c: inout GraphicsContext, _ path: Path, _ col: Color, _ w: CGFloat,
+                cap: CGLineCap = .round, join: CGLineJoin = .round, dash: [CGFloat] = []) {
+        let style = StrokeStyle(lineWidth: w * k, lineCap: cap, lineJoin: join, dash: dash.map { $0 * k })
+        c.stroke(path.applying(tf), with: .color(col), style: style)
+    }
+
+    func line(_ c: inout GraphicsContext, _ a: CGPoint, _ b: CGPoint, _ w: CGFloat, _ col: Color,
+              cap: CGLineCap = .round) {
+        var path = Path()
+        path.move(to: a)
+        path.addLine(to: b)
+        stroke(&c, path, col, w, cap: cap)
+    }
+
+    func circle(_ c: inout GraphicsContext, _ ctr: CGPoint, _ r: CGFloat,
+                fill fillCol: Color? = nil, stroke strokeCol: Color? = nil, sw: CGFloat = 0) {
+        let path = Path(ellipseIn: CGRect(x: ctr.x - r, y: ctr.y - r, width: r * 2, height: r * 2))
+        if let f = fillCol { fill(&c, path, f) }
+        if let s = strokeCol { stroke(&c, path, s, sw) }
+    }
+
+    func ellipse(_ c: inout GraphicsContext, _ ctr: CGPoint, _ rx: CGFloat, _ ry: CGFloat,
+                 fill fillCol: Color? = nil, stroke strokeCol: Color? = nil, sw: CGFloat = 0) {
+        let path = Path(ellipseIn: CGRect(x: ctr.x - rx, y: ctr.y - ry, width: rx * 2, height: ry * 2))
+        if let f = fillCol { fill(&c, path, f) }
+        if let s = strokeCol { stroke(&c, path, s, sw) }
+    }
+
+    func rect(_ c: inout GraphicsContext, _ r: CGRect, _ radius: CGFloat,
+              fill fillCol: Color? = nil, stroke strokeCol: Color? = nil, sw: CGFloat = 0) {
+        let path = Path(roundedRect: r, cornerRadius: radius)
+        if let f = fillCol { fill(&c, path, f) }
+        if let s = strokeCol { stroke(&c, path, s, sw, join: .round) }
+    }
+
+    /// 在模糊圖層內作畫（std 為 200 單位座標下的標準差）。
+    func blur(_ c: inout GraphicsContext, _ std: CGFloat, _ body: (inout GraphicsContext) -> Void) {
+        c.drawLayer { (layer: inout GraphicsContext) in
+            layer.addFilter(.blur(radius: std * k))
+            body(&layer)
+        }
+    }
+}
+
+// MARK: - 小工具
+
+private func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+
+private func mix(_ a: CGPoint, _ b: CGPoint, _ t: CGFloat) -> CGPoint {
+    CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+}
+
+private func sub(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: a.x - b.x, y: a.y - b.y) }
+
+private func hyp(_ a: CGPoint) -> CGFloat { (a.x * a.x + a.y * a.y).squareRoot() }
+
+private func frac(_ v: CGFloat) -> CGFloat { v.truncatingRemainder(dividingBy: 1) }
+
+private func rot(_ p: CGPoint, _ a: CGFloat) -> CGPoint {
+    CGPoint(x: p.x * cos(a) - p.y * sin(a), y: p.x * sin(a) + p.y * cos(a))
+}
+
+private func poly(_ pts: [CGPoint], close: Bool = true) -> Path {
+    var path = Path()
+    guard let first = pts.first else { return path }
+    path.move(to: first)
+    for q in pts.dropFirst() { path.addLine(to: q) }
+    if close { path.closeSubpath() }
+    return path
+}
+
+/// 與 SVG 的 A（橢圓弧）指令相同的語意，用折線近似。
+private func arcTo(_ path: inout Path, from a: CGPoint, to b: CGPoint, rx: CGFloat, ry: CGFloat,
+                   large: Bool, sweep: Bool) {
+    let x1 = a.x / rx
+    let y1 = a.y / ry
+    let x2 = b.x / rx
+    let y2 = b.y / ry
+    let mx = (x1 + x2) / 2
+    let my = (y1 + y2) / 2
+    let dx = x2 - x1
+    let dy = y2 - y1
+    let len = max((dx * dx + dy * dy).squareRoot(), 0.000001)
+    let h = len / 2
+    var dist: CGFloat = 0
+    if h < 1 { dist = (1 - h * h).squareRoot() }
+    let nx = -dy / len
+    let ny = dx / len
+    let sign: CGFloat = (sweep != large) ? 1 : -1
+    let cx = mx + nx * dist * sign
+    let cy = my + ny * dist * sign
+    let th1 = atan2(y1 - cy, x1 - cx)
+    let th2 = atan2(y2 - cy, x2 - cx)
+    var delta = th2 - th1
+    let twoPi = CGFloat.pi * 2
+    if sweep {
+        while delta < 0 { delta += twoPi }
+    } else {
+        while delta > 0 { delta -= twoPi }
+    }
+    let steps = 24
+    for i in 1...steps {
+        let th = th1 + delta * CGFloat(i) / CGFloat(steps)
+        path.addLine(to: CGPoint(x: (cx + cos(th)) * rx, y: (cy + sin(th)) * ry))
+    }
+}
+
+/// 肢體的錐形四邊形（軀幹用）。
+private func quadPath(_ a: CGPoint, _ b: CGPoint, _ wa: CGFloat, _ wb: CGFloat) -> Path {
+    let d = sub(b, a)
+    var l = hyp(d)
+    if l == 0 { l = 1 }
+    let nx = -d.y / l
+    let ny = d.x / l
+    return poly([
+        pt(a.x + nx * wa, a.y + ny * wa),
+        pt(b.x + nx * wb, b.y + ny * wb),
+        pt(b.x - nx * wb, b.y - ny * wb),
+        pt(a.x - nx * wa, a.y - ny * wa)
+    ])
+}
+
+private struct DrawShape {
+    let isTorso: Bool
+    let a: CGPoint
+    let b: CGPoint
+    let w: CGFloat
+    let color: Color
+    let far: Bool
+    let base: String
+}
+
+// MARK: - 繪製
+
+enum CharacterRenderer {
+    private static let K = Color(gearHex: "#0A0D12")
+    private static let nearGrey = Color(gearHex: "#8D98A4")
+    private static let farGrey = Color(gearHex: "#66717D")
+    private static let skin = Color(gearHex: "#E9BE9C")
+    private static let fg = Color(gearHex: "#E7EBF0")
+    private static let lineGrey = Color(gearHex: "#2C3440")
+
+    fileprivate static func draw(_ c: inout GraphicsContext, size: CGSize, move: CharacterMove,
+                                 loadout: Loadout, t: CGFloat, p: CGFloat, showStats: Bool) {
+        guard size.width > 1, size.height > 1 else { return }
+        let pen = Pen(size: size)
+        let P = move.pose(p)
+        let O: CGFloat = 6
+        let rr = loadout.topRarity
+        let bonus = loadout.setBonus
+        let rc: Color
+        if let b = bonus {
+            rc = Color(gearHex: b.series.glow)
+        } else if let r = Rarity(rawValue: rr) {
+            rc = r.color
+        } else {
+            rc = lineGrey
+        }
+
+        // 覆蓋色
+        var cover: [String: String] = [:]
+        var stripe: [String: String] = [:]
+        var sglow: [String: Bool] = [:]
+        for slot in [GearSlot.top, GearSlot.bottom] {
+            if let it = loadout.item(slot) {
+                for k in it.cover {
+                    cover[k] = it.c
+                    if let c2 = it.c2 { stripe[k] = c2 }
+                    if it.glow { sglow[k] = true }
+                }
+            }
+        }
+        let shoe = loadout.item(.feet)
+        if let s = shoe { cover["foot"] = s.c }
+
+        // 形狀
+        var shapes: [DrawShape] = []
+        for seg in BodySegments.all {
+            var col: Color
+            if let hex = cover[seg.base] {
+                col = Color(gearHex: hex)
+            } else if seg.base == "neck" {
+                col = skin
+            } else {
+                col = seg.far ? farGrey : nearGrey
+            }
+            let extraW: CGFloat = (seg.base == "foot" && shoe != nil) ? 3 : 0
+            let w = seg.width + extraW
+            if seg.isTorso {
+                shapes.append(DrawShape(isTorso: true, a: P.hip, b: P.sh, w: w, color: col, far: false, base: seg.base))
+            } else {
+                shapes.append(DrawShape(isTorso: false, a: P.point(seg.from, far: seg.far),
+                                        b: P.point(seg.to, far: seg.far), w: w, color: col,
+                                        far: seg.far, base: seg.base))
+            }
+        }
+
+        let fxItem = loadout.item(.fx)
+        let fxSeries: Series? = fxItem.flatMap { GearCatalog.seriesById($0.series) }
+
+        // 地面光暈
+        let groundX = P.an.x - 2
+        let hasR = rr > 0
+        pen.blur(&c, 5) { (l: inout GraphicsContext) in
+            pen.ellipse(&l, pt(groundX, 186), 46, 7, fill: hasR ? rc.opacity(0.45) : lineGrey)
+        }
+        pen.ellipse(&c, pt(groundX, 186), 30, 3.5, fill: hasR ? rc.opacity(0.9) : lineGrey.opacity(0.8))
+
+        // 後層特效
+        if let it = fxItem, let se = fxSeries {
+            fxLayer(&c, pen, fx: it.form, P: P, col: Color(gearHex: se.c2), col2: Color(gearHex: se.c3), t: t, front: false)
+        }
+
+        // 背部物件（身體後方）
+        let back = loadout.item(.back)
+        if let bk = back {
+            drawBack(&c, pen, bk, P: P, t: t)
+        }
+
+        // 光暈
+        if rr >= 2 {
+            let base: CGFloat = (bonus != nil || rr >= 4) ? 0.85 : 0.6
+            let pulse: CGFloat = 0.85 + 0.15 * sin(t * 2.86)
+            let auraCol = rc.opacity(Double(base * pulse))
+            pen.blur(&c, 5) { (l: inout GraphicsContext) in
+                silhouette(&l, pen, shapes, head: P.head, extra: O + 12, color: auraCol)
+            }
+        }
+
+        // 彩色外框與黑色描邊
+        silhouette(&c, pen, shapes, head: P.head, extra: O + (rr > 0 ? 5 : 0), color: rr > 0 ? rc : fg)
+        silhouette(&c, pen, shapes, head: P.head, extra: O, color: K)
+
+        // 肢體填色
+        for sh in shapes {
+            if !sh.isTorso {
+                pen.line(&c, sh.a, sh.b, sh.w, sh.color)
+                if let sc = stripe[sh.base] {
+                    let col = Color(gearHex: sc)
+                    let a = mix(sh.a, sh.b, 0.08)
+                    let b = mix(sh.a, sh.b, 0.92)
+                    if sglow[sh.base] == true {
+                        pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                            pen.line(&l, a, b, 5, col)
+                        }
+                    }
+                    pen.line(&c, a, b, 2.6, col)
+                }
+                if sh.far {
+                    pen.line(&c, sh.a, sh.b, sh.w, Color.black.opacity(0.22))
+                }
+            } else {
+                pen.fill(&c, quadPath(sh.a, sh.b, 10, 16), sh.color)
+                pen.stroke(&c, quadPath(sh.a, sh.b, 10, 16), sh.color, 2)
+                pen.circle(&c, sh.b, 15, fill: sh.color)
+                pen.circle(&c, sh.a, 10, fill: sh.color)
+                if let sc = stripe["torso"] {
+                    let col = Color(gearHex: sc)
+                    let a = mix(sh.a, sh.b, 0.05)
+                    let b = mix(sh.a, sh.b, 1.02)
+                    if sglow["torso"] == true {
+                        pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                            pen.line(&l, a, b, 6, col)
+                        }
+                    }
+                    pen.line(&c, a, b, 3, col)
+                }
+                pen.line(&c, mix(sh.a, sh.b, 0.72), mix(sh.a, sh.b, 0.6), 2, Color.black.opacity(0.18))
+                pen.line(&c, mix(sh.a, sh.b, 0.18), mix(sh.a, sh.b, 0.42), 2, Color.black.opacity(0.12))
+            }
+        }
+
+        // 高光線
+        for sh in shapes where !sh.isTorso && !sh.far && sh.w >= 11 {
+            let d = sub(sh.b, sh.a)
+            var l = hyp(d)
+            if l == 0 { l = 1 }
+            let nx = -d.y / l * sh.w * 0.25
+            let ny = d.x / l * sh.w * 0.25
+            let sgn: CGFloat = nx < 0 ? 1 : -1
+            let a = pt(sh.a.x + nx * sgn, sh.a.y + ny * sgn)
+            let b = pt(sh.b.x + nx * sgn, sh.b.y + ny * sgn)
+            pen.line(&c, mix(a, b, 0.2), mix(a, b, 0.75), 2.5, Color.white.opacity(0.35))
+        }
+
+        // 肩甲與胸前紋章
+        if let tp = loadout.item(.top) {
+            drawTopDetails(&c, pen, tp, P: P)
+        }
+
+        // 手部（護腕／手套）
+        if let hn = loadout.item(.hands) {
+            let far0 = P.point(.el, far: true)
+            let far1 = P.point(.ha, far: true)
+            let isWrist = hn.form == "wrist"
+            let lo: CGFloat = isWrist ? 0.62 : 0.7
+            let hi: CGFloat = isWrist ? 0.86 : 1.05
+            let w: CGFloat = isWrist ? 12 : 15
+            let col = Color(gearHex: hn.c)
+            drawBand(&c, pen, mix(far0, far1, lo), mix(far0, far1, hi), w - 1, col)
+            drawBand(&c, pen, mix(P.el, P.ha, lo), mix(P.el, P.ha, hi), w, col)
+        }
+
+        // 頭
+        drawHead(&c, pen, loadout.item(.head), P: P, t: t)
+
+        // 啞鈴
+        drawDumbbell(&c, pen, loadout.item(.bell), P: P, kind: move.gearKind)
+
+        // 前層特效
+        if let it = fxItem, let se = fxSeries {
+            fxLayer(&c, pen, fx: it.form, P: P, col: Color(gearHex: se.c2), col2: Color(gearHex: se.c3), t: t, front: true)
+        }
+
+        // 文字
+        if showStats {
+            let k = pen.k
+            if rr > 0 {
+                let name: String
+                if let b = bonus {
+                    name = b.series.name + "套裝"
+                } else {
+                    name = Rarity(rawValue: rr)?.name ?? ""
+                }
+                let txt = Text(name).font(.system(size: 9 * k, weight: .bold)).tracking(1.5 * k).foregroundColor(rc)
+                c.draw(txt, at: pen.map(pt(176, 2)), anchor: .bottomTrailing)
+            }
+            let pw = Text("戰力 \(loadout.power)").font(.system(size: 11 * k, weight: .bold)).foregroundColor(fg)
+            c.draw(pw, at: pen.map(pt(176, 14)), anchor: .bottomTrailing)
+        }
+    }
+
+    // MARK: 輪廓
+
+    private static func silhouette(_ c: inout GraphicsContext, _ pen: Pen, _ shapes: [DrawShape],
+                                   head: CGPoint, extra: CGFloat, color: Color) {
+        for sh in shapes {
+            if !sh.isTorso {
+                pen.line(&c, sh.a, sh.b, sh.w + extra, color)
+            } else {
+                let e = extra / 2
+                let q = quadPath(sh.a, sh.b, 10 + e, 16 + e)
+                pen.fill(&c, q, color)
+                pen.stroke(&c, q, color, 2 + e)
+                pen.circle(&c, sh.b, 15 + e, fill: color)
+                pen.circle(&c, sh.a, 10 + e, fill: color)
+            }
+        }
+        pen.circle(&c, head, 13 + extra / 2, fill: color)
+    }
+
+    // MARK: 背部
+
+    private static func drawBack(_ c: inout GraphicsContext, _ pen: Pen, _ bk: GearItem, P: Joints, t: CGFloat) {
+        let col = Color(gearHex: bk.c)
+        let col2 = Color(gearHex: bk.c2 ?? bk.c)
+        switch bk.form {
+        case "ring":
+            let ctr = pt(P.sh.x - 6, P.sh.y + 4)
+            let r = 26 + sin(t * 3) * 1.5
+            pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                pen.circle(&l, ctr, r, stroke: col, sw: 5)
+            }
+            pen.circle(&c, ctr, 26, stroke: col, sw: 2.5)
+        case "cape":
+            let x = P.sh.x
+            let y = P.sh.y
+            let sw = sin(t * 2.2) * 4
+            var body = Path()
+            body.move(to: pt(x + 4, y - 8))
+            body.addQuadCurve(to: pt(x - 26 + sw, y + 80), control: pt(x - 16, y + 18))
+            body.addLine(to: pt(x - 6 + sw * 0.6, y + 84))
+            body.addQuadCurve(to: pt(x + 8, y - 2), control: pt(x + 2, y + 34))
+            body.closeSubpath()
+            pen.fill(&c, body, col)
+            pen.stroke(&c, body, K, 5)
+            pen.line(&c, pt(x - 26 + sw, y + 80), pt(x - 6 + sw * 0.6, y + 84), 4, col2)
+            var fold = Path()
+            fold.move(to: pt(x - 6, y + 6))
+            fold.addQuadCurve(to: pt(x - 16 + sw, y + 76), control: pt(x - 14, y + 40))
+            pen.stroke(&c, fold, Color.black.opacity(0.18), 3)
+        case "sword":
+            let a0 = mix(P.hip, P.sh, 0.15)
+            let b0 = mix(P.hip, P.sh, 1.25)
+            let d = sub(b0, a0)
+            var l = hyp(d)
+            if l == 0 { l = 1 }
+            let nx = -d.y / l
+            let ny = d.x / l
+            let sg: CGFloat = nx > 0 ? -1 : 1
+            let A = pt(a0.x + nx * sg * 13, a0.y + ny * sg * 13)
+            let B = pt(b0.x + nx * sg * 13 - 6, b0.y + ny * sg * 13)
+            pen.line(&c, A, B, 9, K)
+            pen.line(&c, A, B, 5, col)
+            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
+                pen.line(&lc, mix(A, B, 0.2), mix(A, B, 0.95), 1.5, col2)
+            }
+            pen.line(&c, mix(A, B, 0.2), mix(A, B, 0.95), 1, Color.white)
+            let hg = mix(A, B, 1.05)
+            let g1 = pt(hg.x - 7, hg.y + 3)
+            let g2 = pt(hg.x + 7, hg.y - 3)
+            pen.line(&c, g1, g2, 8, K)
+            pen.line(&c, g1, g2, 4, col)
+            let end = mix(A, B, 1.25)
+            pen.line(&c, hg, end, 6, K)
+            pen.line(&c, hg, end, 3, Color(gearHex: "#5A3B22"))
+        case "wings":
+            let x = P.sh.x
+            let y = P.sh.y
+            let fl = sin(t * 3) * 6
+            let opacities: [(CGFloat, Double)] = [(0, 0.5), (8, 0.35)]
+            for (dx, op) in opacities {
+                let path = poly([
+                    pt(x - 4, y + 4),
+                    pt(x - 46 - dx, y - 34 + fl),
+                    pt(x - 34 - dx, y - 8 + fl / 2),
+                    pt(x - 52 - dx, y + 4 + fl / 3),
+                    pt(x - 30 - dx, y + 14),
+                    pt(x - 40 - dx, y + 34)
+                ])
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.fill(&l, path, col.opacity(op))
+                    pen.stroke(&l, path, col2.opacity(op), 1.5)
+                }
+                pen.fill(&c, path, col.opacity(op))
+                pen.stroke(&c, path, col2.opacity(op), 1.5)
+            }
+        case "jets":
+            let a0 = mix(P.hip, P.sh, 0.75)
+            let d = sub(P.sh, P.hip)
+            var l = hyp(d)
+            if l == 0 { l = 1 }
+            let nx = -d.y / l
+            let ny = d.x / l
+            let sg: CGFloat = nx > 0 ? -1 : 1
+            let o = pt(a0.x + nx * sg * 15, a0.y + ny * sg * 15)
+            let fl = 10 + sin(t * 20) * 3
+            pen.rect(&c, CGRect(x: o.x - 5, y: o.y - 10, width: 10, height: 20), 4,
+                     fill: Color(gearHex: "#8C98A8"), stroke: K, sw: 2.5)
+            var flame = Path()
+            flame.move(to: pt(o.x - 4, o.y + 10))
+            flame.addQuadCurve(to: pt(o.x + 4, o.y + 10), control: pt(o.x, o.y + 10 + fl * 2))
+            flame.closeSubpath()
+            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
+                pen.fill(&lc, flame, col)
+            }
+            var core = Path()
+            core.move(to: pt(o.x - 2.5, o.y + 10))
+            core.addQuadCurve(to: pt(o.x + 2.5, o.y + 10), control: pt(o.x, o.y + 10 + fl))
+            core.closeSubpath()
+            pen.fill(&c, core, Color.white)
+        default:
+            break
+        }
+    }
+
+    // MARK: 上衣細節
+
+    private static func drawTopDetails(_ c: inout GraphicsContext, _ pen: Pen, _ tp: GearItem, P: Joints) {
+        let col = Color(gearHex: tp.c)
+        let e2 = Color(gearHex: tp.c2 ?? tp.c)
+        if tp.pauldron {
+            var outer = Path()
+            let s1 = pt(P.sh.x - 13, P.sh.y + 4)
+            outer.move(to: s1)
+            arcTo(&outer, from: s1, to: pt(P.sh.x + 13, P.sh.y + 4), rx: 13, ry: 13, large: false, sweep: true)
+            outer.closeSubpath()
+            pen.fill(&c, outer, col)
+            pen.stroke(&c, outer, K, 3)
+            var inner = Path()
+            let s2 = pt(P.sh.x - 9, P.sh.y - 2)
+            inner.move(to: s2)
+            arcTo(&inner, from: s2, to: pt(P.sh.x + 9, P.sh.y - 2), rx: 10, ry: 10, large: false, sweep: true)
+            pen.stroke(&c, inner, e2, 2)
+        }
+        guard let em = tp.emblem else { return }
+        let d = sub(P.sh, P.hip)
+        var l = hyp(d)
+        if l == 0 { l = 1 }
+        var nx = -d.y / l
+        var ny = d.x / l
+        if nx < 0 { nx = -nx; ny = -ny }
+        let c0 = mix(P.hip, P.sh, 0.68)
+        let ex = c0.x + nx * 8
+        let ey = c0.y + ny * 8
+        switch em {
+        case "core":
+            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
+                pen.circle(&lc, pt(ex, ey), 6, fill: e2)
+            }
+            pen.circle(&c, pt(ex, ey), 4.5, fill: e2, stroke: K, sw: 1.8)
+            pen.circle(&c, pt(ex, ey), 1.8, fill: Color.white)
+        case "chevron":
+            let path = poly([pt(ex - 4, ey - 3), pt(ex, ey + 1), pt(ex + 4, ey - 3)], close: false)
+            pen.stroke(&c, path, e2, 2.6)
+        case "star":
+            var pts: [CGPoint] = []
+            var cur = pt(ex, ey - 6)
+            pts.append(cur)
+            let rel: [(CGFloat, CGFloat)] = [(1.8, 3.8), (4.2, 0.6), (-3, 2.9), (0.7, 4.2), (-3.7, -2),
+                                             (-3.7, 2), (0.7, -4.2), (-3, -2.9), (4.2, -0.6)]
+            for (dx, dy) in rel {
+                cur = pt(cur.x + dx, cur.y + dy)
+                pts.append(cur)
+            }
+            let path = poly(pts)
+            pen.fill(&c, path, e2)
+            pen.stroke(&c, path, K, 1.4)
+        case "diamond":
+            let path = poly([pt(ex, ey - 6), pt(ex + 4, ey), pt(ex, ey + 6), pt(ex - 4, ey)])
+            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
+                pen.fill(&lc, path, e2)
+            }
+            pen.fill(&c, path, e2)
+            pen.stroke(&c, path, K, 1.4)
+        case "rune":
+            var path = Path()
+            path.move(to: pt(ex - 3, ey - 6))
+            path.addLine(to: pt(ex - 3, ey + 6))
+            path.move(to: pt(ex - 3, ey - 2))
+            path.addLine(to: pt(ex + 3, ey - 6))
+            path.move(to: pt(ex - 3, ey + 2))
+            path.addLine(to: pt(ex + 3, ey + 6))
+            pen.blur(&c, 2.5) { (lc: inout GraphicsContext) in
+                pen.stroke(&lc, path, e2, 3)
+            }
+            pen.stroke(&c, path, e2, 1.8)
+        default:
+            break
+        }
+    }
+
+    private static func drawBand(_ c: inout GraphicsContext, _ pen: Pen, _ a: CGPoint, _ b: CGPoint,
+                                 _ w: CGFloat, _ col: Color) {
+        pen.line(&c, a, b, w + 5, K, cap: .butt)
+        pen.line(&c, a, b, w, col, cap: .butt)
+    }
+
+    // MARK: 頭
+
+    private static func drawHead(_ c: inout GraphicsContext, _ pen: Pen, _ hd: GearItem?, P: Joints, t: CGFloat) {
+        let hx = P.head.x
+        let hy = P.head.y
+        pen.circle(&c, P.head, 13, fill: skin)
+        var chin = Path()
+        chin.move(to: pt(hx - 9, hy + 8))
+        chin.addQuadCurve(to: pt(hx + 11, hy + 6), control: pt(hx, hy + 15))
+        pen.stroke(&c, chin, Color.black.opacity(0.12), 3)
+
+        var ey = hy - 1
+        var eyes = true
+        if let hd = hd {
+            let col = Color(gearHex: hd.c)
+            let col2 = Color(gearHex: hd.c2 ?? hd.c)
+            switch hd.form {
+            case "band":
+                let tail1 = pt(hx - 24, hy + 3 + sin(t * 4) * 2)
+                let tail2 = pt(hx - 22, hy - 9 + sin(t * 4 + 1) * 2)
+                pen.line(&c, pt(hx - 15, hy - 3), tail1, 6, K)
+                pen.line(&c, pt(hx - 15, hy - 3), tail1, 3, col2)
+                pen.line(&c, pt(hx - 15, hy - 4), tail2, 6, K)
+                pen.line(&c, pt(hx - 15, hy - 4), tail2, 3, col2)
+                var r = Path()
+                r.addRect(CGRect(x: hx - 13, y: hy - 9, width: 26, height: 6))
+                pen.fill(&c, r, col)
+                pen.stroke(&c, r, K, 2.5, join: .miter)
+                pen.circle(&c, P.head, 14.5, stroke: K, sw: 3)
+            case "cap":
+                ey = hy + 2
+                pen.line(&c, pt(hx + 5, hy - 3), pt(hx + 24, hy - 1), 5, K)
+                pen.line(&c, pt(hx + 5, hy - 3), pt(hx + 24, hy - 1), 2.5, col)
+                var dome = Path()
+                let s = pt(hx - 14.5, hy - 2)
+                dome.move(to: s)
+                arcTo(&dome, from: s, to: pt(hx + 14.5, hy - 2), rx: 14.5, ry: 14.5, large: false, sweep: true)
+                dome.closeSubpath()
+                pen.fill(&c, dome, col)
+                pen.stroke(&c, dome, K, 3)
+            case "beanie":
+                ey = hy + 2
+                var dome = Path()
+                let s = pt(hx - 14.5, hy - 1)
+                dome.move(to: s)
+                arcTo(&dome, from: s, to: pt(hx + 14.5, hy - 1), rx: 14.5, ry: 16, large: false, sweep: true)
+                dome.closeSubpath()
+                pen.fill(&c, dome, col)
+                pen.stroke(&c, dome, K, 3)
+                pen.rect(&c, CGRect(x: hx - 15, y: hy - 5, width: 30, height: 6), 2, fill: col2, stroke: K, sw: 2.5)
+                pen.circle(&c, pt(hx - 2, hy - 17), 4.5, fill: col2, stroke: K, sw: 2.5)
+            case "crown":
+                let path = poly([
+                    pt(hx - 11, hy - 10), pt(hx - 12, hy - 23), pt(hx - 5, hy - 16), pt(hx, hy - 27),
+                    pt(hx + 5, hy - 16), pt(hx + 12, hy - 23), pt(hx + 11, hy - 10)
+                ])
+                pen.fill(&c, path, col)
+                pen.stroke(&c, path, K, 2.5)
+                pen.circle(&c, pt(hx, hy - 14), 2.6, fill: Color(gearHex: "#C8302C"), stroke: K, sw: 1.2)
+            case "visor":
+                eyes = false
+                let r = CGRect(x: hx - 3, y: hy - 6, width: 19, height: 7)
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.rect(&l, r, 3.5, fill: col)
+                }
+                pen.rect(&c, r, 3.5, fill: col, stroke: K, sw: 2.2)
+                pen.line(&c, pt(hx - 3, hy - 3), pt(hx - 14, hy - 4), 3, K)
+            case "helmet":
+                eyes = false
+                pen.circle(&c, P.head, 15, fill: col, stroke: K, sw: 3)
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.line(&l, pt(hx - 6, hy - 15), pt(hx + 4, hy - 15), 4, col2)
+                }
+                pen.line(&c, pt(hx - 8, hy - 15.5), pt(hx + 6, hy - 15.5), 2, K)
+                let r = CGRect(x: hx + 1, y: hy - 4, width: 15, height: 6)
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.rect(&l, r, 3, fill: col2)
+                }
+                pen.rect(&c, r, 3, fill: col2, stroke: K, sw: 2)
+                pen.line(&c, pt(hx - 10, hy + 6), pt(hx - 2, hy + 9), 2, K.opacity(0.5))
+            case "hood":
+                var outer = Path()
+                let s = pt(hx + 10, hy - 12)
+                outer.move(to: s)
+                let e = pt(hx + 8, hy + 14)
+                arcTo(&outer, from: s, to: e, rx: 17, ry: 17, large: true, sweep: false)
+                let m = pt(hx + 3, hy + 9)
+                outer.addLine(to: m)
+                arcTo(&outer, from: m, to: pt(hx + 4, hy - 9), rx: 10, ry: 11, large: false, sweep: true)
+                outer.closeSubpath()
+                pen.fill(&c, outer, col)
+                pen.stroke(&c, outer, K, 3)
+                var inner = Path()
+                inner.move(to: pt(hx + 1, hy + 3))
+                inner.addQuadCurve(to: pt(hx + 14, hy + 3), control: pt(hx + 8, hy + 2))
+                inner.addLine(to: pt(hx + 12, hy + 10))
+                inner.addQuadCurve(to: pt(hx + 2, hy + 9), control: pt(hx + 5, hy + 13))
+                inner.closeSubpath()
+                pen.fill(&c, inner, col2)
+                pen.stroke(&c, inner, K, 2)
+            case "circlet":
+                var arc = Path()
+                arc.move(to: pt(hx - 13, hy - 5))
+                arc.addQuadCurve(to: pt(hx + 13, hy - 6), control: pt(hx, hy - 10))
+                pen.stroke(&c, arc, K, 5)
+                pen.stroke(&c, arc, col, 2.6)
+                let gem = poly([pt(hx + 9, hy - 13), pt(hx + 12, hy - 8), pt(hx + 9, hy - 3), pt(hx + 6, hy - 8)])
+                pen.fill(&c, gem, col2)
+                pen.stroke(&c, gem, K, 1.6)
+            case "horns":
+                var dome = Path()
+                let s = pt(hx - 14.5, hy - 2)
+                dome.move(to: s)
+                arcTo(&dome, from: s, to: pt(hx + 14.5, hy - 2), rx: 14.5, ry: 14.5, large: false, sweep: true)
+                dome.closeSubpath()
+                pen.fill(&c, dome, col2)
+                pen.stroke(&c, dome, K, 3)
+                for sx in [CGFloat(-1), CGFloat(1)] {
+                    var horn = Path()
+                    horn.move(to: pt(hx + sx * 6, hy - 12))
+                    horn.addQuadCurve(to: pt(hx + sx * 17, hy - 32), control: pt(hx + sx * 20, hy - 18))
+                    horn.addQuadCurve(to: pt(hx + sx * 1, hy - 14), control: pt(hx + sx * 13, hy - 20))
+                    horn.closeSubpath()
+                    pen.fill(&c, horn, col)
+                    pen.stroke(&c, horn, K, 2.4)
+                }
+                pen.line(&c, pt(hx - 12, hy - 4), pt(hx + 12, hy - 4), 2, Color(gearHex: "#3DF5A0"))
+            case "tiara":
+                for i in -1...1 {
+                    let fi = CGFloat(i)
+                    let bx = hx + fi * 9
+                    let lift: CGFloat = (i == 0) ? 6 : 0
+                    let by = hy - 20 - lift + sin(t * 2.5 + fi) * 2
+                    let gem = poly([pt(bx, by - 6), pt(bx + 3.5, by), pt(bx, by + 6), pt(bx - 3.5, by)])
+                    pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                        pen.fill(&l, gem, col)
+                    }
+                    pen.fill(&c, gem, i == 0 ? col : col2)
+                    pen.stroke(&c, gem, K, 1.4)
+                }
+            case "mask":
+                eyes = false
+                var m = Path()
+                let s = pt(hx - 14, hy + 1)
+                m.move(to: s)
+                arcTo(&m, from: s, to: pt(hx + 14, hy + 1), rx: 14, ry: 14, large: false, sweep: true)
+                m.addLine(to: pt(hx + 14, hy + 4))
+                m.addQuadCurve(to: pt(hx - 14, hy + 4), control: pt(hx, hy + 16))
+                m.closeSubpath()
+                pen.fill(&c, m, col.opacity(0.95))
+                pen.stroke(&c, m, K, 2.5)
+                let r = CGRect(x: hx + 3, y: hy - 3, width: 9, height: 3)
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.rect(&l, r, 1.5, fill: col2)
+                }
+                pen.rect(&c, r, 1.5, fill: col2)
+            default:
+                break
+            }
+        }
+        if eyes {
+            var brow = Path()
+            brow.move(to: pt(hx + 3, ey - 5))
+            brow.addLine(to: pt(hx + 10, ey - 3))
+            pen.stroke(&c, brow, K, 2.4)
+            pen.rect(&c, CGRect(x: hx + 5, y: ey - 1.6, width: 5, height: 3.2), 1.6, fill: K)
+        }
+    }
+
+    // MARK: 啞鈴
+
+    private static func drawDumbbell(_ c: inout GraphicsContext, _ pen: Pen, _ bl: GearItem?, P: Joints, kind: GearKind) {
+        let bc = Color(gearHex: bl?.c ?? "#1B2027")
+        var glow = false
+        if let b = bl, b.rarity.rawValue >= 3 { glow = true }
+        let h = P.ha
+        let hf = P.point(.ha, far: true)
+        switch kind {
+        case .goblet:
+            let r = CGRect(x: h.x - 7, y: h.y - 5, width: 14, height: 24)
+            if glow {
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.rect(&l, r, 5, fill: bc)
+                }
+            }
+            pen.rect(&c, r, 5, fill: bc, stroke: K, sw: 2.5)
+        case .db:
+            let plates: [(CGPoint, CGFloat)] = [(hf, 8), (h, 9)]
+            for (p, rad) in plates {
+                if glow {
+                    pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                        pen.circle(&l, p, rad + 2, fill: bc)
+                    }
+                }
+                pen.circle(&c, p, rad, fill: bc, stroke: K, sw: 2.5)
+                pen.circle(&c, p, 3.2, fill: K)
+            }
+        }
+    }
+
+    // MARK: 特效
+
+    private static func fxLayer(_ c: inout GraphicsContext, _ pen: Pen, fx: String, P: Joints,
+                                col: Color, col2: Color, t: CGFloat, front: Bool) {
+        let cx = P.hip.x + 6
+        switch fx {
+        case "fire":
+            for i in 0..<10 {
+                if (i % 2 == 0) != front { continue }
+                let fi = CGFloat(i)
+                let ph = frac(t * 0.9 + fi / 10)
+                let x = cx - 40 + CGFloat((i * 37) % 80) + sin(t * 3 + fi) * 3
+                let y = 184 - ph * 120
+                let sz = (1 - ph) * 9 + 2
+                var path = Path()
+                path.move(to: pt(x, y - sz * 1.8))
+                path.addQuadCurve(to: pt(x, y + sz * 0.6), control: pt(x + sz, y))
+                path.addQuadCurve(to: pt(x, y - sz * 1.8), control: pt(x - sz, y))
+                path.closeSubpath()
+                pen.fill(&c, path, (i % 3 != 0 ? col : col2).opacity(Double(0.9 - ph * 0.8)))
+            }
+        case "ice":
+            guard front else { return }
+            for i in 0..<10 {
+                let fi = CGFloat(i)
+                let ph = frac(t * 0.25 + fi / 10)
+                let x = cx - 50 + CGFloat((i * 41) % 100) + sin(t + fi) * 6
+                let y = -6 + ph * 190
+                let r = CGFloat(3 + (i % 3))
+                let ang = (t * 40 + fi * 20) * CGFloat.pi / 180
+                let segs: [(CGPoint, CGPoint)] = [
+                    (pt(-r, 0), pt(r, 0)), (pt(0, -r), pt(0, r)),
+                    (pt(-r * 0.7, -r * 0.7), pt(r * 0.7, r * 0.7)),
+                    (pt(-r * 0.7, r * 0.7), pt(r * 0.7, -r * 0.7))
+                ]
+                var path = Path()
+                for (a, b) in segs {
+                    let ra = rot(a, ang)
+                    let rb = rot(b, ang)
+                    path.move(to: pt(x + ra.x, y + ra.y))
+                    path.addLine(to: pt(x + rb.x, y + rb.y))
+                }
+                pen.stroke(&c, path, col2.opacity(Double(sin(ph * CGFloat.pi))), 1.6)
+            }
+        case "bolt":
+            guard front else { return }
+            for i in 0..<3 {
+                let fi = CGFloat(i)
+                if sin(t * 9 + fi * 2.1) < 0.3 { continue }
+                let x = cx - 44 + fi * 42 + sin(t * 5 + fi) * 6
+                let y = 40 + CGFloat((i * 47) % 100)
+                let path = poly([
+                    pt(x, y), pt(x + 6, y + 10), pt(x + 1, y + 12), pt(x + 8, y + 24),
+                    pt(x + 4, y + 25), pt(x + 10, y + 36)
+                ], close: false)
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.stroke(&l, path, col, 2.4)
+                }
+                pen.stroke(&c, path, Color.white, 1.2)
+            }
+        case "gold":
+            guard front else { return }
+            for i in 0..<9 {
+                let fi = CGFloat(i)
+                let ph = frac(t * 0.35 + fi / 9)
+                let x = cx - 50 + CGFloat((i * 53) % 110) + sin(t + fi) * 4
+                let y = 180 - ph * 170
+                let o = sin(ph * CGFloat.pi)
+                let path = poly([
+                    pt(x, y - 4), pt(x + 1.3, y - 1.3), pt(x + 4, y), pt(x + 1.3, y + 1.3),
+                    pt(x, y + 4), pt(x - 1.3, y + 1.3), pt(x - 4, y), pt(x - 1.3, y - 1.3)
+                ])
+                pen.fill(&c, path, col.opacity(Double(o * 0.9)))
+            }
+        case "rays":
+            guard !front else { return }
+            let sx = P.sh.x
+            let sy = P.sh.y
+            for i in 0..<12 {
+                let a = CGFloat(i) / 12 * CGFloat.pi * 2 + t * 0.3
+                let x2 = sx + cos(a) * 95
+                let y2 = sy + sin(a) * 95
+                let path = poly([
+                    pt(sx, sy),
+                    pt(x2 + cos(a + 1.57) * 9, y2 + sin(a + 1.57) * 9),
+                    pt(x2 - cos(a + 1.57) * 9, y2 - sin(a + 1.57) * 9)
+                ])
+                pen.fill(&c, path, col.opacity(0.13))
+            }
+        case "magic":
+            guard !front else { return }
+            let x = P.an.x - 2
+            let spin = t * 30 * CGFloat.pi / 180
+            let xf = CGAffineTransform(translationX: x, y: 186).scaledBy(x: 1, y: 0.28).rotated(by: spin)
+            let outer = Path(ellipseIn: CGRect(x: -52, y: -52, width: 104, height: 104)).applying(xf)
+            let inner = Path(ellipseIn: CGRect(x: -40, y: -40, width: 80, height: 80)).applying(xf)
+            let tri = poly([pt(0, -52), pt(45, 26), pt(-45, 26)]).applying(xf)
+            let tri2 = poly([pt(0, 52), pt(-45, -26), pt(45, -26)]).applying(xf)
+            pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                pen.stroke(&l, outer, col, 3)
+            }
+            pen.stroke(&c, outer, col, 2)
+            pen.stroke(&c, inner, col, 2, dash: [6, 5])
+            pen.stroke(&c, tri, col.opacity(0.8), 1.5)
+            pen.stroke(&c, tri2, col.opacity(0.8), 1.5)
+            for i in 0..<6 {
+                let fi = CGFloat(i)
+                let ph = frac(t * 0.5 + fi / 6)
+                pen.circle(&c, pt(x - 40 + fi * 16, 186 - ph * 90), 1.8, fill: col.opacity(Double(1 - ph)))
+            }
+        case "scan":
+            guard front else { return }
+            let ph = frac(t * 0.45)
+            let y = 184 - ph * 190
+            let o = Double(sin(ph * CGFloat.pi))
+            let ctr = pt(P.hip.x + 10, y)
+            pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                pen.ellipse(&l, ctr, 42, 5, stroke: col.opacity(o), sw: 3)
+            }
+            pen.ellipse(&c, ctr, 42, 5, stroke: col.opacity(o), sw: 1.2)
+            for i in 0..<5 {
+                let yy = 10 + CGFloat(i) * 36 + (t * 20).truncatingRemainder(dividingBy: 36)
+                pen.line(&c, pt(30, yy), pt(36, yy), 1.5, col.opacity(0.5))
+            }
+        case "rain":
+            guard front else { return }
+            let rainCol = Color(gearHex: "#9FB3D1").opacity(0.55)
+            for i in 0..<22 {
+                let fi = CGFloat(i)
+                let ph = frac(t * 1.4 + fi / 22)
+                let x = 26 + CGFloat((i * 67) % 170) - ph * 14
+                let y = -14 + ph * 200
+                pen.line(&c, pt(x, y), pt(x - 4, y + 12), 1.4, rainCol)
+            }
+        case "stars":
+            guard front else { return }
+            for i in 0..<12 {
+                let fi = CGFloat(i)
+                let x = 34 + CGFloat((i * 59) % 150)
+                let y = -6 + CGFloat((i * 83) % 180)
+                let o = 0.5 + 0.5 * sin(t * 3 + fi * 1.7)
+                let r = 1.5 + CGFloat(i % 3)
+                var path = Path()
+                path.move(to: pt(x, y - r * 2))
+                path.addQuadCurve(to: pt(x + r * 2, y), control: pt(x, y))
+                path.addQuadCurve(to: pt(x, y + r * 2), control: pt(x, y))
+                path.addQuadCurve(to: pt(x - r * 2, y), control: pt(x, y))
+                path.addQuadCurve(to: pt(x, y - r * 2), control: pt(x, y))
+                path.closeSubpath()
+                pen.fill(&c, path, (i % 2 != 0 ? col : col2).opacity(Double(o)))
+            }
+        case "smoke":
+            guard !front else { return }
+            for i in 0..<8 {
+                let fi = CGFloat(i)
+                let ph = frac(t * 0.3 + fi / 8)
+                let x = cx - 36 + CGFloat((i * 29) % 72) + sin(t * 1.5 + fi) * 8
+                let y = 186 - ph * 150
+                let fillCol: Color = (i % 2 != 0 ? col : Color.black).opacity(Double((1 - ph) * 0.55))
+                pen.blur(&c, 2.5) { (l: inout GraphicsContext) in
+                    pen.ellipse(&l, pt(x, y), 8 + ph * 10, 6 + ph * 6, fill: fillCol)
+                }
+            }
+        default:
+            break
+        }
+    }
+}
