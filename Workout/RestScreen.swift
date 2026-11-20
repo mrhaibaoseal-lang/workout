@@ -137,7 +137,7 @@ struct RestScreen: View {
                             footer(left: left)
                         }
                     }
-                    .frame(height: 290)
+                    .frame(minHeight: 290)
                     if !reasons.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(reasons, id: \.self) { r in
@@ -238,23 +238,54 @@ struct RestScreen: View {
             .frame(maxWidth: .infinity)
     }
 
+    /// 時間到：圓環填滿變綠，中間改成往上數「已經超過幾秒」；開始的按鈕在下面（footer）。
     private func doneButton(over: Double) -> some View {
-        let pop = reduceMotion ? 1 : 1 + 0.08 * exp(-over * 5) * cos(over * 16)
-        let glow = reduceMotion ? 0.5 : 0.4 + 0.3 * sin(over * 5)
+        let pop = reduceMotion ? 1 : 1 + 0.06 * exp(-over * 5) * cos(over * 16)
+        let glow = reduceMotion ? 0.5 : 0.45 + 0.2 * sin(over * 4)
+        let secs = Int(over)
         return Button(action: onSkip) {
-            VStack(spacing: 6) {
-                Image(systemName: "bolt.fill").font(.system(size: 42, weight: .black))
-                Text("休息結束").font(.title2.weight(.black))
-                Text("點一下開始下一組").font(.subheadline.weight(.bold))
+            ZStack {
+                Circle().fill(Theme.green.opacity(0.08)).padding(14)
+                Ring(progress: 1, color: Theme.green, lineWidth: 14)
+                VStack(spacing: 2) {
+                    Text("休息結束")
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(Theme.green)
+                    Text(String(format: "+%d:%02d", secs / 60, secs % 60))
+                        .font(Theme.number(54))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.fg)
+                    Text("已經超過").font(.caption).foregroundStyle(Theme.muted)
+                }
             }
-            .foregroundStyle(Theme.bg)
             .frame(width: 210, height: 210)
-            .background(Circle().fill(Theme.green))
-            .shadow(color: Theme.green.opacity(glow), radius: 26)
+            .shadow(color: Theme.green.opacity(glow), radius: 18)
         }
         .buttonStyle(.plain)
         .scaleEffect(pop)
         .frame(maxWidth: .infinity)
+        .accessibilityLabel("休息結束，開始下一組")
+    }
+
+    /// 開始下一組的橘色大按鈕（和「完成這一組」同一種），一道光掃過去。
+    private func startButton(over: Double) -> some View {
+        Button(action: onSkip) {
+            Label("開始下一組", systemImage: "play.fill")
+        }
+        .buttonStyle(HotButtonStyle(height: 56))
+        .overlay {
+            if !reduceMotion {
+                GeometryReader { g in
+                    LinearGradient(colors: [.white.opacity(0), .white.opacity(0.45), .white.opacity(0)],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 60)
+                        .offset(x: -60 + (Double(g.size.width) + 120) * FXMath.fract(over / 1.8))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .allowsHitTesting(false)
+            }
+        }
+        .shadow(color: Theme.hot.opacity(0.45), radius: 14)
     }
 
     // MARK: 角色和連擊
@@ -304,6 +335,7 @@ struct RestScreen: View {
                 }
             }
             .frame(height: 44)
+            startButton(over: over)
         }
     }
 
