@@ -160,45 +160,65 @@ function feathers(n, x0, y0, spanX, spanY, lt, md, dk, sw = 1.6) {
 }
 const both = (layers) => [...layers, ...layers.map((l) => ({ ...l, d: mirrorD(l.d) }))];
 
-// lv：小段華麗程度，0 = III、1 = II、2 = I（大師、王者固定 2）。越高的小段多一些外框裝飾，輪廓跟著變大。
+// lv：小段華麗程度，0 = III、1 = II、2 = I（大師、王者固定 2）。
+// 差異刻意拉大：III 是樸素的核心徽章（整體縮小），II 加上該階的招牌配件，I 配件加大加多、背後有光暈和星光。
+const scaleD = (d, k, cx = 60, cy = 58) => d.replace(/([MLQC])([^MLQCZ]*)/g, (m, c, args) => {
+  const nums = args.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+  const out = [];
+  for (let i = 0; i < nums.length; i += 2) out.push(`${f(cx + (nums[i] - cx) * k)} ${f(cy + (nums[i + 1] - cy) * k)}`);
+  return c + out.join(' ') + ' ';
+}).trim();
+const sparkles = (pts) => pts.map(([x, y, r]) => L(P(star(x, y, 4, r, r * 0.3)), solid('#FFFFFF')));
+
 function tierLayers(ti, lv = 2) {
+  const core = tierCore(ti, lv);
+  if (ti >= 6) return core;
+  const k = [0.86, 0.94, 1][lv];
+  const o = [];
+  if (lv >= 2) o.push(L(circle(60, 58, 58), rad(PAL[ti][2], 0.75)));
+  o.push(...core.map((l) => ({ ...l, d: scaleD(l.d, k) })));
+  if (lv >= 2) o.push(...sparkles(ti === 2 ? [[10, 50, 5.5], [110, 50, 5.5], [14, 76, 4], [106, 76, 4]] : [[12, 20, 6], [108, 20, 6], [8, 84, 4.5], [112, 84, 4.5]]));
+  return o;
+}
+
+function tierCore(ti, lv) {
   const [, lt, md, dk] = PAL[ti];
   const o = [];
   const metal = lin(lt, md, dk);
   const W = '#FFFFFF';
   switch (ti) {
-    case 0: { // 鐵：八角鐵板＋鉚釘＋刮痕；II 加兩側鐵夾板，I 再加頂端三根鐵刺
+    case 0: { // 鐵：八角鐵板。III 素面；II 加鉚釘＋兩側鐵夾板；I 夾板加長成雙層＋頂端三根鐵刺
       if (lv >= 2) {
-        for (const [x, h, w] of [[60, 16, 5], [47, 10, 4], [73, 10, 4]]) {
-          o.push(L(P([[x - w, 26], [x, 26 - h], [x + w, 26]]), metal, dk, 1.4));
-        }
+        for (const [x, h, w] of [[60, 20, 6], [44, 13, 5], [76, 13, 5]]) o.push(L(P([[x - w, 27], [x, 27 - h], [x + w, 27]]), metal, dk, 1.4));
+        o.push(...both([L(P([[92, 40], [112, 44], [112, 72], [92, 76]]), metal, dk, 1.5),
+          L(circle(106, 50, 2), solid(lt), dk, 1), L(circle(106, 66, 2), solid(lt), dk, 1)]));
       }
       if (lv >= 1) {
-        const plate = [L(P([[86, 46], [100, 49], [100, 67], [86, 70]]), metal, dk, 1.5),
-          L(circle(95, 58, 2.2), solid(lt), dk, 1)];
-        o.push(...both(plate));
+        o.push(...both([L(P([[86, 46], [100, 49], [100, 67], [86, 70]]), metal, dk, 1.5),
+          L(circle(95, 58, 2.2), solid(lt), dk, 1)]));
       }
-      const oct = regular(60, 58, 36, 8, -67.5);
-      o.push(L(P(oct), solid(dk)));
+      o.push(L(P(regular(60, 58, 36, 8, -67.5)), solid(dk)));
       o.push(L(P(regular(60, 58, 32, 8, -67.5)), metal, dk, 1.5));
       o.push(L(P(regular(60, 58, 24, 8, -67.5)), solid(dk, 0.35)));
-      for (const [x, y] of regular(60, 58, 28, 8, -67.5)) o.push(L(circle(x, y, 2.4), solid(lt), dk, 1));
+      if (lv >= 1) for (const [x, y] of regular(60, 58, 28, 8, -67.5)) o.push(L(circle(x, y, 2.4), solid(lt), dk, 1));
       o.push(L('M40 40 L47 45', solid(W, 0), W, 1));
-      o.push(L(circle(60, 59, 16), solid(dk, 0.0)));
       o.push(...emblem('dumbbell', lt, md, dk));
       break;
     }
-    case 1: { // 銅：齒輪圓章＋月桂＋緞帶尾
-      o.push(L(P([[44, 80], [36, 108], [44, 103], [50, 110], [54, 82]]), solid(md), dk, 1.5));
-      o.push(L(mirrorD(P([[44, 80], [36, 108], [44, 103], [50, 110], [54, 82]])), solid(md), dk, 1.5));
+    case 1: { // 銅：齒輪圓章。III 只有齒輪；II 加緞帶尾＋半圈月桂；I 整圈月桂＋雙層緞帶尾＋頂端星
+      const tail = P([[44, 80], [36, 108], [44, 103], [50, 110], [54, 82]]);
+      if (lv >= 2) o.push(...both([L(P([[38, 76], [22, 100], [32, 98], [34, 108], [46, 80]]), solid(dk), lt, 1.2)]));
+      if (lv >= 1) o.push(...both([L(tail, solid(md), dk, 1.5)]));
       const leaves = [];
-      for (let i = 0; i < [3, 5, 6][lv]; i++) {
-        const a = (200 - i * 22) * Math.PI / 180;
+      const n = [0, 4, 7][lv];
+      for (let i = 0; i < n; i++) {
+        const deg = 200 - i * 22;
+        const a = deg * Math.PI / 180;
         const cx = 60 + 39 * Math.cos(a), cy = 60 - 39 * Math.sin(a);
-        leaves.push(L(ellipseRot(cx, cy, 3.6, 8, -((200 - i * 22) - 90) + 35), lin('#CFE8A0', '#5E8A2E'), '#2E4A12', 1.2));
+        leaves.push(L(ellipseRot(cx, cy, 3.6, 8, -(deg - 90) + 35), lin('#CFE8A0', '#5E8A2E'), '#2E4A12', 1.2));
       }
       o.push(...both(leaves));
-      if (lv >= 2) o.push(L(P(star(60, 13, 5, 9, 3.8)), lin('#FFFFFF', lt, md), dk, 1.4));
+      if (lv >= 2) o.push(L(P(star(60, 12, 5, 11, 4.6)), lin('#FFFFFF', lt, md), dk, 1.4));
       const cog = [];
       for (let i = 0; i < 32; i++) {
         const r = i % 4 < 2 ? 33 : 29, a = (i / 32 * 360 + 5.6) * Math.PI / 180;
@@ -206,62 +226,71 @@ function tierLayers(ti, lv = 2) {
       }
       o.push(L(P(cog), metal, dk, 1.8));
       o.push(L(circle(60, 58, 24), lin(md, dk), lt, 1.5));
+      if (lv >= 2) o.push(L(circle(60, 58, 20.5), solid(W, 0), lt, 1));
       o.push(...emblem('kettlebell', lt, md, dk));
       break;
     }
-    case 2: { // 銀：盾牌＋交叉雙劍
+    case 2: { // 銀：盾牌。III 只有盾；II 交叉雙劍；I 雙劍＋盾頂矛尖＋金邊盾與金鉚釘
       const sword = (flip) => {
-        const s = [L(P([[6, 10], [10, 4], [17, 7], [86, 82], [80, 88]]), lin(W, md), dk, 1.4),
+        const s2 = [L(P([[6, 10], [10, 4], [17, 7], [86, 82], [80, 88]]), lin(W, md), dk, 1.4),
           L(P([[11, 7], [83, 85]]), solid(W, 0), dk, 1),
           L(P([[74, 88], [88, 74], [92, 78], [78, 92]]), solid(GOLD[1]), GOLD[2], 1.2),
           L(P([[84, 86], [88, 82], [100, 96], [96, 100]]), solid('#5A3B22'), GOLD[2], 1.2),
           L(circle(99, 99, 3.5), solid(GOLD[1]), GOLD[2], 1.2)];
-        return flip ? s.map((l) => ({ ...l, d: mirrorD(l.d) })) : s;
+        return flip ? s2.map((l) => ({ ...l, d: mirrorD(l.d) })) : s2;
       };
-      o.push(...sword(false), ...sword(true));
-      if (lv >= 1) o.push(L(P([[60, 2], [66, 14], [62, 13], [60, 20], [58, 13], [54, 14]]), lin(W, md), dk, 1.4));
-      if (lv >= 2) o.push(...both([L(P(star(16, 22, 4, 7, 2.2)), solid(W), dk, 0.8), L(P(star(22, 46, 4, 5, 1.6)), solid(W))]));
+      if (lv >= 1) o.push(...sword(false), ...sword(true));
+      if (lv >= 2) {
+        o.push(L(P([[60, 0], [67, 13], [63, 12], [60, 21], [57, 12], [53, 13]]), lin(W, md), dk, 1.4));
+      }
       const sh = 'M60 18 Q76 26 90 24 L90 58 Q90 84 60 100 Q30 84 30 58 L30 24 Q44 26 60 18 Z';
       o.push(L(sh, solid(dk)));
       o.push(L('M60 23 Q75 30 86 28.5 L86 58 Q86 81 60 95 Q34 81 34 58 L34 28.5 Q45 30 60 23 Z', metal, null));
       o.push(L('M60 23 L60 95 Q34 81 34 58 L34 28.5 Q45 30 60 23 Z', solid(W, 0.22)));
       o.push(L('M60 30 L80 34 L80 58 Q80 76 60 88 Q40 76 40 58 L40 34 Z', solid(W, 0), W, 1.2));
+      if (lv >= 2) {
+        o.push(L(sh, solid(W, 0), GOLD[1], 2.4));
+        for (const [x, y] of [[32, 27], [88, 27], [32, 56], [88, 56], [60, 97]]) o.push(L(circle(x, y, 2.6), solid(GOLD[0]), GOLD[2], 1));
+      }
       o.push(...emblem('barbell', lt, md, dk));
       break;
     }
-    case 3: { // 金：太陽光芒＋圓牌＋翅膀
-      if (lv >= 1) o.push(...both(feathers(lv + 2, 82, 50, 28 + lv * 3, 30, lt, md, dk)));
-      if (lv >= 2) o.push(L(P(star(60, 8, 5, 8, 3.4)), solid(W), GOLD[2], 1.2));
-      o.push(L(P(star(60, 58, 12, 40, 28, -90)), lin(GOLD[0], GOLD[1]), GOLD[2], 1.5));
+    case 3: { // 金：圓牌。III 短光芒 8 道；II 12 道＋小翼；I 16 道長光芒＋大翼＋頂端星
+      if (lv >= 1) o.push(...both(feathers(lv + 2, 82, 50, [0, 28, 40][lv], [0, 30, 40][lv], lt, md, dk)));
+      const rays = [8, 12, 16][lv];
+      o.push(L(P(star(60, 58, rays, [34, 40, 46][lv], 28, -90)), lin(GOLD[0], GOLD[1]), GOLD[2], 1.5));
+      if (lv >= 2) o.push(L(P(star(60, 6, 5, 9, 3.8)), solid(W), GOLD[2], 1.2));
       o.push(L(circle(60, 58, 27), solid(dk)));
       o.push(L(circle(60, 58, 24), metal, lt, 1.5));
       o.push(L(circle(60, 58, 18), solid(dk, 0.25)));
       o.push(...emblem('star', lt, md, dk));
       break;
     }
-    case 4: { // 白金：六角水晶框＋水晶碎片翼
+    case 4: { // 白金：六角水晶框。III 沒有翼；II 碎晶翼 2 片；I 3 片＋頂端與底部水晶
       const shard = [L(P([[80, 44], [112, 30], [92, 52]]), lin(W, md), dk, 1.5),
         L(P([[84, 56], [116, 56], [88, 66]]), lin(lt, md), dk, 1.5),
         L(P([[82, 68], [104, 84], [80, 76]]), lin(lt, dk), dk, 1.5)];
-      o.push(...both(shard.slice(0, 1 + lv)));
-      if (lv >= 2) o.push(L(P([[60, 2], [66, 20], [60, 24], [54, 20]]), lin(W, md), dk, 1.4));
+      o.push(...both(shard.slice(0, [0, 2, 3][lv])));
+      if (lv >= 2) {
+        o.push(L(P([[60, 0], [67, 20], [60, 25], [53, 20]]), lin(W, md), dk, 1.4));
+        o.push(...both([L(P([[72, 14], [76, 26], [70, 26]]), lin(W, md), dk, 1.2)]));
+      }
       const hx = regular(60, 58, 36, 6);
       o.push(L(P(hx), solid(dk)));
       const hi = regular(60, 58, 32, 6);
       for (let i = 0; i < 6; i++) {
-        const sh = [lt, W, md, dk, md, lt][i];
-        o.push(L(P([[60, 58], hi[i], hi[(i + 1) % 6]]), solid(sh)));
+        const shd = [lt, W, md, dk, md, lt][i];
+        o.push(L(P([[60, 58], hi[i], hi[(i + 1) % 6]]), solid(shd)));
       }
       o.push(L(P(regular(60, 58, 21, 6)), lin(md, dk), lt, 1.5));
       o.push(...emblem('hexgem', lt, md, dk).map((l) => ({ ...l, d: l.d.replace(/(\d+(\.\d+)?) (\d+(\.\d+)?)/g, (m, x, _, y) => `${x} ${f(Number(y) - 1)}`) })));
       break;
     }
-    case 5: { // 鑽石：大菱形＋水晶刺＋羽翼
-      o.push(...both(feathers([2, 4, 5][lv], 84, 50, [26, 32, 36][lv], 34, lt, md, dk)));
-      if (lv >= 2) o.push(...both([L(P(star(14, 24, 4, 7, 2)), solid(W)), L(P(star(108, 88, 4, 5, 1.5)), solid(W))]));
-      for (const [pts] of [[[[60, 2], [66, 16], [54, 16]]], [[[38, 10], [48, 22], [41, 24]]], [[[82, 10], [79, 24], [72, 22]]]].slice(0, lv >= 1 ? 3 : 1)) {
-        o.push(L(P(pts), lin(W, md), dk, 1.4));
-      }
+    case 5: { // 鑽石：大菱形。III 頂端 1 根水晶刺、沒有翼；II 羽翼 4 片＋3 根刺；I 羽翼 6 片加長＋5 根刺
+      if (lv >= 1) o.push(...both(feathers([0, 4, 6][lv], 84, 50, [0, 32, 42][lv], [0, 34, 44][lv], lt, md, dk)));
+      const spikes = [[[60, 2], [66, 16], [54, 16]], [[38, 10], [48, 22], [41, 24]], [[82, 10], [79, 24], [72, 22]],
+        [[24, 26], [36, 32], [31, 37]], [[96, 26], [89, 37], [84, 32]]];
+      for (const pts of spikes.slice(0, [1, 3, 5][lv])) o.push(L(P(pts), lin(W, md), dk, 1.4));
       const dia = [[60, 12], [98, 56], [60, 104], [22, 56]];
       o.push(L(P(dia), solid(dk)));
       const di = [[60, 18], [92, 56], [60, 98], [28, 56]];
