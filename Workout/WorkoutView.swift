@@ -596,8 +596,9 @@ struct WorkoutView: View {
                 ? "上次 \(Progression.format(w)) kg × \(reps)"
                 : "上次 \(reps) \(item.exercise.unit.label)"
         }
-        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets, chosen: chosen, scheme: scheme, ladder: ladder,
-                             last: last.map { LastSet(weight: $0.weight, reps: $0.reps) })
+        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets,
+                             last: last.map { LastSet(weight: $0.weight, reps: $0.reps) },
+                             chosen: chosen, scheme: scheme, ladder: ladder)
     }
 
     /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
