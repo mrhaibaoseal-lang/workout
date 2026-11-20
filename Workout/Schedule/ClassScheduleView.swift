@@ -29,33 +29,41 @@ struct ClassScheduleView: View {
             Section {
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label(working ? "辨識中…" : "從課表截圖匯入", systemImage: "text.viewfinder")
+                        .foregroundStyle(Theme.accent)
+                        .frame(minHeight: 44)
                 }
                 .disabled(working)
             } footer: {
-                Text("每學期換課表時用。辨識完會先讓你確認，再取代目前的課表。")
+                SectionLabel("每學期換課表時用。辨識完會先讓你確認，再取代目前的課表。")
             }
+            .listRowBackground(Theme.surface)
 
             ForEach(weekdayOrder, id: \.value) { day in
                 let items = blocks.filter { $0.weekday == day.value }.sorted { $0.startMin < $1.startMin }
                 if !items.isEmpty {
-                    Section(day.label) {
+                    Section {
                         ForEach(items) { b in
                             Button { editing = b } label: { ClassRow(block: b) }
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Theme.fg)
                         }
                         .onDelete { offsets in
                             let ids = offsets.map { items[$0].id }
                             save(blocks.filter { !ids.contains($0.id) })
                         }
+                    } header: {
+                        SectionLabel(day.label)
                     }
+                    .listRowBackground(Theme.surface)
                 }
             }
         }
+        .themeForm()
         .navigationTitle("課表")
         .toolbar {
             Button {
                 editing = ClassBlock(weekday: 2, startMin: 610, endMin: 720, name: "")
             } label: { Image(systemName: "plus") }
+                .accessibilityLabel("新增課程")
         }
         .sheet(item: $editing) { b in
             ClassEditView(block: b) { updated in
@@ -110,12 +118,15 @@ struct ClassRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(block.name.isEmpty ? "（未命名）" : block.name).font(.headline)
+            Text(block.name.isEmpty ? "（未命名）" : block.name)
+                .font(.headline)
+                .foregroundStyle(Theme.fg)
             Text(block.timeText + (block.room.isEmpty ? "" : " · \(block.room)"))
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.muted)
                 .monospacedDigit()
         }
+        .frame(minHeight: 44, alignment: .leading)
     }
 }
 
@@ -131,23 +142,29 @@ struct ImportReviewView: View {
                 Section {
                     Text("辨識到 \(blocks.count) 堂課。點一下可以修改，左滑可以刪除。確認沒問題再按「取代課表」。")
                         .font(.subheadline)
+                        .foregroundStyle(Theme.fg)
                 }
+                .listRowBackground(Theme.surface)
                 ForEach(weekdayOrder, id: \.value) { day in
                     let items = blocks.filter { $0.weekday == day.value }
                     if !items.isEmpty {
-                        Section(day.label) {
+                        Section {
                             ForEach(items) { b in
                                 Button { editing = b } label: { ClassRow(block: b) }
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(Theme.fg)
                             }
                             .onDelete { offsets in
                                 let ids = offsets.map { items[$0].id }
                                 blocks.removeAll { ids.contains($0.id) }
                             }
+                        } header: {
+                            SectionLabel(day.label)
                         }
+                        .listRowBackground(Theme.surface)
                     }
                 }
             }
+            .themeForm()
             .navigationTitle("確認課表")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -183,14 +200,18 @@ struct ClassEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("課名", text: $block.name)
-                TextField("教室（可留空）", text: $block.room)
-                Picker("星期", selection: $block.weekday) {
-                    ForEach(weekdayOrder, id: \.value) { Text($0.label).tag($0.value) }
+                Section {
+                    TextField("課名", text: $block.name)
+                    TextField("教室（可留空）", text: $block.room)
+                    Picker("星期", selection: $block.weekday) {
+                        ForEach(weekdayOrder, id: \.value) { Text($0.label).tag($0.value) }
+                    }
+                    DatePicker("開始", selection: timeBinding(\.startMin), displayedComponents: .hourAndMinute)
+                    DatePicker("結束", selection: timeBinding(\.endMin), displayedComponents: .hourAndMinute)
                 }
-                DatePicker("開始", selection: timeBinding(\.startMin), displayedComponents: .hourAndMinute)
-                DatePicker("結束", selection: timeBinding(\.endMin), displayedComponents: .hourAndMinute)
+                .listRowBackground(Theme.surface)
             }
+            .themeForm()
             .navigationTitle(block.name.isEmpty ? "新增課程" : block.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

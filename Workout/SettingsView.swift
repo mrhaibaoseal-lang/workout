@@ -1,12 +1,66 @@
 import SwiftUI
 
+/// Muted section header / footer text for dark Forms.
+struct SectionLabel: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text).foregroundStyle(Theme.muted)
+    }
+}
+
+extension View {
+    /// Dark stage styling for Form / List screens.
+    func themeForm() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .background(Theme.bg.ignoresSafeArea())
+            .tint(Theme.accent)
+    }
+}
+
 struct EquipmentPicker: View {
     @Binding var raw: String
 
+    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+
     var body: some View {
-        ForEach(Equipment.allCases) { eq in
-            Toggle(isOn: binding(for: eq)) {
-                Label(eq.name, systemImage: eq.icon)
+        LazyVGrid(columns: columns, spacing: 10) {
+            ForEach(Equipment.allCases) { eq in
+                let on = binding(for: eq)
+                Button {
+                    on.wrappedValue.toggle()
+                } label: {
+                    VStack(spacing: 8) {
+                        Image(systemName: eq.icon)
+                            .font(.title2)
+                            .foregroundStyle(on.wrappedValue ? Theme.accent : Theme.muted)
+                            .frame(height: 28)
+                        Text(eq.name)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(Theme.fg)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 88)
+                    .padding(.horizontal, 8)
+                    .background(on.wrappedValue ? Theme.accent.opacity(0.15) : Theme.surface,
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(on.wrappedValue ? Theme.accent : Theme.line, lineWidth: on.wrappedValue ? 2 : 1))
+                    .overlay(alignment: .topTrailing) {
+                        if on.wrappedValue {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Theme.accent)
+                                .padding(8)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(eq.name)
+                .accessibilityAddTraits(on.wrappedValue ? .isSelected : [])
             }
         }
     }
@@ -53,16 +107,67 @@ struct SettingsView: View {
         return "已讀到，接下來 \(upcoming) 個班\(updated)"
     }
 
+    private var reminderSummary: String {
+        guard reminderOn else { return "關閉" }
+        return reminderLead == 0 ? "準時" : "提前 \(reminderLead) 分"
+    }
+
+    private var summaryCard: some View {
+        HStack(spacing: 0) {
+            summaryTile(value: "\(Equipment.parse(equipmentRaw).count)", unit: "項", label: "器材")
+            Rectangle().fill(Theme.divider).frame(width: 1, height: 40)
+            summaryTile(value: "\(weeklyGoal)", unit: "次", label: "每週目標")
+            Rectangle().fill(Theme.divider).frame(width: 1, height: 40)
+            summaryTile(value: reminderSummary, unit: nil, label: "提醒")
+        }
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func summaryTile(value: String, unit: String?, label: String) -> some View {
+        VStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(Theme.number(24))
+                    .foregroundStyle(Theme.fg)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                if let unit {
+                    Text(unit).font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
+                }
+            }
+            Text(label).font(.caption).foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    EquipmentPicker(raw: $equipmentRaw)
-                } header: {
-                    Text("我的器材")
-                } footer: {
-                    Text("徒手動作永遠可用。勾選後課表會自動換成適合的動作。")
+                    Text("設定")
+                        .font(.system(size: 30, weight: .black))
+                        .foregroundStyle(Theme.fg)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .listRowInsets(EdgeInsets(top: 12, leading: 4, bottom: 0, trailing: 4))
+                    summaryCard
+                        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
                 }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
+                Section {
+                    EquipmentPicker(raw: $equipmentRaw)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+                } header: {
+                    SectionLabel("我的器材")
+                } footer: {
+                    SectionLabel("徒手動作永遠可用。點選後課表會自動換成適合的動作。")
+                }
+                .listRowBackground(Color.clear)
 
                 Section {
                     NavigationLink {
@@ -75,7 +180,7 @@ struct SettingsView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Label("班表（打工薪水帳）", systemImage: "briefcase")
-                            Text(shiftStatus).font(.caption).foregroundStyle(.secondary)
+                            Text(shiftStatus).font(.caption).foregroundStyle(Theme.muted)
                         }
                     }
                     Toggle(isOn: $readPhoneCalendar) {
@@ -105,10 +210,11 @@ struct SettingsView: View {
                         Text("不限制").tag(0)
                     }
                 } header: {
-                    Text("自動排程")
+                    SectionLabel("自動排程")
                 } footer: {
-                    Text("App 會扣掉上課、打工、活動和通勤時間，找出每天的空檔，自動排出這週要練哪幾天、練多久、幾點開始。這只是建議：首頁隨時可以改成完整版、精簡版或只做 1 組。班表直接從「打工薪水帳」讀取，改班後打開練壯就會重新排。")
+                    SectionLabel("App 會扣掉上課、打工、活動和通勤時間，找出每天的空檔，自動排出這週要練哪幾天、練多久、幾點開始。這只是建議：首頁隨時可以改成完整版、精簡版或只做 1 組。班表直接從「打工薪水帳」讀取，改班後打開練壯就會重新排。")
                 }
+                .listRowBackground(Theme.surface)
 
                 Section {
                     Toggle("練習提醒", isOn: $reminderOn)
@@ -121,28 +227,36 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("提醒")
+                    SectionLabel("提醒")
                 } footer: {
-                    Text("照自動排出的時間提醒。當天已經練過就不會提醒。")
+                    SectionLabel("照自動排出的時間提醒。當天已經練過就不會提醒。")
                 }
+                .listRowBackground(Theme.surface)
 
-                Section("目標") {
+                Section {
                     Stepper("每週 \(weeklyGoal) 次", value: $weeklyGoal, in: 2...6)
                     Stepper("每次加重 \(Progression.format(increment)) kg", value: $increment, in: 0.5...5, step: 0.5)
                     Stepper("啞鈴最重（每支）\(Progression.format(maxDumbbell)) kg", value: $maxDumbbell, in: 5...60, step: 2.5)
                     Stepper("槓鈴最重（含槓）\(Progression.format(maxBarbell)) kg", value: $maxBarbell, in: 10...150, step: 5)
+                } header: {
+                    SectionLabel("目標")
                 }
+                .listRowBackground(Theme.surface)
 
                 Section {
                     LabeledContent("目前", value: "第 \(Stats.week(since: Date(timeIntervalSince1970: startDate))) 週")
                     Button("從第 1 週重新開始") { confirmRestart = true }
+                        .foregroundStyle(Theme.hotText)
+                        .frame(minHeight: 44)
                 } header: {
-                    Text("週期")
+                    SectionLabel("週期")
                 } footer: {
-                    Text("第 1-2 週是適應期，之後每 6 週有一次減量週，減量週後換一批動作。重新開始不會刪除紀錄。")
+                    SectionLabel("第 1-2 週是適應期，之後每 6 週有一次減量週，減量週後換一批動作。重新開始不會刪除紀錄。")
                 }
+                .listRowBackground(Theme.surface)
             }
-            .navigationTitle("設定")
+            .themeForm()
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear { shiftInfo = ShiftReader.load() }
             .confirmationDialog("從第 1 週重新開始？", isPresented: $confirmRestart, titleVisibility: .visible) {
                 Button("重新開始") { startDate = Date().timeIntervalSince1970 }
@@ -163,24 +277,35 @@ struct OnboardingView: View {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("這次不一樣").font(.title.bold())
+                        Text("這次不一樣")
+                            .font(.title.bold())
+                            .foregroundStyle(Theme.fg)
                         Text("每週 4 次，每次照著做就好。忙的時候選精簡版，20 分鐘也算數。中斷了也不用從頭來，只要接著下一天練。")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.muted)
                     }
                     .padding(.vertical, 6)
                 }
-                Section("你家裡有什麼器材？") {
+                .listRowBackground(Theme.surface)
+                Section {
                     EquipmentPicker(raw: $equipmentRaw)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+                } header: {
+                    SectionLabel("你家裡有什麼器材？")
                 }
+                .listRowBackground(Color.clear)
                 Section {
                     Button {
                         startDate = Date().timeIntervalSince1970
                         onboarded = true
                     } label: {
-                        Text("開始第 1 週").font(.headline).frame(maxWidth: .infinity)
+                        Text("開始第 1 週")
                     }
+                    .buttonStyle(HotButtonStyle())
+                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
                 }
+                .listRowBackground(Color.clear)
             }
+            .themeForm()
             .navigationTitle("練壯")
         }
     }
@@ -205,9 +330,10 @@ struct WeekdayPicker: View {
                 } label: {
                     Text(label)
                         .font(.subheadline.bold())
-                        .frame(width: 36, height: 36)
-                        .background(on ? Color.accentColor : Color.secondary.opacity(0.15), in: Circle())
-                        .foregroundStyle(on ? Color.white : Color.primary)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(on ? Theme.accent : Theme.raised,
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .foregroundStyle(on ? Theme.bg : Theme.fg)
                 }
                 .buttonStyle(.plain)
             }
