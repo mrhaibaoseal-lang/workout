@@ -75,3 +75,7 @@
 - 啞鈴改成橫放 3/4 視角，每系列頭部造型不同；沒裝備時用 `default.bell`。
 - 待上機確認：遠側肢段的變暗（`colorMultiply 0.72`）、發光層模糊半徑、披風擺動幅度。
 
+## 休息頁動作（0.16.0）
+- `CharacterMove` 加了 `breathe`（彎腰扶膝喘氣）、`drink`（喝水，`CharacterRenderer` 在手上畫水壺）、`ready`（微蹲舉拳）。
+  都是徒手（`.bare`），不在角色頁的動作選單裡。預覽：把姿勢加進 `docs/character-design.html` 的 `POSES` 再用 `drawGear` 畫。
+

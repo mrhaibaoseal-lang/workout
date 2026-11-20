@@ -367,6 +367,24 @@ enum CharacterRenderer {
         // 啞鈴
         drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet)
 
+        // 喝水的水壺：從手往嘴巴的方向
+        if move == .drink {
+            let mouth = pt(P.head.x + 8, P.head.y + 4)
+            let d = sub(mouth, P.ha)
+            let l = max(hyp(d), 1)
+            let u = pt(d.x / l, d.y / l)
+            let a = pt(P.ha.x - u.x * 6, P.ha.y - u.y * 6)
+            let b = pt(P.ha.x + u.x * 14, P.ha.y + u.y * 14)
+            let cap = pt(b.x + u.x * 5, b.y + u.y * 5)
+            pen.line(&c, a, b, 12.5, K)
+            pen.line(&c, a, b, 10, Color(gearHex: "#5BC8F5"))
+            pen.line(&c, b, cap, 8.5, K)
+            pen.line(&c, b, cap, 6, Color(gearHex: "#E9EDF2"))
+            let n = pt(-u.y * 2.5, u.x * 2.5)
+            pen.line(&c, pt(a.x + u.x * 3 + n.x, a.y + u.y * 3 + n.y), pt(b.x - u.x * 2 + n.x, b.y - u.y * 2 + n.y),
+                     2, Color.white.opacity(0.55))
+        }
+
         // 前層特效
         if let it = fxItem, let se = fxSeries {
             fxLayer(&c, pen, fx: it.form, P: P, col: Color(gearHex: se.c2), col2: Color(gearHex: se.c3), t: t, front: true)

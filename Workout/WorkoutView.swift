@@ -71,6 +71,13 @@ struct WorkoutView: View {
     @State private var restMinimized = false
     /// 為什麼休息這麼久
     @State private var restReasons: [String] = []
+    /// 守時連擊：休息結束後 15 秒內開始下一組就 +1
+    @State private var combo = 0
+    @State private var bestCombo = 0
+    @State private var onTimeRests = 0
+    @State private var scoredRests = 0
+    @State private var comboMoment: ComboMoment?
+    @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
     private var allDone: Bool {
@@ -198,6 +205,11 @@ struct WorkoutView: View {
                 }
             }
             .overlay { restScreen }
+            .overlay {
+                if let m = comboMoment {
+                    ComboBurstView(moment: m).id(m.id)
+                }
+            }
             .overlay(alignment: .top) {
                 if let t = toast {
                     Text(t)
@@ -310,7 +322,7 @@ struct WorkoutView: View {
             RestScreen(end: end, total: restTotal,
                        next: pos.map { restNext(j: $0.0, k: $0.1) },
                        nextSet: pos.map { $drafts[$0.0].sets[$0.1] } ?? .constant(SetDraft(weight: 0, reps: 0)),
-                       changes: changes, reasons: restReasons,
+                       changes: changes, reasons: restReasons, combo: combo,
                        onAdd: addRest, onSkip: endRest,
                        onMinimize: { withAnimation(.spring(duration: 0.35)) { restMinimized = true } })
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -367,9 +379,38 @@ struct WorkoutView: View {
     }
 
     private func endRest() {
+        scoreRest(grace: RestScreen.comboWindow)
         commitRest()
         withAnimation(.easeOut(duration: 0.25)) { restEnd = nil }
         restMinimized = false
+    }
+
+    /// 這次休息有沒有準時：休息結束後 grace 秒內離開休息（提早跳過也算）。
+    private func scoreRest(grace: Double) {
+        guard let end = restEnd, restAfter != nil else { return }
+        scoredRests += 1
+        if Date().timeIntervalSince(end) <= grace {
+            onTimeRests += 1
+            combo += 1
+            bestCombo = max(bestCombo, combo)
+            if combo >= 2 {
+                let m = ComboMoment(combo: combo)
+                comboMoment = m
+                DispatchQueue.main.asyncAfter(deadline: .now() + ComboMoment.duration + 0.1) {
+                    if comboMoment?.id == m.id { comboMoment = nil }
+                }
+            }
+        } else {
+            if combo >= 2 { showToast("連擊 ×\(combo) 中斷了，下一組重新開始") }
+            combo = 0
+        }
+    }
+
+    /// 整場守時率換碎片：至少休息 3 次，九成準時 +6、七成 +3。
+    private var comboShards: Int {
+        guard scoredRests >= 3 else { return 0 }
+        let rate = Double(onTimeRests) / Double(scoredRests)
+        return rate >= 0.9 ? 6 : (rate >= 0.7 ? 3 : 0)
     }
 
     /// 休息結束：當作已經照休息頁換好重量。
@@ -384,7 +425,11 @@ struct WorkoutView: View {
 
     private func complete(set id: UUID, in exerciseIndex: Int) {
         guard let s = drafts[exerciseIndex].sets.firstIndex(where: { $0.id == id }) else { return }
-        if restEnd != nil { commitRest() }
+        if restEnd != nil {
+            // 沒按「下一組」直接做完：多給做一組的時間
+            scoreRest(grace: RestScreen.comboWindow + 75)
+            commitRest()
+        }
         if drafts[exerciseIndex].sets[s].done {
             drafts[exerciseIndex].sets[s].done = false
             focused = id
@@ -653,6 +698,8 @@ struct WorkoutView: View {
         }
         restEnd = nil
         restAfter = nil
+        let shards = comboShards
+        if shards > 0 { inventory.state.shards += shards }
         let now = Date()
         let session = WorkoutSession(date: now, dayKey: day.id, length: length,
                                      durationSeconds: Int(now.timeIntervalSince(startedAt)))
@@ -678,7 +725,8 @@ struct WorkoutView: View {
                 weekDone: SharedStore.countThisWeek(dates + [now]),
                 weekGoal: GoalEngine.current(dates: dates + [now], goal: weeklyGoal, ctx: .load()).goal,
                 streakBefore: GoalEngine.streak(dates: dates),
-                streakAfter: GoalEngine.streak(dates: dates + [now]))
+                streakAfter: GoalEngine.streak(dates: dates + [now]),
+                bestCombo: bestCombo, onTime: onTimeRests, rests: scoredRests, comboShards: shards)
         }
     }
 

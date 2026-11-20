@@ -70,6 +70,11 @@ struct WorkoutSummary: Identifiable {
     let weekGoal: Int
     let streakBefore: Int
     let streakAfter: Int
+    /// 守時連擊
+    var bestCombo = 0
+    var onTime = 0
+    var rests = 0
+    var comboShards = 0
 }
 
 private struct CheckShape: Shape {
@@ -91,7 +96,7 @@ struct WorkoutCompleteView: View {
     @State private var skip: Double = 0
     @State private var haptics = HapticScript()
 
-    private let end = 3.2
+    private let end = 3.4
     private var goalHit: Bool { summary.weekDone == summary.weekGoal }
     private var streakUp: Bool { summary.streakAfter > summary.streakBefore }
 
@@ -129,6 +134,9 @@ struct WorkoutCompleteView: View {
                         }
                         pointsRow(t)
                         weekRow(t)
+                        if summary.rests > 0 {
+                            comboRow(t)
+                        }
                         Spacer(minLength: 0)
                         Button("好") { onDone() }
                             .buttonStyle(HotButtonStyle())
@@ -152,6 +160,7 @@ struct WorkoutCompleteView: View {
             list.append((1.8, .rigid))
             if goalHit { list.append((2.4, .success)) }
             if streakUp { list.append((2.8, .medium)) }
+            if summary.comboShards > 0 { list.append((3.0, .success)) }
             haptics.play(list)
         }
         .onDisappear { haptics.cancel() }
@@ -206,6 +215,42 @@ struct WorkoutCompleteView: View {
         .background(Theme.gold, in: Capsule())
         .shadow(color: Theme.gold.opacity(0.4 + 0.4 * glow), radius: 12)
         .scaleEffect(0.3 + 0.7 * FXMath.easeOutBack(p))
+        .opacity(p)
+    }
+
+    /// 最高連擊、守時次數、換到的碎片
+    private func comboRow(_ t: Double) -> some View {
+        let p = FXMath.seg(t, 2.6, 2.9)
+        let gem = FXMath.seg(t, 2.95, 3.25)
+        return HStack(spacing: 12) {
+            Image(systemName: "flame.fill")
+                .font(.title2)
+                .foregroundStyle(Theme.gold)
+                .frame(width: 58)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("最高連擊 ×\(summary.bestCombo)")
+                    .font(.headline.weight(.heavy))
+                    .foregroundStyle(Theme.gold)
+                Text("準時開始 \(summary.onTime) / \(summary.rests) 次")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.muted)
+            }
+            Spacer()
+            if summary.comboShards > 0 {
+                Label("+\(summary.comboShards)", systemImage: "diamond.fill")
+                    .font(.headline.weight(.heavy))
+                    .foregroundStyle(Theme.bg)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Theme.gold, in: Capsule())
+                    .scaleEffect(0.3 + 0.7 * FXMath.easeOutBack(gem))
+                    .opacity(gem)
+                    .accessibilityLabel("獲得 \(summary.comboShards) 碎片")
+            }
+        }
+        .padding(14)
+        .background(Theme.goldBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.gold.opacity(0.5), lineWidth: 1))
+        .offset(y: 30 * (1 - FXMath.easeOutCubic(p)))
         .opacity(p)
     }
 

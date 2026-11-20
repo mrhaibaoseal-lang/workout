@@ -55,6 +55,8 @@ enum GearKind {
 enum CharacterMove: String, CaseIterable, Identifiable {
     case squat, press, rdl
     case pushup, row, pulldown, lunge, bridge, calf, curl, triceps, lateral, rearFly, plank
+    /// 休息頁用：彎腰扶膝喘氣、喝水、最後 3 秒的準備姿勢
+    case breathe, drink, ready
 
     var id: String { rawValue }
 
@@ -103,13 +105,16 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .lateral: return "側平舉"
         case .rearFly: return "反向飛鳥"
         case .plank: return "棒式"
+        case .breathe: return "喘氣"
+        case .drink: return "喝水"
+        case .ready: return "準備"
         }
     }
 
     var gearKind: GearKind {
         switch self {
         case .squat: return .goblet
-        case .pushup, .plank: return .bare
+        case .pushup, .plank, .breathe, .drink, .ready: return .bare
         default: return .db
         }
     }
@@ -130,6 +135,8 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .lateral: return ["upper", "delt"]
         case .rearFly: return ["upper", "delt"]
         case .plank: return ["torso"]
+        case .breathe, .drink: return ["torso"]
+        case .ready: return ["upper"]
         }
     }
 
@@ -168,6 +175,12 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .rearFly: return CharacterMove.j([164, 86, 146, 94, 148, 122, 148, 146, 98, 116, 108, 150, 108, 182, 124, 184])
         // 棒式：前臂撐地
         case .plank: return CharacterMove.j([160, 146, 140, 150, 138, 180, 160, 182, 92, 162, 56, 170, 22, 178, 24, 184])
+        // 喘氣：彎腰、雙手扶膝，吐氣
+        case .breathe: return CharacterMove.j([151, 79, 133, 91.5, 129, 119, 120, 140, 92, 120, 116, 148, 106, 182, 122, 184])
+        // 喝水：水壺在胸前
+        case .drink: return CharacterMove.j([110, 38, 106, 60, 110, 88, 122, 70, 104, 110, 107, 146, 106, 182, 122, 184])
+        // 準備：微蹲、雙拳舉在下巴前
+        case .ready: return CharacterMove.j([112, 42, 108, 64, 114, 90, 126, 68, 104, 112, 112, 146, 106, 182, 122, 184])
         }
     }
 
@@ -198,6 +211,12 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .rearFly: return CharacterMove.j([164, 86, 146, 94, 124, 104, 100, 112, 98, 116, 108, 150, 108, 182, 124, 184])
         // 棒式：髖微微抬起
         case .plank: return CharacterMove.j([160, 146, 140, 150, 138, 180, 160, 182, 92, 156, 56, 168, 22, 178, 24, 184])
+        // 喘氣：吸氣，肩膀和頭抬起一點
+        case .breathe: return CharacterMove.j([151, 74, 133, 86.5, 129, 115, 120, 140, 92, 120, 116, 148, 106, 182, 122, 184])
+        // 喝水：水壺舉到嘴邊
+        case .drink: return CharacterMove.j([108, 37, 106, 60, 124, 80, 121, 54, 104, 110, 107, 146, 106, 182, 122, 184])
+        // 準備：往下彈一下
+        case .ready: return CharacterMove.j([112, 45, 108, 67, 114, 93, 126, 71, 104, 115, 113, 148, 106, 182, 122, 184])
         }
     }
 

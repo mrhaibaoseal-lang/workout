@@ -108,11 +108,14 @@ struct RestScreen: View {
     let changes: [RigChange]
     /// 為什麼休息這麼久（「力竭了，多休息 30 秒」）
     let reasons: [String]
+    /// 目前連擊（休息結束後準時開始下一組的次數）
+    var combo: Int = 0
     let onAdd: () -> Void
     let onSkip: () -> Void
     let onMinimize: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var inventory: InventoryStore
 
     var body: some View {
         VStack(spacing: 0) {
@@ -121,13 +124,20 @@ struct RestScreen: View {
                 VStack(spacing: 14) {
                     TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
                         let left = end.timeIntervalSince(ctx.date)
-                        if left > 0 {
-                            countdown(left: left, now: ctx.date)
-                        } else {
-                            doneButton(over: -left)
+                        VStack(spacing: 12) {
+                            HStack(spacing: 6) {
+                                character(left: left)
+                                if left > 0 {
+                                    countdown(left: left, now: ctx.date)
+                                } else {
+                                    doneButton(over: -left)
+                                }
+                            }
+                            .frame(height: 214)
+                            footer(left: left)
                         }
                     }
-                    .frame(height: 300)
+                    .frame(height: 290)
                     if !reasons.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(reasons, id: \.self) { r in
@@ -136,11 +146,12 @@ struct RestScreen: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    if let next {
-                        nextCard(next)
-                    }
+                    // 換重量放最上面：休息一開始就要動手
                     ForEach(changes) { c in
                         PlateChangeCard(change: c)
+                    }
+                    if let next {
+                        nextCard(next)
                     }
                     if let next {
                         cuesCard(next.exercise)
@@ -171,7 +182,16 @@ struct RestScreen: View {
             }
             .accessibilityLabel("縮小休息頁，回到課表")
             Spacer()
-            Text("休息").font(.headline.weight(.heavy)).foregroundStyle(Theme.fg)
+            if combo > 0 {
+                Label("連擊 ×\(combo)", systemImage: "flame.fill")
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(Theme.gold)
+                    .padding(.horizontal, 12).frame(height: 34)
+                    .background(Theme.goldBg, in: Capsule())
+                    .overlay(Capsule().stroke(Theme.gold.opacity(0.6), lineWidth: 1))
+            } else {
+                Text("休息").font(.headline.weight(.heavy)).foregroundStyle(Theme.fg)
+            }
             Spacer()
             Button("跳過", action: onSkip)
                 .buttonStyle(GhostButtonStyle())
@@ -189,13 +209,12 @@ struct RestScreen: View {
         let last3 = left < 3
         let beat = last3 && !reduceMotion ? 1 + 0.06 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
         let p = left / max(total, 1)
-        return VStack(spacing: 14) {
-            ZStack {
+        return ZStack {
                 Circle().fill(col.opacity(last3 ? 0.10 : 0.05)).padding(14)
-                Ring(progress: p, color: col, lineWidth: 16)
+                Ring(progress: p, color: col, lineWidth: 14)
                 GeometryReader { g in
                     let w = Double(g.size.width), h = Double(g.size.height)
-                    let r = w / 2 - 16
+                    let r = w / 2 - 14
                     let a = -Double.pi / 2 + 2 * Double.pi * p
                     Circle().fill(.white)
                         .frame(width: 12, height: 12)
@@ -207,43 +226,89 @@ struct RestScreen: View {
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(last3 ? col : Theme.muted)
                     Text(timerInterval: now...end, countsDown: true)
-                        .font(Theme.number(64))
+                        .font(Theme.number(54))
                         .monospacedDigit()
                         .foregroundStyle(last3 ? col : Theme.fg)
                     Text("共 \(Int(total)) 秒").font(.caption).foregroundStyle(Theme.muted)
                 }
             }
-            .frame(width: 236, height: 236)
+            .frame(width: 210, height: 210)
             .scaleEffect(beat)
             .shadow(color: col.opacity(last3 ? 0.55 : 0.15), radius: last3 ? 22 : 12)
-            Button("+30 秒", action: onAdd)
-                .buttonStyle(GhostButtonStyle())
-                .frame(width: 120)
-        }
-        .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity)
     }
 
     private func doneButton(over: Double) -> some View {
         let pop = reduceMotion ? 1 : 1 + 0.08 * exp(-over * 5) * cos(over * 16)
         let glow = reduceMotion ? 0.5 : 0.4 + 0.3 * sin(over * 5)
-        return VStack(spacing: 14) {
-            Button(action: onSkip) {
-                VStack(spacing: 8) {
-                    Image(systemName: "bolt.fill").font(.system(size: 48, weight: .black))
-                    Text("休息結束").font(.title2.weight(.black))
-                    Text("點一下開始下一組").font(.subheadline.weight(.bold))
-                }
-                .foregroundStyle(Theme.bg)
-                .frame(width: 236, height: 236)
-                .background(Circle().fill(Theme.green))
-                .shadow(color: Theme.green.opacity(glow), radius: 26)
+        return Button(action: onSkip) {
+            VStack(spacing: 6) {
+                Image(systemName: "bolt.fill").font(.system(size: 42, weight: .black))
+                Text("休息結束").font(.title2.weight(.black))
+                Text("點一下開始下一組").font(.subheadline.weight(.bold))
             }
-            .buttonStyle(.plain)
-            .scaleEffect(pop)
-            Text("超過 \(Int(over)) 秒").font(.caption).foregroundStyle(Theme.muted)
+            .foregroundStyle(Theme.bg)
+            .frame(width: 210, height: 210)
+            .background(Circle().fill(Theme.green))
+            .shadow(color: Theme.green.opacity(glow), radius: 26)
         }
+        .buttonStyle(.plain)
+        .scaleEffect(pop)
         .frame(maxWidth: .infinity)
     }
+
+    // MARK: 角色和連擊
+
+    /// 休息中角色在旁邊喘氣、每隔一陣子喝口水，最後 3 秒擺出準備姿勢。
+    private func character(left: Double) -> some View {
+        let move: CharacterMove
+        if left <= 3 {
+            move = .ready
+        } else {
+            let cycle = (total - left).truncatingRemainder(dividingBy: 18)
+            move = cycle >= 10 && cycle < 15.2 ? .drink : .breathe
+        }
+        return CharacterView(move: move, loadout: inventory.state.loadout, animated: !reduceMotion, showStats: false)
+            .id(move)
+            .transition(.opacity)
+            .animation(.easeInOut(duration: 0.3), value: move)
+            .frame(width: 128)
+    }
+
+    /// 倒數時是 +30 秒；時間到後顯示「幾秒內開始可以接上連擊」。
+    @ViewBuilder
+    private func footer(left: Double) -> some View {
+        if left > 0 {
+            Button("+30 秒", action: onAdd)
+                .buttonStyle(GhostButtonStyle())
+                .frame(width: 120)
+        } else {
+            let over = -left
+            let rest = max(0, RestScreen.comboWindow - over)
+            VStack(spacing: 6) {
+                if rest > 0 {
+                    Text(combo > 0 ? "\(Int(ceil(rest))) 秒內開始 → 連擊 ×\(combo + 1)" : "\(Int(ceil(rest))) 秒內開始 → 開始連擊")
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(Theme.gold)
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Theme.line)
+                            Capsule().fill(Theme.gold).frame(width: g.size.width * rest / RestScreen.comboWindow)
+                        }
+                    }
+                    .frame(width: 220, height: 6)
+                } else {
+                    Text(combo > 0 ? "超過 \(Int(over)) 秒，連擊 ×\(combo) 會中斷" : "超過 \(Int(over)) 秒")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            .frame(height: 44)
+        }
+    }
+
+    /// 休息結束後幾秒內開始下一組算準時
+    static let comboWindow: Double = 15
 
     // MARK: 下一組
 
@@ -402,9 +467,9 @@ struct PlateChangeCard: View {
             Text(title).font(.caption.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 40, alignment: .leading)
             HStack(alignment: .center, spacing: 3) {
                 // 把手（或槓）
-                Capsule().fill(Theme.muted.opacity(0.7)).frame(width: 34, height: 10)
+                Capsule().fill(Theme.muted.opacity(0.7)).frame(width: 46, height: 14)
                 if change.use != .cable {
-                    RoundedRectangle(cornerRadius: 2).fill(Theme.muted).frame(width: 5, height: 22)
+                    RoundedRectangle(cornerRadius: 3).fill(Theme.muted).frame(width: 7, height: 32)
                 }
                 ForEach(Array(plates.enumerated()), id: \.offset) { i, kg in
                     PlateShape(kg: kg, state: flags[i] ? (mode == .remove ? PlateShape.Mark.remove : .add) : .keep)
@@ -412,11 +477,11 @@ struct PlateChangeCard: View {
                 if plates.isEmpty {
                     Text("不裝槓片").font(.caption2).foregroundStyle(Theme.muted)
                 }
-                Capsule().fill(Theme.muted.opacity(0.5)).frame(width: 14, height: 8)
+                Capsule().fill(Theme.muted.opacity(0.5)).frame(width: 20, height: 12)
             }
             Spacer(minLength: 0)
         }
-        .frame(minHeight: 70)
+        .frame(minHeight: 110)
     }
 
     private func summary(removed: [Double], added: [Double]) -> some View {
@@ -445,15 +510,15 @@ struct PlateShape: View {
 
     private var height: CGFloat {
         switch kg {
-        case ..<1.3: 30
-        case ..<2.6: 42
-        case ..<3.1: 48
-        case ..<5.1: 56
-        default: 64
+        case ..<1.3: 45
+        case ..<2.6: 63
+        case ..<3.1: 72
+        case ..<5.1: 84
+        default: 96
         }
     }
 
-    private var width: CGFloat { kg < 1.3 ? 9 : (kg < 3.1 ? 12 : 15) }
+    private var width: CGFloat { kg < 1.3 ? 14 : (kg < 3.1 ? 18 : 22) }
 
     private var color: Color {
         switch kg {
@@ -474,15 +539,15 @@ struct PlateShape: View {
                         .stroke(state == .add ? .white : .black.opacity(0.35), lineWidth: state == .add ? 2 : 1))
                     .shadow(color: state == .add ? color : .clear, radius: 6)
                 if state == .remove {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .black)).foregroundStyle(Color(gearHex: "#FF5A6E"))
+                    Image(systemName: "xmark").font(.system(size: 14, weight: .black)).foregroundStyle(Color(gearHex: "#FF5A6E"))
                 }
             }
             .frame(width: width, height: height)
             Text(Progression.format(kg))
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(state == .remove ? Color(gearHex: "#FF5A6E") : (state == .add ? Theme.green : Theme.muted))
                 .fixedSize()
-                .frame(width: max(width, 18))
+                .frame(width: max(width, 24))
         }
         .accessibilityLabel("\(Progression.format(kg)) 公斤" + (state == .remove ? "，拆掉" : state == .add ? "，加上" : ""))
     }
@@ -515,3 +580,70 @@ struct SecondTicks: ViewModifier {
         .onChange(of: end) { fired = [] }
     }
 }
+
+// MARK: - 連擊特效
+
+struct ComboMoment: Identifiable, Equatable {
+    let id = UUID()
+    let combo: Int
+    static let duration = 1.3
+}
+
+/// 準時開始下一組：「連擊 ×N」從中間彈出、噴星星，越高越華麗（5、10 連擊加光環）。
+struct ComboBurstView: View {
+    let moment: ComboMoment
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var start = Date()
+
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            let t = ctx.date.timeIntervalSince(start)
+            let n = moment.combo
+            let big = n >= 10 ? 2 : (n >= 5 ? 1 : 0)
+            let col = big == 2 ? Theme.hot : Theme.gold
+            let fade = 1 - FXMath.seg(t, ComboMoment.duration - 0.35, ComboMoment.duration)
+            GeometryReader { geo in
+                let c = CGPoint(x: geo.size.width / 2, y: geo.size.height * 0.34)
+                ZStack {
+                    if !reduceMotion {
+                        Canvas { g, _ in
+                            FX.glow(&g, center: c, radius: 150 + 40 * Double(big), color: col, alpha: 0.35 * fade)
+                            if big > 0 {
+                                FX.ring(&g, center: c, progress: FXMath.seg(t, 0, 0.6), maxRadius: 220, color: col)
+                            }
+                            FX.sparkBurst(&g, center: c, tau: t, count: 14 + 10 * big, speed: 260 + 80 * Double(big),
+                                          colors: [col, .white, Theme.gold])
+                        }
+                    }
+                    VStack(spacing: -4) {
+                        Text("COMBO")
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .tracking(4)
+                            .foregroundStyle(.white)
+                        Text("×\(n)")
+                            .font(.system(size: 72 + 8 * CGFloat(big), weight: .black, design: .rounded))
+                            .foregroundStyle(LinearGradient(colors: [.white, col], startPoint: .top, endPoint: .bottom))
+                            .shadow(color: col.opacity(0.8), radius: 14)
+                        Text(n >= 10 ? "停不下來！" : (n >= 5 ? "節奏超穩！" : "準時開練"))
+                            .font(.subheadline.weight(.heavy))
+                            .foregroundStyle(col)
+                    }
+                    .scaleEffect(reduceMotion ? 1 : 0.4 + 0.6 * FXMath.easeOutBack(FXMath.seg(t, 0, 0.3)))
+                    .position(c)
+                }
+                .opacity(fade)
+            }
+        }
+        .allowsHitTesting(false)
+        .onAppear {
+            start = Date()
+            UIImpactFeedbackGenerator(style: moment.combo >= 5 ? .heavy : .medium).impactOccurred()
+            if moment.combo >= 5 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+            }
+        }
+    }
+}
+
