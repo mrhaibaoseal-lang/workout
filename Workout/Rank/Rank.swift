@@ -92,10 +92,13 @@ struct Rank: Equatable {
 
 /// 積分的一筆加減紀錄。
 struct RankEvent: Identifiable {
+    enum Kind { case workout, record, weekly }
+
     let id = UUID()
     let date: Date
     let delta: Int
     let reason: String
+    var kind: Kind = .workout
 }
 
 /// 從訓練紀錄算出積分；不另外存資料，所以刪紀錄、改週目標都會自動重算。
@@ -142,7 +145,7 @@ enum RankEngine {
                 }
             }
             if prs > 0 {
-                events.append(RankEvent(date: s.date, delta: min(prCap, prs * prPoints), reason: "破個人紀錄 × \(prs)"))
+                events.append(RankEvent(date: s.date, delta: min(prCap, prs * prPoints), reason: "破個人紀錄 × \(prs)", kind: .record))
             }
         }
 
@@ -158,13 +161,13 @@ enum RankEngine {
                 streak += 1
                 let extra = min(streakMax, (streak - 1) * streakStep)
                 events.append(RankEvent(date: settle, delta: goalBonus + extra,
-                                        reason: streak > 1 ? "週目標達成（連續 \(streak) 週）" : "週目標達成"))
+                                        reason: streak > 1 ? "週目標達成（連續 \(streak) 週）" : "週目標達成", kind: .weekly))
             } else {
                 streak = 0
                 if count == 0 {
-                    events.append(RankEvent(date: settle, delta: -emptyWeekPenalty, reason: "整週沒練"))
+                    events.append(RankEvent(date: settle, delta: -emptyWeekPenalty, reason: "整週沒練", kind: .weekly))
                 } else if count == 1 && goal > 1 {
-                    events.append(RankEvent(date: settle, delta: -lightWeekPenalty, reason: "這週只練 1 次"))
+                    events.append(RankEvent(date: settle, delta: -lightWeekPenalty, reason: "這週只練 1 次", kind: .weekly))
                 }
             }
             week = next
@@ -179,5 +182,34 @@ enum RankEngine {
 
     static func rank(sessions: [WorkoutSession], goal: Int, now: Date = .now) -> Rank {
         Rank(points: total(ledger(sessions: sessions, goal: goal, now: now)))
+    }
+}
+
+/// 牌位的一格（階＋小段），晉級畫面用來表示「從哪裡到哪裡」。
+struct RankStep: Equatable {
+    let tier: RankTier
+    /// 3 = III … 1 = I；大師、王者為 nil
+    let division: Int?
+
+    init(tier: RankTier, division: Int?) {
+        self.tier = tier
+        self.division = tier.hasDivisions ? division : nil
+    }
+
+    init(_ rank: Rank) {
+        self.init(tier: rank.tier, division: rank.division)
+    }
+
+    /// 由 Rank.index 反推。
+    init(index: Int) {
+        let t = RankTier(rawValue: max(0, min(RankTier.champion.rawValue, index / 3))) ?? .iron
+        self.init(tier: t, division: t.hasDivisions ? 3 - index % 3 : nil)
+    }
+
+    var index: Int { tier.rawValue * 3 + (3 - (division ?? 3)) }
+
+    var title: String {
+        guard let d = division else { return tier.name }
+        return "\(tier.name) \(["I", "II", "III"][d - 1])"
     }
 }

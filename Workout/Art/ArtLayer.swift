@@ -17,14 +17,30 @@ struct ArtLayer {
     let width: CGFloat
     /// 大於 0 時整層模糊（發光用），單位同座標。
     let blur: CGFloat
+    /// 動畫用（牌位獎章）：部位編號、支點、同部位第幾片、是否為鏡像那一份、是否為輪廓（反光只掃在輪廓裡）。
+    /// 意義見 scripts/art/badges.js 的 PART。
+    let part: Int
+    let pivot: CGPoint
+    let index: Int
+    let mirrored: Bool
+    let clip: Bool
 
-    init(_ d: String, _ fill: Fill, stroke: String? = nil, width: CGFloat = 0, blur: CGFloat = 0) {
+    init(_ d: String, _ fill: Fill, stroke: String? = nil, width: CGFloat = 0, blur: CGFloat = 0,
+         part: Int = 0, px: CGFloat = 60, py: CGFloat = 58, i: Int = 0, m: Bool = false, clip: Bool = false) {
         self.d = d
         self.fill = fill
         self.stroke = stroke
         self.width = width
         self.blur = blur
+        self.part = part
+        self.pivot = CGPoint(x: px, y: py)
+        self.index = i
+        self.mirrored = m
+        self.clip = clip
     }
+
+    /// 形狀的外框（快取）。
+    var bounds: CGRect { SVGPathCache.bounds(d) }
 
     var path: Path { SVGPathCache.path(d) }
 
@@ -83,7 +99,19 @@ extension Array where Element == ArtLayer {
 /// 只支援產生器會輸出的指令：絕對座標 M L Q C Z。
 enum SVGPathCache {
     private static var cache: [String: Path] = [:]
+    private static var boxes: [String: CGRect] = [:]
     private static let lock = NSLock()
+
+    static func bounds(_ d: String) -> CGRect {
+        lock.lock()
+        if let b = boxes[d] { lock.unlock(); return b }
+        lock.unlock()
+        let b = path(d).boundingRect
+        lock.lock()
+        boxes[d] = b
+        lock.unlock()
+        return b
+    }
 
     static func path(_ d: String) -> Path {
         lock.lock()
