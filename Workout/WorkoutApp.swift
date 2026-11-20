@@ -59,6 +59,8 @@ struct RootView: View {
             }
         }
         .environmentObject(inventory)
+        .preferredColorScheme(.dark)
+        .tint(Theme.accent)
         .onChange(of: syncKey) { sync() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { sync() }

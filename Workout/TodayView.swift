@@ -9,9 +9,13 @@ struct ActiveWorkout: Identifiable {
 
 struct TodayView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
+    @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
+    @AppStorage(Keys.increment) private var increment = 2.5
+    @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
+    @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
     // Read so the view refreshes when any planner input changes.
     @AppStorage(ClassStore.key) private var classesRaw = ""
     @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
@@ -51,33 +55,26 @@ struct TodayView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    if missed {
+                VStack(spacing: 14) {
+                    header
+                    if missed && !trainedToday {
                         MissedCard {
                             active = ActiveWorkout(day: day, length: .minimal)
                         }
                     }
                     let plans = self.plans
-                    if let today = plans.first {
-                        TodayPlanCard(plan: today)
-                    }
-                    WeekStrip(plans: plans)
-                    WeekCard(week: week, phase: phase,
-                             done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
-                             streak: Stats.weekStreak(sessions))
-                    if trainedToday {
-                        Label("今天已經練完了，好好休息！", systemImage: "checkmark.seal.fill")
-                            .font(.headline)
-                            .foregroundStyle(.green)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-                    }
-                    workoutCard
+                    WeekRingCard(week: week, phase: phase,
+                                 done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
+                                 plans: plans)
+                    heroCard(today: plans.first)
+                    exerciseList
+                    boxStrip
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
-            .navigationTitle("今天練什麼")
+            .themeScreen()
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 guard !lengthChosen, let today = plans.first, !today.done else { return }
                 length = today.length ?? .minimal
@@ -94,20 +91,53 @@ struct TodayView: View {
         }
     }
 
-    private var lengthHint: String {
-        switch length {
-        case .full: "有空、有心情的日子，練好練滿"
-        case .short: "很累、很忙的日子，只做最重要的 3 個動作"
-        case .minimal: "超懶的日子：換好衣服，做 1 組就好。做完再決定要不要繼續"
+    // MARK: Header
+
+    private var header: some View {
+        let now = Date()
+        let cal = Calendar.current
+        let dateText = "週\(TimeFmt.weekday(now)) \(cal.component(.month, from: now)) 月 \(cal.component(.day, from: now)) 日"
+        let streak = Stats.weekStreak(sessions)
+        return HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(dateText)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+                Text("今天練什麼")
+                    .font(.system(size: 30, weight: .black))
+                    .foregroundStyle(Theme.fg)
+            }
+            Spacer()
+            if streak > 0 {
+                Label("連續 \(streak) 週", systemImage: "flame.fill")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Theme.hotText)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Theme.hotBg, in: Capsule())
+                    .overlay(Capsule().stroke(Theme.hotLine, lineWidth: 1))
+            }
         }
+        .padding(.top, 12)
     }
 
-    private var workoutCard: some View {
+    // MARK: Hero
+
+    private func heroCard(today: DayPlan?) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(day.name).font(.title2.bold())
-                    Text(day.focus).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Tag(text: length.title, fg: Theme.bg, bg: Theme.accent)
+                if trainedToday {
+                    Label("今天練完了", systemImage: "checkmark.seal.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.green)
+                } else if let start = today?.start {
+                    Text("\(TimeFmt.hm(start)) 開始")
+                        .font(Theme.number(14, .bold))
+                        .foregroundStyle(Theme.accentSoft)
+                } else if today?.done == false {
+                    Text("今天沒排，想動也可以")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.accentSoft)
                 }
                 Spacer()
                 Menu {
@@ -116,58 +146,193 @@ struct TodayView: View {
                     }
                 } label: {
                     Label("換一天", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.subheadline)
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.accentSoft)
                 }
             }
 
-            Picker("長度", selection: $length) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(day.name)
+                    .font(.system(size: 34, weight: .black))
+                    .foregroundStyle(Theme.fg)
+                Text(summaryLine)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.accentSoft)
+            }
+
+            if let reason = today?.reason, !reason.isEmpty, !trainedToday {
+                Text(reason)
+                    .font(.caption)
+                    .foregroundStyle(Theme.accentSoft.opacity(0.8))
+            }
+
+            HStack(spacing: 6) {
                 ForEach(WorkoutLength.allCases) { l in
-                    Text(l.title).tag(l)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            Text(lengthHint)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            if length != .minimal {
-                Text("約 \(ProgramBuilder.estimatedMinutes(plan)) 分鐘 · \(plan.count) 個動作")
-                    .font(.subheadline.bold())
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(plan) { item in
-                    HStack {
-                        Text(item.exercise.name)
-                        Spacer()
-                        Text("\(item.sets) 組 × \(item.low)-\(item.high) \(item.exercise.unit.label)")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
+                    let on = l == length
+                    Button { length = l } label: {
+                        Text(l.title)
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(on ? Theme.bg : Color(gearHex: "#DCE4F7"))
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(on ? Theme.accent : .clear, in: Capsule())
+                            .overlay(Capsule().stroke(on ? Theme.accent : Theme.accentDim, lineWidth: 1))
                     }
+                    .buttonStyle(.plain)
                 }
-            }
-
-            if plan.isEmpty {
-                Text("目前器材找不到適合的動作，請到「設定」勾選你的器材。")
-                    .foregroundStyle(.orange)
             }
 
             Button {
                 active = ActiveWorkout(day: day, length: length)
             } label: {
-                Text(length == .minimal ? "做 1 組就好" : "開始訓練")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                Label(length == .minimal ? "做 1 組就好" : "開始訓練", systemImage: "play.fill")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(HotButtonStyle())
             .disabled(plan.isEmpty)
+            .opacity(plan.isEmpty ? 0.4 : 1)
         }
-        .padding()
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack(alignment: .topTrailing) {
+                Theme.heroGradient
+                Image(systemName: "dumbbell")
+                    .font(.system(size: 120, weight: .ultraLight))
+                    .foregroundStyle(Color(gearHex: "#3D5191").opacity(0.6))
+                    .rotationEffect(.degrees(-20))
+                    .offset(x: 30, y: -10)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color(gearHex: "#34446F"), lineWidth: 1))
+    }
+
+    private var summaryLine: String {
+        let sets = plan.reduce(0) { $0 + $1.sets }
+        if length == .minimal { return "\(day.focus) · 做 1 組就算數" }
+        return "約 \(ProgramBuilder.estimatedMinutes(plan)) 分鐘 · \(plan.count) 個動作 · \(sets) 組"
+    }
+
+    // MARK: Exercises
+
+    private struct Row: Identifiable {
+        let index: Int
+        let item: PlannedExercise
+        let load: String
+        let up: Bool
+        var id: String { item.id }
+    }
+
+    private var rows: [Row] {
+        plan.enumerated().map { i, item in
+            let last = Progression.lastSets(for: item.exercise.id, in: sessions)
+            let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
+            let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap)
+            let lastWeight = last.map(\.weight).max() ?? 0
+            let load: String
+            if !item.exercise.loaded {
+                load = "徒手"
+            } else if s.weight > 0 {
+                load = "\(Progression.format(s.weight)) kg"
+            } else {
+                load = "自選"
+            }
+            return Row(index: i + 1, item: item, load: load,
+                       up: item.exercise.loaded && lastWeight > 0 && s.weight > lastWeight)
+        }
+    }
+
+    @ViewBuilder
+    private var exerciseList: some View {
+        let rows = self.rows
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("今天的動作").font(.headline).foregroundStyle(Theme.fg)
+                Spacer()
+                let ups = rows.filter(\.up).count
+                if ups > 0 {
+                    Text("\(ups) 個建議加重").font(.footnote).foregroundStyle(Theme.muted)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.top, 8)
+
+            if rows.isEmpty {
+                Text("目前器材找不到適合的動作，請到「設定」勾選你的器材。")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.hotText)
+                    .themeCard()
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(rows) { r in
+                        HStack(spacing: 12) {
+                            Text("\(r.index)")
+                                .font(Theme.number(15))
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 40, height: 40)
+                                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(r.item.exercise.name)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(Theme.fg)
+                                Text("\(r.item.sets) 組 × \(r.item.low)–\(r.item.high) \(r.item.exercise.unit.label)")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.muted)
+                            }
+                            Spacer(minLength: 8)
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Text(r.load)
+                                    .font(Theme.number(15))
+                                    .foregroundStyle(Theme.fg)
+                                if r.up { Tag(text: "加重") }
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 12)
+                        if r.index < rows.count {
+                            Divider().overlay(Theme.divider)
+                        }
+                    }
+                }
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
+            }
+        }
+    }
+
+    // MARK: Supply box
+
+    private var boxStrip: some View {
+        let count = sessions.count
+        let waiting = inventory.boxesAvailable(sessionCount: count)
+        let next = Milestone.all
+            .filter { $0.kind == .sessions && $0.goal > count }
+            .min { $0.goal < $1.goal }
+        let title = waiting > 0 ? "有 \(waiting) 個補給箱還沒開" : (trainedToday ? "明天練完再拿 1 個補給箱" : "練完拿 1 個補給箱")
+        return HStack(spacing: 12) {
+            Image(systemName: "shippingbox.fill")
+                .font(.title3)
+                .foregroundStyle(Theme.gold)
+                .frame(width: 46, height: 46)
+                .background(Theme.goldBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.fg)
+                if let m = next, let item = m.item {
+                    Text("再 \(m.goal - count) 次解鎖「\(item.name)」（\(m.condition)）")
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(Color(gearHex: "#4A3C1E"), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
     }
 }
+
+// MARK: - Cards
 
 struct MissedCard: View {
     let onStart: () -> Void
@@ -176,131 +341,110 @@ struct MissedCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("上次排定的練習沒做到", systemImage: "exclamationmark.triangle.fill")
                 .font(.headline)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.hotText)
             Text("沒關係，但規則是**絕不連續兩次**。以前放棄，都是從漏練一次、再漏一次開始的。今天就算只做 1 組也算數。")
                 .font(.subheadline)
+                .foregroundStyle(Theme.fg)
             Button(action: onStart) {
                 Text("現在做 1 組")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.orange)
+            .buttonStyle(HotButtonStyle(height: 48))
         }
-        .padding()
-        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.hotLine, lineWidth: 1))
     }
 }
 
-struct WeekCard: View {
+/// Weekly goal ring plus the next 7 days from the planner.
+struct WeekRingCard: View {
     let week: Int
     let phase: Phase
     let done: Int
     let goal: Int
-    let streak: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("第 \(week) 週").font(.title3.bold())
-                Text(phase.title)
-                    .font(.caption.bold())
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(.tint.opacity(0.15), in: Capsule())
-                Spacer()
-                if streak > 0 {
-                    Label("連續 \(streak) 週", systemImage: "flame.fill")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.orange)
-                }
-            }
-            Text(phase.note)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                ForEach(0..<max(goal, done), id: \.self) { i in
-                    Capsule()
-                        .fill(i < done ? Color.accentColor : Color.secondary.opacity(0.25))
-                        .frame(height: 10)
-                }
-            }
-            Text(done >= goal ? "本週目標達成 🎉" : "本週 \(done) / \(goal) 次")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-struct TodayPlanCard: View {
-    let plan: DayPlan
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("今天的安排").font(.caption.bold()).foregroundStyle(.secondary)
-            if plan.done {
-                Label("今天練完了", systemImage: "checkmark.seal.fill")
-                    .font(.title3.bold()).foregroundStyle(.green)
-            } else if let length = plan.length, let start = plan.start {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(length.title).font(.title2.bold())
-                    Spacer()
-                    Text("\(TimeFmt.hm(start)) 開始").font(.title3.bold()).monospacedDigit()
-                }
-            } else {
-                Text("今天休息").font(.title2.bold())
-                Text("想動的話，下面選「只做 1 組」也算數。")
-                    .font(.subheadline).foregroundStyle(.secondary)
-            }
-            Text(plan.reason)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-struct WeekStrip: View {
     let plans: [DayPlan]
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(plans) { p in
-                VStack(spacing: 4) {
-                    Text(Calendar.current.isDateInToday(p.day) ? "今" : TimeFmt.weekday(p.day))
-                        .font(.caption.bold())
-                    Text("\(Calendar.current.component(.day, from: p.day))")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    symbol(p)
-                        .frame(height: 22)
-                    Text(p.start.map(TimeFmt.hm) ?? " ")
-                        .font(.system(size: 10)).monospacedDigit()
-                        .foregroundStyle(.secondary)
+        HStack(spacing: 16) {
+            ZStack {
+                Ring(progress: goal > 0 ? Double(done) / Double(goal) : 0,
+                     color: done >= goal ? Theme.green : Theme.accent)
+                VStack(spacing: 0) {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text("\(done)").font(Theme.number(24))
+                        Text("/\(goal)").font(Theme.number(14, .bold)).foregroundStyle(Theme.muted)
+                    }
+                    .foregroundStyle(Theme.fg)
+                    Text("本週").font(.caption2).foregroundStyle(Theme.muted)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Calendar.current.isDateInToday(p.day) ? Color.accentColor.opacity(0.12) : .clear,
-                            in: RoundedRectangle(cornerRadius: 10))
+            }
+            .frame(width: 84, height: 84)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("第 \(week) 週").font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
+                    Text(phase.title)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Theme.accent)
+                    Spacer()
+                }
+                HStack(spacing: 4) {
+                    ForEach(plans) { p in
+                        DayDot(plan: p)
+                    }
+                }
             }
         }
-        .padding(8)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .themeCard()
+    }
+}
+
+struct DayDot: View {
+    let plan: DayPlan
+
+    private var isToday: Bool { Calendar.current.isDateInToday(plan.day) }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(isToday ? "今" : TimeFmt.weekday(plan.day))
+                .font(.caption2.weight(isToday ? .bold : .regular))
+                .foregroundStyle(isToday ? Theme.hotText : Theme.muted)
+            box
+                .frame(width: 26, height: 26)
+            Text(caption)
+                .font(.system(size: 9, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var caption: String {
+        if plan.done { return "完成" }
+        if let s = plan.start { return TimeFmt.hm(s) }
+        return " "
     }
 
     @ViewBuilder
-    private func symbol(_ p: DayPlan) -> some View {
-        if p.done {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-        } else if p.length == .full {
-            Text("60").font(.subheadline.bold()).foregroundStyle(.tint)
-        } else if p.length == .short {
-            Text("20").font(.subheadline.bold()).foregroundStyle(.orange)
+    private var box: some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        if plan.done {
+            shape.fill(Theme.accent)
+                .overlay(Image(systemName: "checkmark").font(.caption2.weight(.heavy)).foregroundStyle(Theme.bg))
+        } else if plan.length != nil {
+            if isToday {
+                shape.fill(Theme.hotBg).overlay(shape.stroke(Theme.hot, lineWidth: 2))
+                    .overlay(Text(plan.length == .full ? "60" : "20")
+                        .font(Theme.number(10)).foregroundStyle(Theme.hotText))
+            } else {
+                shape.stroke(Theme.accentDim, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
+                    .overlay(Text(plan.length == .full ? "60" : "20")
+                        .font(Theme.number(10)).foregroundStyle(Theme.accentSoft))
+            }
         } else {
-            Image(systemName: "moon.zzz").foregroundStyle(.secondary)
+            shape.fill(Color(gearHex: "#1F2732"))
         }
     }
 }
