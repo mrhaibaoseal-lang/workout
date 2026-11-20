@@ -47,7 +47,7 @@ struct CharacterScreen: View {
                     .foregroundStyle(Color.white.opacity(0.55))
             }
             Picker("動作", selection: $move) {
-                ForEach(CharacterMove.allCases) { m in
+                ForEach(CharacterMove.basic) { m in
                     Text(m.title).tag(m)
                 }
             }

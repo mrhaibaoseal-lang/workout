@@ -345,9 +345,25 @@ struct ExerciseCard: View {
     private var ex: Exercise { draft.item.exercise }
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
     private var hasActive: Bool { draft.sets.contains { $0.id == activeSetId } }
+    @EnvironmentObject private var inventory: InventoryStore
+
+    private var demoStage: some View {
+        CharacterView(move: CharacterMove.forExercise(ex), loadout: inventory.state.loadout,
+                      animated: true, showStats: false)
+            .frame(maxWidth: .infinity)
+            .frame(height: 160)
+            .background(
+                RadialGradient(
+                    colors: [Color(gearHex: "#26303D"), Color(gearHex: "#141920"), Color(gearHex: "#0C0F14")],
+                    center: .top, startRadius: 10, endRadius: 260),
+                in: RoundedRectangle(cornerRadius: 14))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if hasActive {
+                demoStage
+            }
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("動作 \(number) / \(total)")

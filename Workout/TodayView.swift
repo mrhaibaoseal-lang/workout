@@ -87,6 +87,7 @@ struct TodayView: View {
                 WorkoutView(day: a.day, length: a.length, week: week) {
                     pickedDay = nil
                 }
+                .environmentObject(inventory)
             }
         }
     }

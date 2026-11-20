@@ -768,6 +768,8 @@ enum CharacterRenderer {
                 }
             }
             pen.rect(&c, r, 5, fill: bc, stroke: K, sw: 2.5)
+        case .bare:
+            break
         case .db:
             let plates: [(CGPoint, CGFloat)] = [(hf, 8), (h, 9)]
             for (p, rad) in plates {
