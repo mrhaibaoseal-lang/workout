@@ -79,11 +79,11 @@ enum WeightKits {
     /// 第一組器材（主要啞鈴）優先；後面的器材只補「比前面最重還重」的重量，加重時才不會一直換啞鈴。
     /// 回傳空陣列＝沒有設定器材（例如健身房），改用「每次加重」的設定。
     static func loadings(for ex: Exercise, kits: [WeightKit] = load()) -> [Loading] {
-        guard let use = use(for: ex) else { return [] }
+        guard let kind = use(for: ex) else { return [] }
         var result: [Loading] = []
         for kit in kits {
             let ceiling = result.last?.weight ?? -1
-            let options = loadings(kit, use).sorted {
+            let options = loadings(kit, kind).sorted {
                 $0.weight != $1.weight ? $0.weight < $1.weight : $0.plates.count < $1.plates.count
             }
             for l in options where l.weight > ceiling + 0.01 {
@@ -93,7 +93,7 @@ enum WeightKits {
         }
         // 槓鈴、滑輪的組合很細，加重一級太少：相鄰兩級至少差 2.5 kg／1.25 kg
         let gap: Double
-        switch use {
+        switch kind {
         case .barbell: gap = 2.5
         case .cable: gap = 1.25
         default: return result
