@@ -478,18 +478,45 @@ const MOTION = [
 ].map((m) => [...COMMON, ...m]);
 
 // 粒子：mote 往上飄｜orbit 繞圈光點｜glint 閃光十字星｜spark 火花｜fall 往下飄｜spiral 螺旋上升｜ember 火星｜crystal 繞圈小水晶
-// n 數量、c/c2 顏色、s 大小、p 週期、r 範圍／半徑、h 高度／橢圓短軸、y 起點
-const PK = { mote: 0, orbit: 1, glint: 2, spark: 3, fall: 4, spiral: 5, ember: 6, crystal: 7 };
+// 進階（金牌以上越來越多）：burst 用力時噴發｜comet 拖尾彗星（斜軌道，像原子）｜halo 旋轉符文環｜pulse 用力時擴散波
+// arc 閃電｜flare 鏡頭光芒｜flame 往上竄的火舌｜beam 背後光柱
+// n 數量、c/c2 顏色、s 大小、p 週期、r 範圍／半徑、h 高度／橢圓短軸、y 起點（halo 為傾斜角度）
+// 原則：牌位越高，粒子種類越多、數量越多、範圍越大；鐵銅銀只有零星粒子，金開始有光柱與彗星，大師、王者有閃電、符文環、火舌。
+const PK = { mote: 0, orbit: 1, glint: 2, spark: 3, fall: 4, spiral: 5, ember: 6, crystal: 7,
+  burst: 8, comet: 9, halo: 10, pulse: 11, arc: 12, flare: 13, flame: 14, beam: 15 };
 const pt = (k, n, c, s, p, r, h = 0, y = 0, c2 = c) => ({ k: PK[k], n, c, c2, s, p, r, h, y });
 const PARTICLES = [
-  [pt('spark', 7, '#FFE2A0', 1.1, 1.7, 40, 0, 88, '#FF7A2A')],
-  [pt('mote', 10, '#FFD9A0', 1.4, 3.2, 70, 70, 96)],
-  [pt('glint', 4, '#FFFFFF', 5, 2.2, 40), pt('mote', 6, '#E6F0FF', 1.1, 3.6, 70, 70, 96)],
-  [pt('orbit', 10, '#FFE48A', 1.8, 6, 50, 16), pt('mote', 10, '#FFE9A0', 1.5, 3, 80, 80, 100), pt('glint', 3, '#FFFBE0', 5, 2.4, 44)],
-  [pt('crystal', 6, '#C8FFF4', 3, 7, 54, 18), pt('glint', 4, '#E0FFFA', 5, 2, 44)],
-  [pt('glint', 6, '#FFFFFF', 6, 1.8, 46), pt('fall', 12, '#DDE8FF', 1.3, 4, 100, 110), pt('orbit', 8, '#9DB4FF', 1.6, 5, 54, 20)],
-  [pt('spiral', 16, '#E3B8FF', 1.6, 3.5, 46, 90, 100), pt('orbit', 12, '#C78BFF', 1.8, 5, 56, 14), pt('glint', 4, '#FFFFFF', 6, 2, 48)],
-  [pt('ember', 22, '#FFE08A', 1.8, 2.6, 80, 100, 104, '#FF4A1F'), pt('glint', 4, '#FFF3C0', 6, 2.2, 48)],
+  [ // 鐵：火花＋用力時迸出鐵屑
+    pt('spark', 9, '#FFE2A0', 1.1, 1.7, 40, 0, 88, '#FF7A2A'), pt('burst', 10, '#FFC070', 1.1, FLEX, 45, 0, 0, '#FF6A20')],
+  [ // 銅：金粉＋零星閃光＋用力噴金粉
+    pt('mote', 14, '#FFD9A0', 1.4, 3.2, 70, 70, 96), pt('glint', 2, '#FFE8C8', 5, 2.6, 42), pt('burst', 12, '#FFD08A', 1.2, FLEX, 50)],
+  [ // 銀：閃光＋白粉＋雙劍交擊的白色噴發與擴散波
+    pt('glint', 5, '#FFFFFF', 5.5, 2.2, 42), pt('mote', 10, '#E6F0FF', 1.1, 3.6, 70, 70, 96),
+    pt('burst', 16, '#FFFFFF', 1.2, FLEX, 60, 0, 0, '#B8C8FF'), pt('pulse', 1, '#E6F0FF', 2, FLEX, 62)],
+  [ // 金：光柱、兩道彗星、金粉、閃光、噴發
+    pt('beam', 5, '#FFE48A', 7, 3, 70, 120), pt('comet', 2, '#FFE48A', 2, 3.2, 54, 16, 0, '#FF9A2A'),
+    pt('mote', 14, '#FFE9A0', 1.5, 3, 84, 84, 100), pt('glint', 4, '#FFFBE0', 6, 2.2, 46),
+    pt('burst', 18, '#FFE48A', 1.4, FLEX, 66, 0, 0, '#FFFFFF'), pt('pulse', 1, '#FFE48A', 2.2, FLEX, 66)],
+  [ // 白金：冰晶光柱、繞圈水晶、斜軌彗星、符文環、噴發
+    pt('beam', 4, '#C8FFF4', 8, 2.6, 64, 120), pt('halo', 24, '#7FF5E0', 1.2, 9, 58, 14, 0),
+    pt('crystal', 8, '#C8FFF4', 3.2, 7, 56, 18), pt('comet', 3, '#9CFFF0', 2, 2.8, 56, 18, 0, '#34C2B0'),
+    pt('glint', 5, '#E0FFFA', 6, 2, 46), pt('burst', 20, '#C8FFF4', 1.4, FLEX, 70, 0, 0, '#FFFFFF'), pt('pulse', 1, '#9CFFF0', 2.4, FLEX, 70)],
+  [ // 鑽石：兩圈符文環、四道彗星、鏡頭光芒、大量星光與亮粉
+    pt('beam', 5, '#BFD2FF', 8, 2.4, 70, 120), pt('halo', 28, '#9DB4FF', 1.2, 10, 60, 14, -18), pt('halo', 20, '#DDE8FF', 1, -7, 50, 10, 22),
+    pt('comet', 4, '#DDE8FF', 2.2, 2.4, 58, 18, 0, '#5B7BF0'), pt('glint', 8, '#FFFFFF', 6.5, 1.6, 50),
+    pt('fall', 18, '#DDE8FF', 1.3, 4, 110, 120), pt('flare', 1, '#FFFFFF', 13, 4, 30, 30),
+    pt('burst', 24, '#DDE8FF', 1.5, FLEX, 76, 0, 0, '#FFFFFF'), pt('pulse', 2, '#9DB4FF', 2.4, FLEX, 76)],
+  [ // 大師：紫色閃電、符文環、五道彗星、螺旋紫光、雙層擴散波
+    pt('beam', 6, '#D9A6FF', 9, 2.2, 74, 120), pt('halo', 32, '#C78BFF', 1.4, 8, 62, 15, -14), pt('halo', 16, '#F0D4FF', 1.1, -5, 48, 9, 26),
+    pt('spiral', 24, '#E3B8FF', 1.7, 3.2, 50, 100, 104), pt('comet', 5, '#F0D4FF', 2.3, 2.2, 60, 20, 0, '#A050E8'),
+    pt('arc', 3, '#E3B8FF', 1, 1.6, 46), pt('glint', 6, '#FFFFFF', 7, 1.8, 52), pt('flare', 1, '#F4E0FF', 15, 4, 32, 28),
+    pt('burst', 28, '#E3B8FF', 1.6, FLEX, 82, 0, 0, '#FFFFFF'), pt('pulse', 2, '#C78BFF', 2.6, FLEX, 82)],
+  [ // 王者：火舌、滿天火星、火焰符文環、六道火彗星、金色閃電、雙鏡頭光芒、最大的噴發與衝擊波
+    pt('beam', 8, '#FFC070', 10, 2, 80, 124), pt('halo', 36, '#FFB347', 1.5, 7, 64, 16, -12), pt('halo', 20, '#FFE0B0', 1.2, -5, 50, 10, 24),
+    pt('flame', 16, '#FFF3A0', 4.5, 1.4, 70, 60, 112, '#FF3A1A'), pt('ember', 32, '#FFE08A', 1.9, 2.6, 96, 116, 110, '#FF4A1F'),
+    pt('comet', 6, '#FFE0B0', 2.5, 2, 62, 20, 0, '#FF4A1F'), pt('arc', 2, '#FFE08A', 1, 1.8, 48),
+    pt('glint', 6, '#FFF3C0', 7.5, 1.8, 54), pt('flare', 2, '#FFF6D8', 16, 4, 34, 30),
+    pt('burst', 34, '#FFD27A', 1.8, FLEX, 90, 0, 0, '#FF4A1F'), pt('pulse', 2, '#FFB347', 3, FLEX, 90)],
 ];
 // 反光掃過：[週期秒數, 強度]
 const SHEEN = [[4, 0.35], [3.6, 0.4], [2.8, 0.6], [3, 0.55], [2.6, 0.6], [2.4, 0.7], [3, 0.5], [3, 0.5]];

@@ -162,8 +162,137 @@
     ctx.globalAlpha = a * 0.25; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = op;
   }
+  // 旋轉的十字星（鏡頭光芒用）
+  function star4r(ctx, x, y, r, rot, col, a) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); star4(ctx, 0, 0, r, col, a); ctx.restore();
+  }
+  // 斜軌道橢圓上的點：r、h 半軸，tilt 傾斜（弧度）
+  const orbitPt = (r, h, tilt, a) => {
+    const ex = r * Math.cos(a), ey = h * Math.sin(a);
+    return [60 + ex * Math.cos(tilt) - ey * Math.sin(tilt), 58 + ex * Math.sin(tilt) + ey * Math.cos(tilt)];
+  };
+  // 進階粒子（kind 8 以上），每一種自己跑迴圈。front：畫在獎章前面（true）或後面（false）
+  function fancy(ctx, q, si, t, front, fade) {
+    const op = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    switch (q.k) {
+      case 8: { // burst：每次用力，從中心噴出光條
+        if (!front) break;
+        const u = ((t % q.p) + q.p) % q.p;
+        if (u > 0.9) break;
+        const e = easeOutCubic(Math.min(1, u / 0.6)), a = (1 - u / 0.9) * fade;
+        for (let j = 0; j < q.n; j++) {
+          const an = rnd(j, si + 81) * TAU, d = 28 + (q.r - 28) * (0.4 + 0.6 * rnd(j, si + 82)) * e;   // 從獎章邊緣往外噴，不蓋住正面
+          const x = 60 + d * Math.cos(an), y = 56 + d * Math.sin(an) + 10 * u * u;
+          const len = 3 + 7 * (1 - u);
+          ctx.globalAlpha = a; ctx.strokeStyle = mix(q.c, q.c2, u / 0.9); ctx.lineWidth = q.s;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len * Math.cos(an), y - len * Math.sin(an)); ctx.stroke();
+          dot(ctx, x, y, q.s * 0.45, '#FFFFFF', a);
+        }
+        break;
+      }
+      case 9: { // comet：斜軌道上的彗星，拖一條漸淡的尾巴
+        for (let j = 0; j < q.n; j++) {
+          const tilt = j / q.n * Math.PI + 0.35, an = TAU * (t / q.p + j * 0.37);
+          for (let k = 15; k >= 0; k--) {
+            const a = an - k * 0.06;
+            if ((Math.sin(a) > 0) !== front) continue;
+            const [x, y] = orbitPt(q.r, q.h, tilt, a), f = 1 - k / 16;
+            dot(ctx, x, y, q.s * (0.2 + 0.5 * f), k === 0 ? '#FFFFFF' : mix(q.c, q.c2, k / 16), Math.pow(f, 1.5) * fade);
+          }
+        }
+        break;
+      }
+      case 10: { // halo：旋轉的符文環（虛線橢圓），後半圈較暗
+        const tilt = q.y * Math.PI / 180, off = TAU * t / q.p, seg = TAU / q.n;
+        ctx.strokeStyle = q.c;
+        if (!front) {
+          ctx.globalAlpha = 0.12 * fade; ctx.lineWidth = q.s * 0.6; ctx.beginPath();
+          for (let i = 0; i <= 48; i++) { const [x, y] = orbitPt(q.r, q.h, tilt, i / 48 * TAU); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+          ctx.stroke();
+        }
+        for (let i = 0; i < q.n; i++) {
+          const a0 = off + i * seg, mid = a0 + seg * 0.3;
+          if ((Math.sin(mid) > 0) !== front) continue;
+          const len = i % 3 === 0 ? 0.75 : 0.4;
+          ctx.globalAlpha = fade * (front ? 0.95 : 0.45); ctx.lineWidth = q.s; ctx.beginPath();
+          for (let k = 0; k <= 4; k++) { const [x, y] = orbitPt(q.r, q.h, tilt, a0 + seg * len * k / 4); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+          ctx.stroke();
+          if (i % 3 === 0) { const [x, y] = orbitPt(q.r, q.h, tilt, a0 + seg * 0.9); dot(ctx, x, y, q.s * 0.9, q.c, fade * (front ? 1 : 0.5)); }
+        }
+        break;
+      }
+      case 11: { // pulse：用力時從中心擴散的光環
+        if (front) break;
+        for (let j = 0; j < q.n; j++) {
+          const u = ((((t % q.p) + q.p) % q.p) - j * 0.18) / 1.1;
+          if (u <= 0 || u >= 1) continue;
+          ctx.globalAlpha = (1 - u) * (1 - u) * fade * 0.9; ctx.strokeStyle = q.c; ctx.lineWidth = q.s * (1 - u) + 0.3;
+          ctx.beginPath(); ctx.arc(60, 58, q.r * easeOutCubic(u), 0, TAU); ctx.stroke();
+        }
+        break;
+      }
+      case 12: { // arc：繞著獎章跳的閃電，每 0.07 秒換一次形狀
+        if (!front) break;
+        for (let j = 0; j < q.n; j++) {
+          const w = fract(t / q.p + rnd(j, si + 91));
+          if (w > 0.3) continue;
+          const a = (1 - w / 0.3) * fade, seed = Math.floor(t / 0.07) + j * 131;
+          const a0 = rnd(seed, si + 92) * TAU, span = (0.7 + 0.9 * rnd(seed, si + 93)) * (rnd(seed, si + 94) > 0.5 ? 1 : -1);
+          const pts = [];
+          for (let k = 0; k <= 7; k++) {
+            const an = a0 + span * k / 7, rr = q.r * (k === 0 || k === 7 ? 1 : 0.82 + 0.36 * rnd(seed * 8 + k, si + 95));
+            pts.push([60 + rr * Math.cos(an), 58 + rr * Math.sin(an)]);
+          }
+          for (const [wd, col, al] of [[3.2, q.c, 0.35], [q.s, '#FFFFFF', 1]]) {
+            ctx.globalAlpha = a * al; ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.beginPath();
+            pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+          }
+        }
+        break;
+      }
+      case 13: { // flare：鏡頭光芒，慢慢轉、一明一暗
+        if (!front) break;
+        for (let j = 0; j < q.n; j++) {
+          const x = j ? 60 + q.r : 60 - q.r, y = j ? 58 + q.h * 0.9 : 58 - q.h;
+          const pl = 0.65 + 0.35 * Math.sin(TAU * t / q.p + j * 2), sz = q.s * pl;
+          dot(ctx, x, y, sz * 0.22, q.c, 0.7 * fade);
+          star4r(ctx, x, y, sz, t * 0.4 + j, q.c, 0.9 * fade * pl);
+          star4r(ctx, x, y, sz * 0.5, t * 0.4 + j + Math.PI / 4, q.c, 0.7 * fade * pl);
+        }
+        break;
+      }
+      case 14: { // flame：往上竄的火舌
+        if (!front) break;
+        for (let j = 0; j < q.n; j++) {
+          const r1 = rnd(j, si + 1), r2 = rnd(j, si + 2), r3 = rnd(j, si + 3);
+          const u = fract(t / (q.p * (0.7 + 0.6 * r3)) + r1);
+          const x = 60 + (r2 - 0.5) * q.r + Math.sin(u * 5 + r3 * 6) * 4, y = q.y - u * q.h, s2 = q.s * (1 - u * 0.7);
+          ctx.globalAlpha = Math.sin(Math.PI * u) * fade * 0.85; ctx.fillStyle = mix(q.c, q.c2, u);
+          ctx.beginPath(); ctx.moveTo(x, y - 2.2 * s2); ctx.quadraticCurveTo(x + s2, y - 0.4 * s2, x, y + s2);
+          ctx.quadraticCurveTo(x - s2, y - 0.4 * s2, x, y - 2.2 * s2); ctx.fill();
+        }
+        break;
+      }
+      case 15: { // beam：背後一道道光柱，輪流亮起
+        if (front) break;
+        for (let j = 0; j < q.n; j++) {
+          const r1 = rnd(j, si + 1), r2 = rnd(j, si + 2), r3 = rnd(j, si + 3);
+          const x = 60 + (r1 - 0.5) * q.r, w = q.s * (0.6 + 0.6 * r2);
+          const a = Math.pow(0.5 + 0.5 * Math.sin(TAU * (t / q.p + r3)), 2) * 0.35 * fade;
+          const top = 58 - q.h / 2, g = ctx.createLinearGradient(0, top, 0, top + q.h);
+          g.addColorStop(0, hexA(q.c, 0)); g.addColorStop(0.5, hexA(q.c, a)); g.addColorStop(1, hexA(q.c, 0));
+          ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(x - w / 2, top, w, q.h);
+        }
+        break;
+      }
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = op;
+  }
   function particles(ctx, specs, t, front, fade = 1) {
     specs.forEach((q, si) => {
+      if (q.k >= 8) { fancy(ctx, q, si * 10, t, front, fade); return; }
       for (let j = 0; j < q.n; j++) {
         const r1 = rnd(j, si * 10 + 1), r2 = rnd(j, si * 10 + 2), r3 = rnd(j, si * 10 + 3);
         switch (q.k) {
@@ -266,7 +395,8 @@
         ctx.restore();
       }
     }
-    // 緞帶＋羅馬數字
+    if (pf > 0) particles(ctx, BADGE.particles[tier], t, true, pf);
+    // 緞帶＋羅馬數字（畫在粒子上面，小段永遠看得清楚）
     if (division) {
       const r = transit({ d: 'M38 96 L82 112', part: 10 }, 99, full);
       ctx.save();
@@ -283,7 +413,6 @@
       BADGE.numerals[n].forEach((l) => paint(ctx, l, r.alpha, Math.max(wh, full.flash || 0)));
       ctx.restore();
     }
-    if (pf > 0) particles(ctx, BADGE.particles[tier], t, true, pf);
   }
 
   // ---------- 晉級／掉段場景 ----------
@@ -478,7 +607,7 @@
     <canvas id=scene width=390 height=640 style="width:390px;height:640px;border-radius:24px;border:1px solid #2A3340"></canvas>`;
   const idle = document.getElementById('idle');
   const cards = [];
-  const SZ = 150, PAD = 1.3;
+  const SZ = 150, PAD = 1.6;
   BADGE.tiers.forEach((looks, ti) => {
     (ti < 6 ? [3, 2, 1] : [null]).forEach((div) => {
       const c = document.createElement('canvas');

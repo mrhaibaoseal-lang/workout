@@ -23,7 +23,7 @@ struct RankBadge: View {
     @State private var shineDone = false
 
     /// 動畫時畫布比獎章大一圈，粒子才不會被切掉；用負的 padding 讓排版大小不變。
-    private var margin: CGFloat { motion == .live && !reduceMotion ? 0.18 : 0 }
+    private var margin: CGFloat { motion == .live && !reduceMotion ? 0.3 : 0 }
 
     var body: some View {
         let side = size * 1.2

@@ -287,7 +287,8 @@ enum BadgeRenderer {
                 }
             }
         }
-        // 緞帶＋羅馬數字
+        if fx.particles > 0 { particles(&c, RankBadgeArt.particles[tier], t, front: true, fade: fx.particles) }
+        // 緞帶＋羅馬數字（畫在粒子上面，小段永遠看得清楚）
         if let d = division {
             let fake = ArtLayer("M38 96 L82 112", .solid("#FFFFFF", 0), part: 10)
             let (tm, ta) = transit(fake, 99, fx)
@@ -311,7 +312,6 @@ enum BadgeRenderer {
                 paintWhite(l, &g, max(wh, fx.flash) * ta)
             }
         }
-        if fx.particles > 0 { particles(&c, RankBadgeArt.particles[tier], t, front: true, fade: fx.particles) }
     }
 
     // MARK: 粒子
@@ -338,9 +338,150 @@ enum BadgeRenderer {
         c.fill(p, with: .color(col.opacity(a)))
     }
 
+    // MARK: 進階粒子（金牌以上越來越多）
+
+    private static func star4r(_ c: inout GraphicsContext, _ x: Double, _ y: Double, _ r: Double, _ rot: Double,
+                               _ col: Color, _ a: Double) {
+        var g = c
+        g.translateBy(x: x, y: y)
+        g.rotate(by: .radians(rot))
+        star4(&g, 0, 0, r, col, a)
+    }
+
+    /// 斜軌道橢圓上的點：r、h 半軸，tilt 傾斜（弧度）
+    private static func orbitPt(_ r: Double, _ h: Double, _ tilt: Double, _ a: Double) -> CGPoint {
+        let ex = r * cos(a), ey = h * sin(a)
+        return CGPoint(x: 60 + ex * cos(tilt) - ey * sin(tilt), y: 58 + ex * sin(tilt) + ey * cos(tilt))
+    }
+
+    private static func line(_ pts: [CGPoint]) -> Path {
+        var p = Path()
+        for (k, pt) in pts.enumerated() {
+            if k == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+        }
+        return p
+    }
+
+    /// kind 8 以上：噴發、彗星、符文環、擴散波、閃電、鏡頭光芒、火舌、光柱。
+    private static func fancy(_ c0: inout GraphicsContext, _ q: BadgeParticles, _ si: Double, _ t: Double,
+                              front: Bool, fade: Double) {
+        var c = c0
+        c.blendMode = .plusLighter
+        let round = StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
+        func stroke(_ p: Path, _ col: Color, _ w: Double) {
+            var st = round
+            st.lineWidth = w
+            c.stroke(p, with: .color(col), style: st)
+        }
+        switch q.k {
+        case 8: // burst：每次用力，從獎章邊緣往外噴出光條
+            guard front else { return }
+            let u = (t.truncatingRemainder(dividingBy: q.p) + q.p).truncatingRemainder(dividingBy: q.p)
+            guard u <= 0.9 else { return }
+            let e = M.easeOutCubic(min(1, u / 0.6)), a = (1 - u / 0.9) * fade
+            for j in 0..<q.n {
+                let an = M.rnd(j, si + 81) * M.tau, d = 28 + (q.r - 28) * (0.4 + 0.6 * M.rnd(j, si + 82)) * e
+                let x = 60 + d * cos(an), y = 56 + d * sin(an) + 10 * u * u
+                let len = 3 + 7 * (1 - u)
+                stroke(line([CGPoint(x: x, y: y), CGPoint(x: x - len * cos(an), y: y - len * sin(an))]),
+                       M.mix(q.c, q.c2, u / 0.9).opacity(a), q.s)
+                dot(&c, x, y, q.s * 0.45, .white, a)
+            }
+        case 9: // comet：斜軌道上的彗星，拖一條漸淡的尾巴
+            for j in 0..<q.n {
+                let tilt = Double(j) / Double(q.n) * .pi + 0.35, an = M.tau * (t / q.p + Double(j) * 0.37)
+                for k in stride(from: 15, through: 0, by: -1) {
+                    let a = an - Double(k) * 0.06
+                    guard (sin(a) > 0) == front else { continue }
+                    let pt = orbitPt(q.r, q.h, tilt, a), f = 1 - Double(k) / 16
+                    dot(&c, pt.x, pt.y, q.s * (0.2 + 0.5 * f), k == 0 ? .white : M.mix(q.c, q.c2, Double(k) / 16), pow(f, 1.5) * fade)
+                }
+            }
+        case 10: // halo：旋轉的符文環，後半圈較暗
+            let tilt = q.y * .pi / 180, off = M.tau * t / q.p, seg = M.tau / Double(q.n)
+            if !front {
+                stroke(line((0...48).map { orbitPt(q.r, q.h, tilt, Double($0) / 48 * M.tau) }), q.c.opacity(0.12 * fade), q.s * 0.6)
+            }
+            for i in 0..<q.n {
+                let a0 = off + Double(i) * seg, mid = a0 + seg * 0.3
+                guard (sin(mid) > 0) == front else { continue }
+                let len = i % 3 == 0 ? 0.75 : 0.4
+                stroke(line((0...4).map { orbitPt(q.r, q.h, tilt, a0 + seg * len * Double($0) / 4) }),
+                       q.c.opacity(fade * (front ? 0.95 : 0.45)), q.s)
+                if i % 3 == 0 {
+                    let pt = orbitPt(q.r, q.h, tilt, a0 + seg * 0.9)
+                    dot(&c, pt.x, pt.y, q.s * 0.9, q.c, fade * (front ? 1 : 0.5))
+                }
+            }
+        case 11: // pulse：用力時從中心擴散的光環
+            guard !front else { return }
+            for j in 0..<q.n {
+                let u = ((t.truncatingRemainder(dividingBy: q.p) + q.p).truncatingRemainder(dividingBy: q.p) - Double(j) * 0.18) / 1.1
+                guard u > 0 && u < 1 else { continue }
+                let r = q.r * M.easeOutCubic(u)
+                stroke(Path(ellipseIn: CGRect(x: 60 - r, y: 58 - r, width: r * 2, height: r * 2)),
+                       q.c.opacity((1 - u) * (1 - u) * fade * 0.9), q.s * (1 - u) + 0.3)
+            }
+        case 12: // arc：繞著獎章跳的閃電，每 0.07 秒換一次形狀
+            guard front else { return }
+            for j in 0..<q.n {
+                let w = M.fract(t / q.p + M.rnd(j, si + 91))
+                guard w <= 0.3 else { continue }
+                let a = (1 - w / 0.3) * fade, seed = Int((t / 0.07).rounded(.down)) + j * 131
+                let a0 = M.rnd(seed, si + 92) * M.tau
+                let span = (0.7 + 0.9 * M.rnd(seed, si + 93)) * (M.rnd(seed, si + 94) > 0.5 ? 1 : -1)
+                let pts = (0...7).map { k -> CGPoint in
+                    let an = a0 + span * Double(k) / 7
+                    let rr = q.r * (k == 0 || k == 7 ? 1 : 0.82 + 0.36 * M.rnd(seed * 8 + k, si + 95))
+                    return CGPoint(x: 60 + rr * cos(an), y: 58 + rr * sin(an))
+                }
+                let p = line(pts)
+                stroke(p, q.c.opacity(a * 0.35), 3.2)
+                stroke(p, .white.opacity(a), q.s)
+            }
+        case 13: // flare：鏡頭光芒，慢慢轉、一明一暗
+            guard front else { return }
+            for j in 0..<q.n {
+                let x = j > 0 ? 60 + q.r : 60 - q.r, y = j > 0 ? 58 + q.h * 0.9 : 58 - q.h
+                let pl = 0.65 + 0.35 * sin(M.tau * t / q.p + Double(j) * 2), sz = q.s * pl
+                dot(&c, x, y, sz * 0.22, q.c, 0.7 * fade)
+                star4r(&c, x, y, sz, t * 0.4 + Double(j), q.c, 0.9 * fade * pl)
+                star4r(&c, x, y, sz * 0.5, t * 0.4 + Double(j) + .pi / 4, q.c, 0.7 * fade * pl)
+            }
+        case 14: // flame：往上竄的火舌
+            guard front else { return }
+            for j in 0..<q.n {
+                let r1 = M.rnd(j, si + 1), r2 = M.rnd(j, si + 2), r3 = M.rnd(j, si + 3)
+                let u = M.fract(t / (q.p * (0.7 + 0.6 * r3)) + r1)
+                let x = 60 + (r2 - 0.5) * q.r + sin(u * 5 + r3 * 6) * 4, y = q.y - u * q.h, s2 = q.s * (1 - u * 0.7)
+                var p = Path()
+                p.move(to: CGPoint(x: x, y: y - 2.2 * s2))
+                p.addQuadCurve(to: CGPoint(x: x, y: y + s2), control: CGPoint(x: x + s2, y: y - 0.4 * s2))
+                p.addQuadCurve(to: CGPoint(x: x, y: y - 2.2 * s2), control: CGPoint(x: x - s2, y: y - 0.4 * s2))
+                c.fill(p, with: .color(M.mix(q.c, q.c2, u).opacity(sin(.pi * u) * fade * 0.85)))
+            }
+        case 15: // beam：背後一道道光柱，輪流亮起
+            guard !front else { return }
+            for j in 0..<q.n {
+                let r1 = M.rnd(j, si + 1), r2 = M.rnd(j, si + 2), r3 = M.rnd(j, si + 3)
+                let x = 60 + (r1 - 0.5) * q.r, w = q.s * (0.6 + 0.6 * r2)
+                let a = pow(0.5 + 0.5 * sin(M.tau * (t / q.p + r3)), 2) * 0.35 * fade
+                let top = 58 - q.h / 2
+                c.fill(Path(CGRect(x: x - w / 2, y: top, width: w, height: q.h)),
+                       with: .linearGradient(Gradient(colors: [q.c.opacity(0), q.c.opacity(a), q.c.opacity(0)]),
+                                             startPoint: CGPoint(x: x, y: top), endPoint: CGPoint(x: x, y: top + q.h)))
+            }
+        default: break
+        }
+    }
+
     static func particles(_ c: inout GraphicsContext, _ specs: [BadgeParticles], _ t: Double, front: Bool, fade: Double) {
         for (si, q) in specs.enumerated() {
             let salt = Double(si * 10)
+            if q.k >= 8 {
+                fancy(&c, q, salt, t, front: front, fade: fade)
+                continue
+            }
             for j in 0..<q.n {
                 let r1 = M.rnd(j, salt + 1), r2 = M.rnd(j, salt + 2), r3 = M.rnd(j, salt + 3)
                 switch q.k {
