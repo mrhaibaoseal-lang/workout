@@ -4,6 +4,10 @@ import WidgetKit
 
 @main
 struct WorkoutApp: App {
+    init() {
+        SettingsBackup.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
