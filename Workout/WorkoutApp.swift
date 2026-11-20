@@ -18,12 +18,17 @@ struct RootView: View {
     @AppStorage(Keys.onboarded) private var onboarded = false
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.reminderOn) private var reminderOn = true
-    @AppStorage(Keys.reminderWeekdays) private var weekdaysRaw = Keys.defaultWeekdays
-    @AppStorage(Keys.reminderMinutes) private var reminderMinutes = Keys.defaultMinutes
+    @AppStorage(Keys.reminderLead) private var reminderLead = 0
+    @AppStorage(ClassStore.key) private var classesRaw = ""
+    @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
+    @AppStorage(Keys.commuteWork) private var commuteWork = 5
+    @AppStorage(Keys.earliestHour) private var earliestHour = 12
+    @AppStorage(Keys.preferredHour) private var preferredHour = 14
+    @AppStorage(Keys.latestHour) private var latestHour = 25
 
     /// Changes whenever anything the widget or reminders depend on changes.
     private var syncKey: String {
-        "\(onboarded)-\(sessions.count)-\(sessions.first?.date.timeIntervalSince1970 ?? 0)-\(weeklyGoal)-\(reminderOn)-\(weekdaysRaw)-\(reminderMinutes)"
+        "\(onboarded)-\(sessions.count)-\(sessions.first?.date.timeIntervalSince1970 ?? 0)-\(weeklyGoal)-\(reminderOn)-\(reminderLead)-\(classesRaw.hashValue)-\(commuteSchool)-\(commuteWork)-\(earliestHour)-\(preferredHour)-\(latestHour)"
     }
 
     var body: some View {
@@ -51,19 +56,23 @@ struct RootView: View {
 
     private func sync() {
         guard onboarded else { return }
-        let dates = sessions.map(\.date)
-        SharedStore.save(.init(sessionDates: dates, goal: weeklyGoal,
-                               nextDay: ProgramBuilder.nextDay(after: sessions).name))
+        let plans = Planner.makePlan(sessions: sessions)
+        let next = plans.first { !$0.done && $0.length != nil }
+        let nextText: String
+        if let n = next, let start = n.start, let length = n.length {
+            let day = Calendar.current.isDateInToday(n.day) ? "今天" : "週" + TimeFmt.weekday(n.day)
+            nextText = "\(day) \(TimeFmt.hm(start)) \(length == .full ? "60 分" : "20 分")"
+        } else {
+            nextText = ProgramBuilder.nextDay(after: sessions).name
+        }
+        SharedStore.save(.init(sessionDates: sessions.map(\.date), goal: weeklyGoal, nextDay: nextText))
         WidgetCenter.shared.reloadAllTimelines()
 
-        let weekdays = Keys.parseWeekdays(weekdaysRaw)
-        let trained = SharedStore.trainedToday(dates)
-        let missed = Stats.missedLastPlanned(sessions, weekdays: weekdays)
+        let missed = Stats.missedLastPlanned(sessions, weekdays: [])
         let on = reminderOn
-        let minutes = reminderMinutes
+        let lead = reminderLead
         Task {
-            await Reminders.reschedule(enabled: on, weekdays: weekdays, minutes: minutes,
-                                       trainedToday: trained, missedLast: missed)
+            await Reminders.reschedule(enabled: on, plans: plans, leadMinutes: lead, missedLast: missed)
         }
     }
 }

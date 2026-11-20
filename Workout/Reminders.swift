@@ -1,54 +1,47 @@
 import Foundation
 import UserNotifications
 
-/// Schedules one-shot reminders for the next two weeks of planned training days.
-/// Rescheduled whenever the app becomes active or a workout is saved, so a day
-/// that's already trained gets no reminder.
+/// Schedules one-shot reminders at the times the planner picked.
+/// Rescheduled whenever the app becomes active or a workout is saved, so a
+/// trained day gets no reminder and changed shifts move the reminder.
 enum Reminders {
-    static let horizonDays = 14
-
     static func requestAuthorization() async -> Bool {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
     }
 
-    static func reschedule(enabled: Bool, weekdays: Set<Int>, minutes: Int,
-                           trainedToday: Bool, missedLast: Bool) async {
+    static func reschedule(enabled: Bool, plans: [DayPlan], leadMinutes: Int, missedLast: Bool) async {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
-        guard enabled, !weekdays.isEmpty else { return }
+        guard enabled else { return }
         guard await requestAuthorization() else { return }
 
         let cal = Calendar.current
-        let today = cal.startOfDay(for: .now)
-        var firstUpcoming = true
-
-        for offset in 0..<horizonDays {
-            guard let day = cal.date(byAdding: .day, value: offset, to: today),
-                  weekdays.contains(cal.component(.weekday, from: day)) else { continue }
-            if offset == 0 && trainedToday { continue }
-            guard let fire = cal.date(byAdding: .minute, value: minutes, to: day), fire > .now else { continue }
+        var first = true
+        for (i, p) in plans.enumerated() {
+            guard !p.done, let length = p.length, let start = p.start else { continue }
+            let fire = start.addingTimeInterval(TimeInterval(-leadMinutes * 60))
+            guard fire > .now else { continue }
 
             let content = UNMutableNotificationContent()
-            if firstUpcoming && missedLast {
+            if first && missedLast {
                 content.title = "絕不連續兩次 🔥"
-                content.body = "上次沒練到，今天別再漏了。換好衣服，做 1 組就算數。"
+                content.body = "上次沒練到，今天 \(TimeFmt.hm(start)) 別再漏了。真的很累就做 1 組，也算數。"
             } else {
+                content.title = "\(TimeFmt.hm(start)) 練\(length == .full ? "完整 60 分" : "精簡 20 分")"
                 let lines = [
-                    "換好衣服，做 1 組就好 💪",
-                    "不用練滿，先開始再說。",
-                    "累的話選精簡版，20 分鐘也算數。",
-                    "未來的你會感謝現在的你。做 1 組就好。",
+                    "換好衣服，先做 1 組再說 💪",
+                    "累的話改精簡版，20 分鐘也算數。",
+                    "不用練滿，開始就贏一半。",
+                    "未來的你會感謝現在的你。",
                 ]
-                content.title = "該練了"
-                content.body = lines[offset % lines.count]
+                content.body = lines[i % lines.count]
             }
             content.sound = .default
-            firstUpcoming = false
+            first = false
 
             let comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
             let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-            let request = UNNotificationRequest(identifier: "train-\(offset)", content: content, trigger: trigger)
-            try? await center.add(request)
+            try? await center.add(UNNotificationRequest(identifier: "train-\(i)", content: content, trigger: trigger))
         }
     }
 }

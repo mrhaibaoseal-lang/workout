@@ -31,18 +31,24 @@ struct SettingsView: View {
     @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.reminderOn) private var reminderOn = true
-    @AppStorage(Keys.reminderWeekdays) private var weekdaysRaw = Keys.defaultWeekdays
-    @AppStorage(Keys.reminderMinutes) private var reminderMinutes = Keys.defaultMinutes
+    @AppStorage(Keys.reminderLead) private var reminderLead = 0
+    @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
+    @AppStorage(Keys.commuteWork) private var commuteWork = 5
+    @AppStorage(Keys.earliestHour) private var earliestHour = 12
+    @AppStorage(Keys.preferredHour) private var preferredHour = 14
+    @AppStorage(Keys.latestHour) private var latestHour = 25
     @State private var confirmRestart = false
+    @State private var shiftInfo = ShiftReader.load()
 
-    private var reminderTime: Binding<Date> {
-        Binding(
-            get: { Calendar.current.startOfDay(for: .now).addingTimeInterval(TimeInterval(reminderMinutes * 60)) },
-            set: { date in
-                let c = Calendar.current.dateComponents([.hour, .minute], from: date)
-                reminderMinutes = (c.hour ?? 21) * 60 + (c.minute ?? 0)
-            }
-        )
+    private func hourLabel(_ h: Int) -> String {
+        h >= 24 ? "凌晨 \(h - 24):00" : "\(h):00"
+    }
+
+    private var shiftStatus: String {
+        guard shiftInfo.found else { return "讀不到。請更新「打工薪水帳」到 3.0.7 以上並打開一次。" }
+        let upcoming = shiftInfo.shifts.filter { $0.end > .now }.count
+        let updated = shiftInfo.updatedAt.map { "，更新於 \($0.formatted(date: .abbreviated, time: .shortened))" } ?? ""
+        return "已讀到，接下來 \(upcoming) 個班\(updated)"
     }
 
     var body: some View {
@@ -57,15 +63,46 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        ClassScheduleView()
+                    } label: {
+                        Label("課表", systemImage: "graduationcap")
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("班表（打工薪水帳）", systemImage: "briefcase")
+                        Text(shiftStatus).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Stepper("到學校 \(commuteSchool) 分鐘", value: $commuteSchool, in: 0...120, step: 5)
+                    Stepper("到打工地點 \(commuteWork) 分鐘", value: $commuteWork, in: 0...120, step: 5)
+                    Picker("最早開始", selection: $earliestHour) {
+                        ForEach(6...18, id: \.self) { Text(hourLabel($0)).tag($0) }
+                    }
+                    Picker("偏好開始", selection: $preferredHour) {
+                        ForEach(6...22, id: \.self) { Text(hourLabel($0)).tag($0) }
+                    }
+                    Picker("最晚結束", selection: $latestHour) {
+                        ForEach(20...28, id: \.self) { Text(hourLabel($0)).tag($0) }
+                    }
+                } header: {
+                    Text("自動排程")
+                } footer: {
+                    Text("App 會扣掉上課、打工和通勤時間，找出每天的空檔，自動排出這週要練哪幾天、練多久、幾點開始。班表直接從「打工薪水帳」讀取，改班後打開練壯就會重新排。")
+                }
+
+                Section {
                     Toggle("練習提醒", isOn: $reminderOn)
                     if reminderOn {
-                        WeekdayPicker(raw: $weekdaysRaw)
-                        DatePicker("提醒時間", selection: reminderTime, displayedComponents: .hourAndMinute)
+                        Picker("提醒時間", selection: $reminderLead) {
+                            Text("排定時間").tag(0)
+                            Text("提前 15 分鐘").tag(15)
+                            Text("提前 30 分鐘").tag(30)
+                            Text("提前 1 小時").tag(60)
+                        }
                     }
                 } header: {
                     Text("提醒")
                 } footer: {
-                    Text("勾選的日子就是你的練習日。當天已經練過就不會提醒；上次練習日沒練，首頁會出現「絕不連續兩次」提醒。")
+                    Text("照自動排出的時間提醒。當天已經練過就不會提醒。")
                 }
 
                 Section("目標") {
@@ -85,6 +122,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("設定")
+            .onAppear { shiftInfo = ShiftReader.load() }
             .confirmationDialog("從第 1 週重新開始？", isPresented: $confirmRestart, titleVisibility: .visible) {
                 Button("重新開始") { startDate = Date().timeIntervalSince1970 }
             } message: {

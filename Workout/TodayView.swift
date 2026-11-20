@@ -12,8 +12,16 @@ struct TodayView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
-    @AppStorage(Keys.reminderOn) private var reminderOn = true
-    @AppStorage(Keys.reminderWeekdays) private var weekdaysRaw = Keys.defaultWeekdays
+    // Read so the view refreshes when any planner input changes.
+    @AppStorage(ClassStore.key) private var classesRaw = ""
+    @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
+    @AppStorage(Keys.commuteWork) private var commuteWork = 5
+    @AppStorage(Keys.earliestHour) private var earliestHour = 12
+    @AppStorage(Keys.preferredHour) private var preferredHour = 14
+    @AppStorage(Keys.latestHour) private var latestHour = 25
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var refresh = 0
+    @State private var lengthChosen = false
 
     @State private var length: WorkoutLength = .full
     @State private var pickedDay: DayTemplate?
@@ -30,7 +38,12 @@ struct TodayView: View {
         sessions.first.map { Calendar.current.isDateInToday($0.date) } ?? false
     }
     private var missed: Bool {
-        Stats.missedLastPlanned(sessions, weekdays: reminderOn ? Keys.parseWeekdays(weekdaysRaw) : [])
+        Stats.missedLastPlanned(sessions, weekdays: [])
+    }
+    private var plans: [DayPlan] {
+        _ = refresh
+        _ = (classesRaw, commuteSchool, commuteWork, earliestHour, preferredHour, latestHour, weeklyGoal)
+        return Planner.makePlan(sessions: sessions)
     }
 
     var body: some View {
@@ -42,6 +55,11 @@ struct TodayView: View {
                             active = ActiveWorkout(day: day, length: .minimal)
                         }
                     }
+                    let plans = self.plans
+                    if let today = plans.first {
+                        TodayPlanCard(plan: today)
+                    }
+                    WeekStrip(plans: plans)
                     WeekCard(week: week, phase: phase,
                              done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
                              streak: Stats.weekStreak(sessions))
@@ -58,6 +76,14 @@ struct TodayView: View {
                 .padding()
             }
             .navigationTitle("今天練什麼")
+            .onAppear {
+                guard !lengthChosen, let today = plans.first, !today.done else { return }
+                length = today.length ?? .minimal
+            }
+            .onChange(of: length) { lengthChosen = true }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { refresh += 1 }
+            }
             .fullScreenCover(item: $active) { a in
                 WorkoutView(day: a.day, length: a.length, week: week) {
                     pickedDay = nil
@@ -203,5 +229,76 @@ struct WeekCard: View {
         }
         .padding()
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct TodayPlanCard: View {
+    let plan: DayPlan
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("今天的安排").font(.caption.bold()).foregroundStyle(.secondary)
+            if plan.done {
+                Label("今天練完了", systemImage: "checkmark.seal.fill")
+                    .font(.title3.bold()).foregroundStyle(.green)
+            } else if let length = plan.length, let start = plan.start {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(length.title).font(.title2.bold())
+                    Spacer()
+                    Text("\(TimeFmt.hm(start)) 開始").font(.title3.bold()).monospacedDigit()
+                }
+            } else {
+                Text("今天休息").font(.title2.bold())
+                Text("想動的話，下面選「只做 1 組」也算數。")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            Text(plan.reason)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct WeekStrip: View {
+    let plans: [DayPlan]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(plans) { p in
+                VStack(spacing: 4) {
+                    Text(Calendar.current.isDateInToday(p.day) ? "今" : TimeFmt.weekday(p.day))
+                        .font(.caption.bold())
+                    Text("\(Calendar.current.component(.day, from: p.day))")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    symbol(p)
+                        .frame(height: 22)
+                    Text(p.start.map(TimeFmt.hm) ?? " ")
+                        .font(.system(size: 10)).monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Calendar.current.isDateInToday(p.day) ? Color.accentColor.opacity(0.12) : .clear,
+                            in: RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        .padding(8)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private func symbol(_ p: DayPlan) -> some View {
+        if p.done {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        } else if p.length == .full {
+            Text("60").font(.subheadline.bold()).foregroundStyle(.tint)
+        } else if p.length == .short {
+            Text("20").font(.subheadline.bold()).foregroundStyle(.orange)
+        } else {
+            Image(systemName: "moon.zzz").foregroundStyle(.secondary)
+        }
     }
 }

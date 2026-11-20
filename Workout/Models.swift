@@ -61,6 +61,13 @@ enum Keys {
     /// Minutes after midnight.
     static let reminderMinutes = "reminderMinutes"
 
+    static let commuteSchool = "commuteSchool"
+    static let commuteWork = "commuteWork"
+    static let earliestHour = "earliestHour"
+    static let preferredHour = "preferredHour"
+    static let latestHour = "latestHour"
+    static let reminderLead = "reminderLead"
+
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60
 
