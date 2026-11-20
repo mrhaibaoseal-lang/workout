@@ -555,9 +555,9 @@ struct WorkoutView: View {
                 prs: prCount.count,
                 points: RankEngine.points(for: length) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
                 weekDone: SharedStore.countThisWeek(dates + [now]),
-                weekGoal: weeklyGoal,
-                streakBefore: SharedStore.weekStreak(dates),
-                streakAfter: SharedStore.weekStreak(dates + [now]))
+                weekGoal: GoalEngine.current(dates: dates + [now], goal: weeklyGoal, ctx: .load()).goal,
+                streakBefore: GoalEngine.streak(dates: dates),
+                streakAfter: GoalEngine.streak(dates: dates + [now]))
         }
     }
 

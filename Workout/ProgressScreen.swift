@@ -76,6 +76,8 @@ struct ProgressScreen: View {
                     } else {
                         let records = self.records
                         statTiles(records: records.count)
+                        ShadowRivalCard(sessions: sessions)
+                        TonnageCard(sessions: sessions)
                         weeklyCard
                         if let id = currentId, let ex = ExerciseLibrary.byId(id) {
                             exerciseCard(ex, records: records)

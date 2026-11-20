@@ -109,19 +109,20 @@ struct WeeklySettlementView: View {
     private func card(_ e: RankEvent, t: Double) -> some View {
         let p = FXMath.seg(t, 0, 0.45)
         let up = e.delta >= 0
-        let col = up ? Theme.gold : Theme.hot
+        let neutral = e.delta == 0
+        let col = neutral ? Theme.accent : (up ? Theme.gold : Theme.hot)
         let shake = up ? 0 : 6 * exp(-max(0, t - 0.4) * 8) * sin(t * 50) * (t > 0.4 ? 1 : 0)
         let numPop = 1 + 0.5 * exp(-max(0, t - 0.35) * 7) * (t > 0.35 ? 1 : 0)
         return HStack {
-            Image(systemName: up ? (e.reason.contains("連續") ? "flame.fill" : "checkmark.seal.fill") : "xmark.octagon.fill")
+            Image(systemName: icon(e))
                 .font(.title3)
                 .foregroundStyle(col)
             Text(e.reason)
                 .font(.headline)
                 .foregroundStyle(Theme.fg)
             Spacer()
-            Text(up ? "+\(e.delta)" : "−\(abs(e.delta))")
-                .font(Theme.number(24))
+            Text(e.displayValue)
+                .font(Theme.number(neutral ? 18 : 24))
                 .foregroundStyle(col)
                 .shadow(color: col.opacity(0.7), radius: 8)
                 .scaleEffect(numPop)
@@ -132,6 +133,17 @@ struct WeeklySettlementView: View {
         .rotation3DEffect(.degrees(-90 * (1 - FXMath.easeOutBack(p))), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
         .opacity(p > 0 ? 1 : 0)
         .offset(x: shake)
+    }
+
+    private func icon(_ e: RankEvent) -> String {
+        switch e.kind {
+        case .shield: return "shield.lefthalf.filled"
+        case .bet: return "diamond.fill"
+        default:
+            if e.delta == 0 { return "bed.double.fill" }
+            if e.delta < 0 { return "xmark.octagon.fill" }
+            return e.reason.contains("連續") ? "flame.fill" : "checkmark.seal.fill"
+        }
     }
 
     private func totals(_ t: Double) -> some View {

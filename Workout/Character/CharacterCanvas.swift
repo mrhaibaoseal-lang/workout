@@ -6,6 +6,8 @@ struct CharacterView: View {
     let loadout: Loadout
     var animated: Bool = true
     var showStats: Bool = true
+    /// 屬性換算的戰力，加在裝備戰力上。
+    var bonusPower: Int = 0
 
     var body: some View {
         TimelineView(.animation(paused: !animated)) { timeline in
@@ -14,7 +16,7 @@ struct CharacterView: View {
                 let t = CGFloat(now)
                 let p: CGFloat = animated ? CGFloat(0.5 - 0.5 * cos(2.0 * Double.pi * now / 2.6)) : 0
                 CharacterRenderer.draw(&context, size: size, move: move, loadout: loadout,
-                                       t: t, p: p, showStats: showStats)
+                                       t: t, p: p, showStats: showStats, bonusPower: bonusPower)
             }
         }
         .aspectRatio(180.0 / 204.0, contentMode: .fit)
@@ -187,7 +189,8 @@ enum CharacterRenderer {
     private static let lineGrey = Color(gearHex: "#2C3440")
 
     fileprivate static func draw(_ c: inout GraphicsContext, size: CGSize, move: CharacterMove,
-                                 loadout: Loadout, t: CGFloat, p: CGFloat, showStats: Bool) {
+                                 loadout: Loadout, t: CGFloat, p: CGFloat, showStats: Bool,
+                                 bonusPower: Int = 0) {
         guard size.width > 1, size.height > 1 else { return }
         let pen = Pen(size: size)
         let P = move.pose(p)
@@ -382,7 +385,7 @@ enum CharacterRenderer {
                 let txt = Text(name).font(.system(size: 9 * k, weight: .bold)).tracking(1.5 * k).foregroundColor(rc)
                 c.draw(txt, at: pen.map(pt(176, 2)), anchor: .bottomTrailing)
             }
-            let pw = Text("戰力 \(loadout.power)").font(.system(size: 11 * k, weight: .bold)).foregroundColor(fg)
+            let pw = Text("戰力 \(loadout.power + bonusPower)").font(.system(size: 11 * k, weight: .bold)).foregroundColor(fg)
             c.draw(pw, at: pen.map(pt(176, 14)), anchor: .bottomTrailing)
         }
     }

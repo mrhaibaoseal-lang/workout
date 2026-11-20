@@ -44,11 +44,17 @@ enum Planner {
         let lastShown = cal.date(byAdding: .day, value: horizon - 1, to: today)!
         let planEnd = cal.date(byAdding: .day, value: 7, to: SharedStore.weekStart(lastShown))!
         let events = EventStore.all(from: today, to: planEnd.addingTimeInterval(86400))
+        let leaves = GoalStore.leaves()
 
         var evaluated: [(day: Date, busy: [BusyBlock], option: PlanOption?, tired: Bool)] = []
         var d = today
         while d < planEnd {
-            let e = evaluate(day: d, now: now, cfg: cfg, classes: classes, shifts: shifts, events: events)
+            var e = evaluate(day: d, now: now, cfg: cfg, classes: classes, shifts: shifts, events: events)
+            // 請假的日子不排
+            if let r = leaves[GoalStore.key(d)] {
+                e.option = nil
+                e.busy.insert(BusyBlock(start: d, end: d.addingTimeInterval(86400), label: "請假：\(r.title)", isWork: false), at: 0)
+            }
             evaluated.append((d, e.busy, e.option, e.tired))
             d = cal.date(byAdding: .day, value: 1, to: d)!
         }

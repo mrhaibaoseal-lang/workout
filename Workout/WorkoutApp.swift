@@ -6,6 +6,7 @@ import WidgetKit
 struct WorkoutApp: App {
     init() {
         SettingsBackup.start()
+        GoalStore.ensureSince()
     }
 
     var body: some Scene {
@@ -32,10 +33,11 @@ struct RootView: View {
     @AppStorage(Keys.latestHour) private var latestHour = 25
     @AppStorage(EventStore.key) private var eventsRaw = ""
     @AppStorage(Keys.tiredHours) private var tiredHours = 6
+    @AppStorage(Keys.leaves) private var leavesRaw = ""
 
     /// Changes whenever anything the widget or reminders depend on changes.
     private var syncKey: String {
-        "\(onboarded)-\(sessions.count)-\(sessions.first?.date.timeIntervalSince1970 ?? 0)-\(weeklyGoal)-\(reminderOn)-\(reminderLead)-\(classesRaw.hashValue)-\(commuteSchool)-\(commuteWork)-\(earliestHour)-\(preferredHour)-\(latestHour)-\(eventsRaw.hashValue)-\(tiredHours)"
+        "\(onboarded)-\(sessions.count)-\(sessions.first?.date.timeIntervalSince1970 ?? 0)-\(weeklyGoal)-\(reminderOn)-\(reminderLead)-\(classesRaw.hashValue)-\(commuteSchool)-\(commuteWork)-\(earliestHour)-\(preferredHour)-\(latestHour)-\(eventsRaw.hashValue)-\(tiredHours)-\(leavesRaw.hashValue)"
     }
 
     var body: some View {
@@ -46,7 +48,7 @@ struct RootView: View {
                         .tabItem { Label("今天", systemImage: "figure.strengthtraining.traditional") }
                     CharacterScreen()
                         .tabItem { Label("角色", systemImage: "figure.strengthtraining.functional") }
-                        .badge(inventory.boxesAvailable(sessionCount: sessions.count))
+                        .badge(inventory.boxesAvailable(sessionCount: GoalEngine.boxTotal(sessions: sessions, goal: weeklyGoal)))
                     ProgressScreen()
                         .tabItem { Label("進步", systemImage: "chart.line.uptrend.xyaxis") }
                     AgendaView()
@@ -70,6 +72,8 @@ struct RootView: View {
     private func sync() {
         guard onboarded else { return }
         let plans = Planner.makePlan(sessions: sessions)
+        // 排程紀錄用今天 0 點算，晚上打開也不會因為時間過了就變成「今天沒排」
+        GoalStore.record(Planner.makePlan(sessions: sessions, now: Calendar.current.startOfDay(for: .now)))
         let next = plans.first { !$0.done && $0.length != nil }
         let nextText: String
         if let n = next, let start = n.start, let length = n.length {
@@ -78,10 +82,13 @@ struct RootView: View {
         } else {
             nextText = ProgramBuilder.nextDay(after: sessions).name
         }
-        SharedStore.save(.init(sessionDates: sessions.map(\.date), goal: weeklyGoal, nextDay: nextText))
+        let dates = sessions.map(\.date)
+        let current = GoalEngine.current(dates: dates, goal: weeklyGoal, ctx: .load())
+        SharedStore.save(.init(sessionDates: dates, goal: current.goal, nextDay: nextText,
+                               streak: current.streak, streakWeek: current.week))
         WidgetCenter.shared.reloadAllTimelines()
 
-        let missed = Stats.missedLastPlanned(sessions, weekdays: [])
+        let missed = GoalEngine.missedLastPlanned(dates: dates)
         let on = reminderOn
         let lead = reminderLead
         Task {

@@ -11,6 +11,18 @@ struct CharacterScreen: View {
     @State private var focused: String?
 
     private var stats: MilestoneStats { MilestoneStats.compute(sessions: sessions) }
+    @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
+    @AppStorage(Keys.leaves) private var leavesRaw = ""
+    @AppStorage(Keys.shieldBuys) private var shieldBuysRaw = ""
+    private var fighter: FighterStats {
+        _ = (leavesRaw, shieldBuysRaw)
+        return FighterStats.compute(sessions: sessions, streak: Stats.weekStreak(sessions))
+    }
+    private var condition: Int? {
+        _ = leavesRaw
+        return GoalEngine.condition(dates: sessions.map(\.date))
+    }
+    private var boxTotal: Int { GoalEngine.boxTotal(sessions: sessions, goal: weeklyGoal) }
 
     var body: some View {
         NavigationStack {
@@ -18,6 +30,7 @@ struct CharacterScreen: View {
                 VStack(spacing: 14) {
                     header
                     stage
+                    FighterStatsCard(stats: fighter, condition: condition)
                     boxCard
                     gearGrid
                     milestoneCard
@@ -28,7 +41,7 @@ struct CharacterScreen: View {
             .themeScreen()
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showBox) {
-                BoxOpenView(sessionCount: sessions.count)
+                BoxOpenView(sessionCount: boxTotal)
                     .environmentObject(store)
             }
         }
@@ -67,8 +80,10 @@ struct CharacterScreen: View {
         let loadout = store.state.loadout
         let glow = loadout.setBonus.map { Color(gearHex: $0.series.glow) } ?? Theme.accent
         return VStack(spacing: 8) {
-            CharacterView(move: move, loadout: loadout)
+            CharacterView(move: move, loadout: loadout, bonusPower: fighter.power)
                 .frame(height: 320)
+                // 狀態越差，舞台越暗
+                .saturation(0.4 + 0.6 * Double(condition ?? 100) / 100)
             HStack(spacing: 10) {
                 ForEach(CharacterMove.basic) { m in
                     let on = m == move
@@ -129,7 +144,7 @@ struct CharacterScreen: View {
     // MARK: 補給箱
 
     private var boxCard: some View {
-        let n = store.boxesAvailable(sessionCount: sessions.count)
+        let n = store.boxesAvailable(sessionCount: boxTotal)
         return Button {
             if n > 0 { showBox = true }
         } label: {

@@ -241,8 +241,12 @@ struct RankDetailView: View {
             rule("破個人紀錄（每個動作）", "+\(RankEngine.prPoints)，單次最多 +\(RankEngine.prCap)")
             rule("一週練滿 \(weeklyGoal) 次", "+\(RankEngine.goalBonus)")
             rule("連續達標加碼", "每週再 +\(RankEngine.streakStep)，最多 +\(RankEngine.streakMax)")
+            rule("週任務（每項）", "+\(GoalEngine.questPoints)；3 項全破再 +1 補給箱")
+            rule("逆轉：漏掉排好的日子後練回來", "+\(GoalEngine.comebackPoints)")
             rule("這週只練 1 次", "−\(RankEngine.lightWeekPenalty)", bad: true)
             rule("整週沒練", "−\(RankEngine.emptyWeekPenalty)", bad: true)
+            Text("請假：每請 2 天，那週目標少 1 次；請假 4 天以上那週不結算。排程本來就排不出時間的週不扣分。保護卡在沒達標的週自動抵銷，連續不中斷。")
+                .font(.caption).foregroundStyle(Theme.muted)
             Text("每週一結算上一週。分數由訓練紀錄即時算出，刪紀錄或改每週目標都會重算。")
                 .font(.caption).foregroundStyle(Theme.muted)
         }
@@ -304,9 +308,9 @@ struct RankDetailView: View {
                             .font(.caption).foregroundStyle(Theme.muted)
                     }
                     Spacer()
-                    Text(e.delta >= 0 ? "+\(e.delta)" : "\(e.delta)")
-                        .font(Theme.number(17, .bold))
-                        .foregroundStyle(e.delta >= 0 ? Theme.green : Theme.hotText)
+                    Text(e.displayValue)
+                        .font(Theme.number(e.delta == 0 ? 14 : 17, .bold))
+                        .foregroundStyle(e.delta == 0 ? Theme.accent : (e.delta > 0 ? Theme.green : Theme.hotText))
                 }
                 .padding(.vertical, 2)
             }

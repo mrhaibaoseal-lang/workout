@@ -92,13 +92,22 @@ struct Rank: Equatable {
 
 /// 積分的一筆加減紀錄。
 struct RankEvent: Identifiable {
-    enum Kind { case workout, record, weekly }
+    enum Kind { case workout, record, weekly, quest, comeback, shield, bet }
 
     let id = UUID()
     let date: Date
     let delta: Int
     let reason: String
     var kind: Kind = .workout
+    /// 不加減分的項目（保護卡、押注、請假週）顯示這段文字代替分數。
+    var valueText: String? = nil
+
+    /// 週一結算畫面要秀的項目。
+    var isSettlement: Bool { kind == .weekly || kind == .shield || kind == .bet }
+
+    var displayValue: String {
+        valueText ?? (delta >= 0 ? "+\(delta)" : "−\(abs(delta))")
+    }
 }
 
 /// 從訓練紀錄算出積分；不另外存資料，所以刪紀錄、改週目標都會自動重算。
@@ -122,55 +131,80 @@ enum RankEngine {
         }
     }
 
-    static func ledger(sessions: [WorkoutSession], goal: Int, now: Date = .now) -> [RankEvent] {
-        let ordered = sessions.sorted { $0.date < $1.date }
-        guard let first = ordered.first else { return [] }
-        let cal = Stats.calendar
+    static func ledger(sessions: [WorkoutSession], goal: Int, now: Date = .now,
+                       ctx: GoalContext = .load()) -> [RankEvent] {
+        let facts = GoalEngine.facts(sessions)
+        guard !facts.isEmpty else { return [] }
         var events: [RankEvent] = []
 
         // 每次訓練＋破紀錄加分。破紀錄的定義跟進步頁、角色里程碑一樣：
         // 有負重的動作，重量超過這個動作以前的最高重量（第一次做不算）。
-        var best: [String: Double] = [:]
-        for s in ordered {
-            events.append(RankEvent(date: s.date, delta: points(for: s.length), reason: "完成訓練（\(s.length.title)）"))
-            var prs = 0
-            let byExercise = Dictionary(grouping: s.entries.filter { $0.weight > 0 && $0.isWork }, by: \.exerciseId)
-            for (id, sets) in byExercise {
-                guard ExerciseLibrary.byId(id)?.loaded == true else { continue }
-                let top = sets.map(\.weight).max() ?? 0
-                if let old = best[id] {
-                    if top > old { prs += 1; best[id] = top }
-                } else {
-                    best[id] = top
-                }
+        for f in facts {
+            events.append(RankEvent(date: f.date, delta: points(for: f.length), reason: "完成訓練（\(f.length.title)）"))
+            if f.prs > 0 {
+                events.append(RankEvent(date: f.date, delta: min(prCap, f.prs * prPoints), reason: "破個人紀錄 × \(f.prs)", kind: .record))
             }
-            if prs > 0 {
-                events.append(RankEvent(date: s.date, delta: min(prCap, prs * prPoints), reason: "破個人紀錄 × \(prs)", kind: .record))
+        }
+
+        // 逆轉：漏掉排好的日子後馬上練回來
+        for d in GoalEngine.comebacks(facts: facts, ctx: ctx) {
+            events.append(RankEvent(date: d, delta: GoalEngine.comebackPoints, reason: "逆轉：漏練後練回來", kind: .comeback))
+        }
+
+        // 週任務：每完成一項加分
+        let dates = facts.map(\.date)
+        for w in GoalEngine.questWeeks(facts: facts, dates: dates, goal: goal, ctx: ctx, now: now) {
+            for q in w.quests {
+                if let at = q.doneAt {
+                    events.append(RankEvent(date: at, delta: GoalEngine.questPoints, reason: "週任務：\(q.title)", kind: .quest))
+                }
             }
         }
 
         // 每週結算：達標加分、連續達標加碼；沒練的週扣分。本週還沒結束，不結算。
-        let thisWeek = Stats.weekStart(now)
-        var week = Stats.weekStart(first.date)
-        var streak = 0
-        while week < thisWeek {
-            let next = cal.date(byAdding: .weekOfYear, value: 1, to: week)!
-            let settle = next.addingTimeInterval(-1)
-            let count = ordered.filter { $0.date >= week && $0.date < next }.count
-            if count >= goal {
-                streak += 1
-                let extra = min(streakMax, (streak - 1) * streakStep)
-                events.append(RankEvent(date: settle, delta: goalBonus + extra,
-                                        reason: streak > 1 ? "週目標達成（連續 \(streak) 週）" : "週目標達成", kind: .weekly))
-            } else {
-                streak = 0
-                if count == 0 {
-                    events.append(RankEvent(date: settle, delta: -emptyWeekPenalty, reason: "整週沒練", kind: .weekly))
-                } else if count == 1 && goal > 1 {
-                    events.append(RankEvent(date: settle, delta: -lightWeekPenalty, reason: "這週只練 1 次", kind: .weekly))
+        // 新規則（這版裝上之後的週）：請假會降低週目標、請假 4 天以上不結算、保護卡、排程排不出來的週不罰。
+        for r in GoalEngine.weeks(dates: dates, goal: goal, ctx: ctx, now: now) {
+            let settle = r.end.addingTimeInterval(-1)
+            switch r.outcome {
+            case .met:
+                let extra = min(streakMax, (r.rankStreak - 1) * streakStep)
+                var reason = r.rankStreak > 1 ? "週目標達成（連續 \(r.rankStreak) 週）" : "週目標達成"
+                if r.goal < goal { reason += "・請假後目標 \(r.goal) 次" }
+                events.append(RankEvent(date: settle, delta: goalBonus + extra, reason: reason, kind: .weekly))
+                if r.shieldEarned {
+                    events.append(RankEvent(date: settle, delta: 0, reason: "練滿一週，得到 1 張保護卡", kind: .shield, valueText: "+1 卡"))
+                }
+            case .excused:
+                events.append(RankEvent(date: settle, delta: 0, reason: "請假 \(r.excusedDays) 天，這週不結算", kind: .weekly, valueText: "不結算"))
+            case .shielded:
+                events.append(RankEvent(date: settle, delta: 0, reason: "用掉 1 張保護卡，連續不中斷", kind: .shield, valueText: "保護"))
+            case .missed:
+                let lenient = r.isNew && r.planned != nil
+                let planned = r.planned ?? 0
+                if r.count == 0 {
+                    if lenient && planned == 0 {
+                        events.append(RankEvent(date: settle, delta: 0, reason: "這週排程排不出時間，不扣分", kind: .weekly, valueText: "不扣分"))
+                    } else {
+                        events.append(RankEvent(date: settle, delta: -emptyWeekPenalty, reason: "整週沒練", kind: .weekly))
+                    }
+                } else if r.count == 1 && r.goal > 1 {
+                    if lenient && planned < 2 {
+                        events.append(RankEvent(date: settle, delta: 0, reason: "這週只排得出 \(planned) 天，不扣分", kind: .weekly, valueText: "不扣分"))
+                    } else {
+                        events.append(RankEvent(date: settle, delta: -lightWeekPenalty, reason: "這週只練 1 次", kind: .weekly))
+                    }
                 }
             }
-            week = next
+            for b in ctx.bets where b.week == r.start {
+                switch r.outcome {
+                case .met:
+                    events.append(RankEvent(date: settle, delta: 0, reason: "押注 \(b.stake) 碎片：達標", kind: .bet, valueText: "+\(b.stake * 2) 碎片"))
+                case .excused:
+                    events.append(RankEvent(date: settle, delta: 0, reason: "押注 \(b.stake) 碎片：請假週退回", kind: .bet, valueText: "退回"))
+                default:
+                    events.append(RankEvent(date: settle, delta: 0, reason: "押注 \(b.stake) 碎片：沒達標", kind: .bet, valueText: "−\(b.stake) 碎片"))
+                }
+            }
         }
         return events.sorted { $0.date < $1.date }
     }
@@ -180,8 +214,8 @@ enum RankEngine {
         events.reduce(0) { max(0, $0 + $1.delta) }
     }
 
-    static func rank(sessions: [WorkoutSession], goal: Int, now: Date = .now) -> Rank {
-        Rank(points: total(ledger(sessions: sessions, goal: goal, now: now)))
+    static func rank(sessions: [WorkoutSession], goal: Int, now: Date = .now, ctx: GoalContext = .load()) -> Rank {
+        Rank(points: total(ledger(sessions: sessions, goal: goal, now: now, ctx: ctx)))
     }
 }
 

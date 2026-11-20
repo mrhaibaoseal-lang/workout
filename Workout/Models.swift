@@ -118,6 +118,16 @@ enum Keys {
     static let lastRankCheck = "lastRankCheck"
     /// 已經播過結算動畫的最後一週（結算時間）。
     static let lastSettledWeek = "lastSettledWeek"
+    /// 請假、保護卡、週任務等新規則從哪一天開始算（秒）。
+    static let goalsSince = "goalsSince"
+    /// 請假，JSON [yyyy-MM-dd: LeaveReason]
+    static let leaves = "leaves"
+    /// 每天的排程紀錄，JSON [yyyy-MM-dd: DayLog]
+    static let planLog = "planLog"
+    /// 用碎片買保護卡的時間，JSON [秒]
+    static let shieldBuys = "shieldBuys"
+    /// 押注，JSON [Bet]
+    static let bets = "bets"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60

@@ -39,6 +39,12 @@ struct TodayView: View {
     @State private var rankChange: RankChange?
     @State private var intake: RankIntake?
     @State private var settlement: WeeklySettlement?
+    @State private var goalSheet: GoalSheet?
+    // 讀進來讓畫面在請假、買卡、押注、排程紀錄變動時重算
+    @AppStorage(Keys.leaves) private var leavesRaw = ""
+    @AppStorage(Keys.planLog) private var planLogRaw = ""
+    @AppStorage(Keys.shieldBuys) private var shieldBuysRaw = ""
+    @AppStorage(Keys.bets) private var betsRaw = ""
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -57,12 +63,17 @@ struct TodayView: View {
     private var trainedToday: Bool {
         sessions.first.map { Calendar.current.isDateInToday($0.date) } ?? false
     }
-    private var missed: Bool {
-        Stats.missedLastPlanned(sessions, weekdays: [])
+    private var ctx: GoalContext {
+        _ = (leavesRaw, planLogRaw, shieldBuysRaw, betsRaw)
+        return .load()
     }
+    private var missed: Bool {
+        GoalEngine.missedLastPlanned(dates: sessions.map(\.date), ctx: ctx)
+    }
+    private var onLeave: LeaveReason? { ctx.leave(Calendar.current.startOfDay(for: .now)) }
     private var plans: [DayPlan] {
         _ = refresh
-        _ = (classesRaw, commuteSchool, commuteWork, earliestHour, preferredHour, latestHour, weeklyGoal, eventsRaw, tiredHours)
+        _ = (classesRaw, commuteSchool, commuteWork, earliestHour, preferredHour, latestHour, weeklyGoal, eventsRaw, tiredHours, leavesRaw)
         return Planner.makePlan(sessions: sessions)
     }
 
@@ -72,16 +83,24 @@ struct TodayView: View {
                 VStack(spacing: 14) {
                     header
                     if missed && !trainedToday {
-                        MissedCard {
+                        MissedCard(onStart: {
                             active = ActiveWorkout(day: day, length: .minimal)
-                        }
+                        }, onLeave: { goalSheet = .leave })
                     }
                     let plans = self.plans
+                    let ctx = self.ctx
+                    let dates = sessions.map(\.date)
+                    let current = GoalEngine.current(dates: dates, goal: weeklyGoal, ctx: ctx)
                     WeekRingCard(week: week, phase: phase,
-                                 done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
+                                 done: current.count, goal: current.goal,
                                  plans: plans)
                     heroCard(today: plans.first)
-                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal), intake: intake)
+                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal, ctx: ctx), intake: intake)
+                    QuestCard(quests: GoalEngine.quests(week: current.week, facts: GoalEngine.facts(sessions),
+                                                        goal: current.goal, ctx: ctx),
+                              shields: current.shields,
+                              activeBet: ctx.bets.first(where: { $0.week == current.week }),
+                              onSheet: { goalSheet = $0 })
                     exerciseList
                     boxStrip
                 }
@@ -104,6 +123,13 @@ struct TodayView: View {
             .onAppear { checkRank() }
             // 練完時訓練畫面還蓋著，等它收起來（onDismiss）再播，才看得到動畫
             .onChange(of: sessions.count) { if active == nil { checkRank() } }
+            .sheet(item: $goalSheet) { g in
+                switch g {
+                case .leave: LeaveSheet()
+                case .bet: BetSheet().environmentObject(inventory)
+                case .shield: ShieldSheet().environmentObject(inventory)
+                }
+            }
             .fullScreenCover(item: $rankChange) { c in
                 RankChangeView(from: c.from, to: c.to)
             }
@@ -123,12 +149,13 @@ struct TodayView: View {
     /// 第一次只記下目前狀態，不播。
     private func checkRank() {
         guard active == nil, rankChange == nil, settlement == nil else { return }
+        GoalEngine.settleBets(sessions: sessions, goal: weeklyGoal, inventory: inventory)
         let events = RankEngine.ledger(sessions: sessions, goal: weeklyGoal)
         let points = RankEngine.total(events)
         let r = Rank(points: points)
 
         // 1. 每週結算（週一第一次打開）
-        let weekly = events.filter { $0.kind == .weekly }
+        let weekly = events.filter(\.isSettlement)
         if let last = weekly.last {
             let stamp = last.date.timeIntervalSince1970
             if lastSettledWeek == 0 || lastRankPoints < 0 {
@@ -137,7 +164,7 @@ struct TodayView: View {
                 let fresh = weekly.filter { $0.date.timeIntervalSince1970 > lastSettledWeek }
                 lastSettledWeek = stamp
                 let before = RankEngine.total(events.filter { $0.date < (fresh.first?.date ?? last.date) })
-                settlement = WeeklySettlement(events: Array(fresh.suffix(4)), before: before,
+                settlement = WeeklySettlement(events: Array(fresh.suffix(5)), before: before,
                                               after: RankEngine.total(events.filter { $0.date <= last.date }))
                 return
             }
@@ -153,7 +180,7 @@ struct TodayView: View {
         var delay = 0.4
         if points != lastRankPoints {
             let since = Date(timeIntervalSince1970: lastRankCheck)
-            let chips = events.filter { $0.date > since }.suffix(3)
+            let chips = events.filter { $0.date > since && $0.delta != 0 }.suffix(3)
             intake = RankIntake(from: lastRankPoints, to: points,
                                 chips: chips.isEmpty ? [RankIntake.Chip(text: "分數變動", delta: points - lastRankPoints)]
                                     : chips.map { RankIntake.Chip(text: $0.reason, delta: $0.delta) })
@@ -192,6 +219,15 @@ struct TodayView: View {
                     .foregroundStyle(Theme.fg)
             }
             Spacer()
+            Button { goalSheet = .leave } label: {
+                Image(systemName: onLeave != nil ? "bed.double.fill" : "bed.double")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(onLeave != nil ? Theme.bg : Theme.accentSoft)
+                    .frame(width: 36, height: 30)
+                    .background(onLeave != nil ? Theme.accent : Theme.raised, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(onLeave != nil ? "今天請假中" : "請假")
             if streak > 0 {
                 Label("連續 \(streak) 週", systemImage: "flame.fill")
                     .font(.footnote.weight(.bold))
@@ -210,7 +246,11 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Tag(text: length.title, fg: Theme.bg, bg: Theme.accent)
-                if trainedToday {
+                if let leave = onLeave, !trainedToday {
+                    Label("今天請假：\(leave.title)", systemImage: leave.icon)
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.accentSoft)
+                } else if trainedToday {
                     Label("今天練完了", systemImage: "checkmark.seal.fill")
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(Theme.green)
@@ -403,7 +443,7 @@ struct TodayView: View {
 
     private var boxStrip: some View {
         let count = sessions.count
-        let waiting = inventory.boxesAvailable(sessionCount: count)
+        let waiting = inventory.boxesAvailable(sessionCount: GoalEngine.boxTotal(sessions: sessions, goal: weeklyGoal))
         let next = Milestone.all
             .filter { $0.kind == .sessions && $0.goal > count }
             .min { $0.goal < $1.goal }
@@ -437,6 +477,7 @@ struct TodayView: View {
 
 struct MissedCard: View {
     let onStart: () -> Void
+    var onLeave: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -450,6 +491,13 @@ struct MissedCard: View {
                 Text("現在做 1 組")
             }
             .buttonStyle(HotButtonStyle(height: 48))
+            if let onLeave {
+                Button(action: onLeave) {
+                    Label("今天真的不行，請假", systemImage: "bed.double")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(GhostButtonStyle(stroke: Theme.hotLine))
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

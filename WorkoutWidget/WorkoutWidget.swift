@@ -32,7 +32,7 @@ struct WeekProvider: TimelineProvider {
         return WeekEntry(date: date,
                          done: SharedStore.countThisWeek(s.sessionDates, now: date),
                          goal: s.goal,
-                         streak: SharedStore.weekStreak(s.sessionDates, now: date),
+                         streak: SharedStore.streak(s, now: date),
                          nextDay: s.nextDay,
                          trainedToday: SharedStore.trainedToday(s.sessionDates, now: date))
     }

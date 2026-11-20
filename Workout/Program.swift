@@ -281,8 +281,9 @@ enum Stats {
         SharedStore.countThisWeek(sessions.map(\.date))
     }
 
-    static func weekStreak(_ sessions: [WorkoutSession], minPerWeek: Int = 2) -> Int {
-        SharedStore.weekStreak(sessions.map(\.date), minPerWeek: minPerWeek)
+    /// 每週練 2 次以上的連續週數；請假週、用掉保護卡的週不會中斷。
+    static func weekStreak(_ sessions: [WorkoutSession]) -> Int {
+        GoalEngine.streak(dates: sessions.map(\.date))
     }
 
     static func week(since start: Date) -> Int {
