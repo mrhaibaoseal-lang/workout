@@ -71,6 +71,12 @@ enum Keys {
     static let readPhoneCalendar = "readPhoneCalendar"
     /// 上次看到的牌位（Rank.index），用來判斷要不要跳晉級畫面。
     static let lastRankIndex = "lastRankIndex"
+    /// 上次看到的牌位分數，用來播「分數入帳」動畫。
+    static let lastRankPoints = "lastRankPoints"
+    /// 上次看到分數的時間（找出這段時間新增的加減分）。
+    static let lastRankCheck = "lastRankCheck"
+    /// 已經播過結算動畫的最後一週（結算時間）。
+    static let lastSettledWeek = "lastSettledWeek"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60

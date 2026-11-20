@@ -39,6 +39,12 @@ struct WorkoutView: View {
     @State private var confirmQuit = false
     @State private var showNothingDone = false
     @State private var askMore = false
+    /// 每個動作以前的最高重量（破紀錄判斷用），開始訓練時算一次。
+    @State private var bests: [String: Double] = [:]
+    @State private var prMoment: PRMoment?
+    @State private var prCount: Set<String> = []
+    @State private var summary: WorkoutSummary?
+    @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
     private var allDone: Bool {
         drafts.allSatisfy { $0.sets.allSatisfy(\.done) }
@@ -126,6 +132,20 @@ struct WorkoutView: View {
                 Text("你已經贏過想偷懶的自己了，這次也算數。還想再多做一點嗎？")
             }
             .onAppear(perform: buildDrafts)
+            .overlay {
+                if let pr = prMoment {
+                    PRBurstView(pr: pr).id(pr.id)
+                }
+            }
+            .overlay {
+                if let s = summary {
+                    WorkoutCompleteView(summary: s) {
+                        onFinish()
+                        dismiss()
+                    }
+                    .transition(.opacity)
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -198,49 +218,12 @@ struct WorkoutView: View {
     @ViewBuilder
     private var restCard: some View {
         if let end = restEnd {
-            TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                let left = end.timeIntervalSince(ctx.date)
-                if left > 0 {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Ring(progress: left / max(restTotal, 1), color: Theme.green, lineWidth: 7)
-                            Text(timerInterval: ctx.date...end, countsDown: true)
-                                .font(Theme.number(15))
-                                .foregroundStyle(Theme.fg)
-                        }
-                        .frame(width: 64, height: 64)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("休息中").font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
-                            Text("共 \(Int(restTotal)) 秒").font(.caption).foregroundStyle(Theme.muted)
-                        }
-                        Spacer(minLength: 0)
-                        Button("+30 秒") {
-                            restEnd = end.addingTimeInterval(30)
-                            restTotal += 30
-                        }
-                        .buttonStyle(GhostButtonStyle())
-                        Button("跳過") { restEnd = nil }
-                            .buttonStyle(GhostButtonStyle())
-                    }
-                    .padding(14)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-                } else {
-                    Button { restEnd = nil } label: {
-                        Label("休息結束，下一組！", systemImage: "bolt.fill")
-                            .font(.headline.weight(.heavy))
-                            .foregroundStyle(Theme.bg)
-                            .frame(maxWidth: .infinity, minHeight: 56)
-                            .background(Theme.green, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-                }
-            }
+            RestCard(end: end, total: restTotal,
+                     onAdd: {
+                         restEnd = end.addingTimeInterval(30)
+                         restTotal += 30
+                     },
+                     onSkip: { restEnd = nil })
         }
     }
 
@@ -256,6 +239,7 @@ struct WorkoutView: View {
         drafts[exerciseIndex].sets[s].done = true
         focused = nil
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        checkRecord(drafts[exerciseIndex], set: drafts[exerciseIndex].sets[s])
         if length == .minimal && allDone {
             restEnd = nil
             askMore = true
@@ -285,8 +269,29 @@ struct WorkoutView: View {
         return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets)
     }
 
+    /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
+    private func checkRecord(_ d: ExerciseDraft, set: SetDraft) {
+        let ex = d.item.exercise
+        guard ex.loaded, set.weight > 0, let old = bests[ex.id], set.weight > old else { return }
+        bests[ex.id] = set.weight
+        prCount.insert(ex.id)
+        let m = PRMoment(name: ex.name, weight: set.weight, old: old)
+        prMoment = m
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + PRMoment.duration + 0.1) {
+            if prMoment?.id == m.id { prMoment = nil }
+        }
+    }
+
     private func buildDrafts() {
         guard drafts.isEmpty else { return }
+        var b: [String: Double] = [:]
+        for s in sessions {
+            for e in s.entries where e.weight > 0 {
+                b[e.exerciseId] = max(b[e.exerciseId] ?? 0, e.weight)
+            }
+        }
+        bests = b
         let plan = ProgramBuilder.plan(day: day, equipment: Equipment.parse(equipmentRaw), week: week, length: length)
         drafts = plan.map(makeDraft)
     }
@@ -321,9 +326,19 @@ struct WorkoutView: View {
             }
         }
         try? context.save()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        onFinish()
-        dismiss()
+        // 成果畫面：週目標、連續週數用存檔前的紀錄＋這一次算
+        let dates = sessions.filter { $0 !== session }.map(\.date)
+        withAnimation(.easeOut(duration: 0.25)) {
+            summary = WorkoutSummary(
+                sets: doneSets,
+                seconds: session.durationSeconds,
+                prs: prCount.count,
+                points: RankEngine.points(for: length) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
+                weekDone: SharedStore.countThisWeek(dates + [now]),
+                weekGoal: weeklyGoal,
+                streakBefore: SharedStore.weekStreak(dates),
+                streakAfter: SharedStore.weekStreak(dates + [now]))
+        }
     }
 
     private func hideKeyboard() {
@@ -543,5 +558,120 @@ struct ActiveSetEditor: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+}
+
+/// 休息倒數：圓環平滑倒數、頭端有光點；最後 10 秒轉橘、最後 3 秒脈動加震動；時間到按鈕彈出來發光。
+struct RestCard: View {
+    let end: Date
+    let total: Double
+    let onAdd: () -> Void
+    let onSkip: () -> Void
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
+            let left = end.timeIntervalSince(ctx.date)
+            if left > 0 {
+                running(left: left, now: ctx.date)
+            } else {
+                finished(over: -left)
+            }
+        }
+        .modifier(SecondTicks(end: end))
+    }
+
+    private func running(left: Double, now: Date) -> some View {
+        let warm = FXMath.seg(10 - left, 0, 7)
+        let col = FXMath.mix(Theme.green, Theme.hot, warm)
+        let last3 = left < 3
+        let beat = last3 ? 1 + 0.08 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
+        let p = left / max(total, 1)
+        return HStack(spacing: 14) {
+            ZStack {
+                Ring(progress: p, color: col, lineWidth: 7)
+                // 圓環頭端的光點
+                GeometryReader { g in
+                    let r = Double(g.size.width) / 2 - 7
+                    let a = -Double.pi / 2 + 2 * Double.pi * p
+                    let w = Double(g.size.width), h = Double(g.size.height)
+                    Circle().fill(.white)
+                        .frame(width: 7, height: 7)
+                        .shadow(color: col, radius: 6)
+                        .position(x: w / 2 + r * cos(a), y: h / 2 + r * sin(a))
+                }
+                Text(timerInterval: now...end, countsDown: true)
+                    .font(Theme.number(15))
+                    .foregroundStyle(last3 ? col : Theme.fg)
+            }
+            .frame(width: 64, height: 64)
+            .scaleEffect(beat)
+            .shadow(color: col.opacity(last3 ? 0.6 : 0), radius: 10)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(last3 ? "準備！" : "休息中").font(.subheadline.weight(.bold)).foregroundStyle(last3 ? col : Theme.fg)
+                Text("共 \(Int(total)) 秒").font(.caption).foregroundStyle(Theme.muted)
+            }
+            Spacer(minLength: 0)
+            Button("+30 秒", action: onAdd)
+                .buttonStyle(GhostButtonStyle())
+            Button("跳過", action: onSkip)
+                .buttonStyle(GhostButtonStyle())
+        }
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(col.opacity(0.3 + 0.5 * warm), lineWidth: 1))
+        .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+    }
+
+    private func finished(over: Double) -> some View {
+        let pop = 1 + 0.12 * exp(-over * 5) * cos(over * 16)
+        let glow = 0.4 + 0.3 * sin(over * 5)
+        return Button(action: onSkip) {
+            Label("休息結束，下一組！", systemImage: "bolt.fill")
+                .font(.headline.weight(.heavy))
+                .foregroundStyle(Theme.bg)
+                .frame(maxWidth: .infinity, minHeight: 56)
+                .background(Theme.green, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    // 一道光掃過按鈕
+                    GeometryReader { g in
+                        LinearGradient(colors: [.white.opacity(0), .white.opacity(0.5), .white.opacity(0)],
+                                       startPoint: .leading, endPoint: .trailing)
+                            .frame(width: 60)
+                            .offset(x: -60 + (Double(g.size.width) + 120) * FXMath.fract(over / 1.6))
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+                .shadow(color: Theme.green.opacity(glow), radius: 14)
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(pop)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 6)
+    }
+}
+
+/// 最後 3 秒每秒震一下，時間到震一下成功。
+private struct SecondTicks: ViewModifier {
+    let end: Date
+    @State private var fired: Set<Int> = []
+
+    func body(content: Content) -> some View {
+        content.background {
+            TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                let left = Int(ceil(end.timeIntervalSince(ctx.date)))
+                Color.clear.onChange(of: left) { _, n in
+                    guard n <= 3, n >= 0, !fired.contains(n) else { return }
+                    fired.insert(n)
+                    if n == 0 {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } else {
+                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                    }
+                }
+            }
+        }
+        .onChange(of: end) { fired = [] }
     }
 }

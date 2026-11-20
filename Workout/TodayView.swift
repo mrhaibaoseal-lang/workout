@@ -33,12 +33,17 @@ struct TodayView: View {
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
     @AppStorage(Keys.lastRankIndex) private var lastRankIndex = -1
+    @AppStorage(Keys.lastRankPoints) private var lastRankPoints = -1
+    @AppStorage(Keys.lastRankCheck) private var lastRankCheck: Double = 0
+    @AppStorage(Keys.lastSettledWeek) private var lastSettledWeek: Double = 0
     @State private var rankChange: RankChange?
+    @State private var intake: RankIntake?
+    @State private var settlement: WeeklySettlement?
 
     private struct RankChange: Identifiable {
         let id = UUID()
-        let rank: Rank
-        let promoted: Bool
+        let from: RankStep
+        let to: RankStep
     }
 
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
@@ -75,7 +80,7 @@ struct TodayView: View {
                                  done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
                                  plans: plans)
                     heroCard(today: plans.first)
-                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal))
+                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal), intake: intake)
                     exerciseList
                     boxStrip
                 }
@@ -96,11 +101,15 @@ struct TodayView: View {
                 }
             }
             .onAppear { checkRank() }
-            .onChange(of: sessions.count) { checkRank() }
-            .sheet(item: $rankChange) { c in
-                RankChangeView(rank: c.rank, promoted: c.promoted)
+            // 練完時訓練畫面還蓋著，等它收起來（onDismiss）再播，才看得到動畫
+            .onChange(of: sessions.count) { if active == nil { checkRank() } }
+            .fullScreenCover(item: $rankChange) { c in
+                RankChangeView(from: c.from, to: c.to)
             }
-            .fullScreenCover(item: $active) { a in
+            .fullScreenCover(item: $settlement, onDismiss: { checkRank() }) { s in
+                WeeklySettlementView(settlement: s)
+            }
+            .fullScreenCover(item: $active, onDismiss: { checkRank() }) { a in
                 WorkoutView(day: a.day, length: a.length, week: week) {
                     pickedDay = nil
                 }
@@ -109,19 +118,59 @@ struct TodayView: View {
         }
     }
 
-    /// 牌位變了就跳晉級／降級畫面；第一次只記下來不跳。
+    /// 牌位相關的動畫依序播：每週結算 → 分數入帳（牌位小卡數字跳動）→ 晉級／掉段畫面。
+    /// 第一次只記下目前狀態，不播。
     private func checkRank() {
-        let r = RankEngine.rank(sessions: sessions, goal: weeklyGoal)
-        guard lastRankIndex >= 0 else {
+        guard active == nil, rankChange == nil, settlement == nil else { return }
+        let events = RankEngine.ledger(sessions: sessions, goal: weeklyGoal)
+        let points = RankEngine.total(events)
+        let r = Rank(points: points)
+
+        // 1. 每週結算（週一第一次打開）
+        let weekly = events.filter { $0.kind == .weekly }
+        if let last = weekly.last {
+            let stamp = last.date.timeIntervalSince1970
+            if lastSettledWeek == 0 || lastRankPoints < 0 {
+                lastSettledWeek = stamp
+            } else if stamp > lastSettledWeek {
+                let fresh = weekly.filter { $0.date.timeIntervalSince1970 > lastSettledWeek }
+                lastSettledWeek = stamp
+                let before = RankEngine.total(events.filter { $0.date < (fresh.first?.date ?? last.date) })
+                settlement = WeeklySettlement(events: Array(fresh.suffix(4)), before: before,
+                                              after: RankEngine.total(events.filter { $0.date <= last.date }))
+                return
+            }
+        }
+
+        // 2. 分數入帳
+        guard lastRankPoints >= 0, lastRankIndex >= 0 else {
+            lastRankPoints = points
             lastRankIndex = r.index
+            lastRankCheck = Date().timeIntervalSince1970
             return
         }
+        var delay = 0.4
+        if points != lastRankPoints {
+            let since = Date(timeIntervalSince1970: lastRankCheck)
+            let chips = events.filter { $0.date > since }.suffix(3)
+            intake = RankIntake(from: lastRankPoints, to: points,
+                                chips: chips.isEmpty ? [RankIntake.Chip(text: "分數變動", delta: points - lastRankPoints)]
+                                    : chips.map { RankIntake.Chip(text: $0.reason, delta: $0.delta) })
+            lastRankPoints = points
+            delay = RankIntake.duration + 0.2
+            let id = intake?.id
+            DispatchQueue.main.asyncAfter(deadline: .now() + RankIntake.duration + 0.4) {
+                if intake?.id == id { intake = nil }
+            }
+        }
+        lastRankCheck = Date().timeIntervalSince1970
+
+        // 3. 牌位變了就跳晉級／掉段畫面（等分數跑完）
         guard r.index != lastRankIndex else { return }
-        let promoted = r.index > lastRankIndex
+        let from = RankStep(index: lastRankIndex)
         lastRankIndex = r.index
-        // 等訓練畫面收起來再跳。
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            rankChange = RankChange(rank: r, promoted: promoted)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            rankChange = RankChange(from: from, to: RankStep(r))
         }
     }
 

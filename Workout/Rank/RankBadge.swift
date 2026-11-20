@@ -4,26 +4,80 @@ import SwiftUI
 /// 白金＝六角水晶、鑽石＝菱形水晶＋羽翼、大師＝星徽＋皇冠、王者＝火焰盾＋寶石皇冠）。
 /// 中央是肌肉手臂，牌位越高肌肉越大。形狀資料在 RankBadgeArt.swift，由 scripts/art/badges.js 產生。
 struct RankBadge: View {
+    enum Motion {
+        /// 靜態（列表、小圖示）
+        case still
+        /// 出現時反光掃過一次（今天頁、進步頁的小卡）
+        case shine
+        /// 完整待機動畫：各部位動作、粒子、反光（詳情頁、預覽）
+        case live
+    }
+
     let tier: RankTier
     var division: Int? = nil
     var size: CGFloat = 80
+    var motion: Motion = .still
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var start = Date()
+    @State private var shineDone = false
+
+    /// 動畫時畫布比獎章大一圈，粒子才不會被切掉；用負的 padding 讓排版大小不變。
+    private var margin: CGFloat { motion == .live && !reduceMotion ? 0.3 : 0 }
 
     var body: some View {
-        Canvas { c, sz in
-            let k = sz.width / 120
-            c.scaleBy(x: k, y: k)
-            // 小段越高外框越華麗：III → II → I；沒指定小段（牌位一覽）畫最完整的那組
-            let looks = RankBadgeArt.tiers[tier.rawValue]
-            let lv = division.map { 3 - $0 } ?? (looks.count - 1)
-            looks[max(0, min(looks.count - 1, lv))].draw(&c)
-            if let d = division {
-                RankBadgeArt.ribbons[tier.rawValue].draw(&c)
-                RankBadgeArt.numerals[max(0, min(3, d))].draw(&c)
+        let side = size * 1.2
+        Group {
+            switch reduceMotion ? Motion.still : motion {
+            case .still:
+                canvas(fx: .still)
+            case .shine:
+                TimelineView(.animation(minimumInterval: 1 / 60, paused: shineDone)) { ctx in
+                    canvas(fx: Self.shineFX(ctx.date.timeIntervalSince(start)))
+                }
+                .task {
+                    start = Date()
+                    shineDone = false
+                    try? await Task.sleep(for: .seconds(1.4))
+                    shineDone = true
+                }
+            case .live:
+                TimelineView(.animation) { ctx in
+                    canvas(fx: Self.liveFX(ctx.date.timeIntervalSince(start)))
+                }
             }
         }
-        .frame(width: size * 1.2, height: size * 1.2)
+        .frame(width: side * (1 + margin * 2), height: side * (1 + margin * 2))
+        .padding(-side * margin)
+        .frame(width: side, height: side)
         .accessibilityElement()
         .accessibilityLabel(division.map { "\(tier.name) 第 \($0) 段" } ?? tier.name)
+    }
+
+    static func shineFX(_ t: Double) -> BadgeFX {
+        var fx = BadgeFX()
+        let u = FXMath.clamp((t - 0.35) / 0.9)
+        fx.sheen = u > 0 && u < 1 ? u : nil
+        return fx
+    }
+
+    static func liveFX(_ t: Double) -> BadgeFX {
+        var fx = BadgeFX()
+        fx.t = t
+        fx.idle = true
+        fx.particles = FXMath.clamp(t / 0.6)
+        fx.sheen = -1
+        return fx
+    }
+
+    private func canvas(fx: BadgeFX) -> some View {
+        let m = margin
+        return Canvas { c, sz in
+            let k = sz.width / (1 + m * 2) / 120
+            c.translateBy(x: sz.width * m / (1 + m * 2), y: sz.height * m / (1 + m * 2))
+            c.scaleBy(x: k, y: k)
+            BadgeRenderer.draw(&c, tier: tier.rawValue, division: division, fx: fx)
+        }
     }
 }
 
