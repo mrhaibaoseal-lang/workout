@@ -79,7 +79,7 @@ const MUSCLE = process.env.BADGE_EMBLEM === 'muscle';
 const EMBLEM_TIER = { dumbbell: 0, kettlebell: 1, barbell: 2, star: 3, hexgem: 4, brilliant: 5, eye: 6, trophy: 7 };
 
 // 彎手臂秀二頭肌，拳頭正面朝前：t = 0（鐵，細瘦平直的手臂）→ 7（王者，巨大二頭肌、粗前臂）。
-// 手臂整體大小、上臂粗細、二頭肌隆起、前臂外側都跟著 t 變；拳頭固定大小，讓肌肉差距更明顯。
+// 手臂整體大小、上臂粗細、二頭肌隆起、前臂外側都跟著 t 變；拳頭只略微變大，讓肌肉差距更明顯。
 function muscleArm(t, lt, md, dk) {
   const m = t / 7;
   const W = '#FFFFFF';
@@ -104,8 +104,8 @@ function muscleArm(t, lt, md, dk) {
   if (t >= 4) o.push(L(`M${pt(-15, top + 5)} Q${pt(-9, top + 1.5)} ${pt(-4, top + 5)} Q${pt(1, top + 7.5)} ${pt(5, 3)}`, solid(W, 0), dk, 0.9));   // 青筋
   if (t >= 6) for (const dx of [-12, -6]) o.push(L(`M${pt(dx, peak + 5.5)} Q${pt(dx + 1.6, peak + 8)} ${pt(dx + 0.6, top + 4)}`, solid(W, 0), dk, 0.8)); // 肌肉線條
 
-  // 拳頭：正面握拳（指節朝前），固定大小，接在手腕上。手掌塊在後，4 根寬短的圓頭手指，粗拇指橫壓在手指下緣。
-  const fs = 0.58;
+  // 拳頭：正面握拳（指節朝前），接在手腕上，隨手臂略微變大。手掌塊在後，4 根寬短的圓頭手指，粗拇指橫壓在手指下緣。
+  const fs = 0.47 + m * 0.12;   // 拳頭跟手臂成比例：細手臂配小拳頭（鐵 0.47 → 王者 0.59）
   const wx = 61.5 + 5.5 * k, wy = 65 - 13 * k;
   const pf = (x, y) => `${f(wx + (x - 5.5) * fs)} ${f(wy + (y + 13) * fs)}`;
   const skin = lin(W, lt);
