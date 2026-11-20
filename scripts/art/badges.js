@@ -78,43 +78,50 @@ const rad = (h, a0, a1 = 0) => ['rad', [[h, a0], [h, a1]]];
 const MUSCLE = process.env.BADGE_EMBLEM === 'muscle';
 const EMBLEM_TIER = { dumbbell: 0, kettlebell: 1, barbell: 2, star: 3, hexgem: 4, brilliant: 5, eye: 6, trophy: 7 };
 
-// 彎手臂秀二頭肌（側面，拳頭朝頭部彎回來）：t = 0（鐵，細手臂）→ 7（王者，巨大二頭肌）。
+// 彎手臂秀二頭肌，拳頭正面朝前：t = 0（鐵，細瘦平直的手臂）→ 7（王者，巨大二頭肌、粗前臂）。
+// 手臂整體大小、上臂粗細、二頭肌隆起、前臂外側都跟著 t 變；拳頭固定大小，讓肌肉差距更明顯。
 function muscleArm(t, lt, md, dk) {
   const m = t / 7;
   const W = '#FFFFFF';
-  const k = 0.72 + m * 0.1;
+  const k = 0.64 + m * 0.24;                 // 手臂縮放：鐵 0.64 → 王者 0.88
   const pt = (x, y) => `${f(61.5 + x * k)} ${f(65 + y * k)}`;
   const o = [];
-  const bul = 1 + m * 10;     // 二頭肌隆起
-  const fore = 12 + m * 5;    // 前臂外側肌肉
-  const tri = 10 + m * 2;     // 三頭肌下緣
-  const d = `M${pt(-17, 0)}` +
-    ` Q${pt(-8, -6 - bul * 1.4)} ${pt(1, -4)}` +                        // 二頭肌上緣
-    ` Q${pt(1.2, -9)} ${pt(2, -13)}` +                                  // 前臂內側到手腕
-    ` L${pt(9, -13)}` +                                                 // 手腕（被拳頭蓋住）
-    ` Q${pt(fore, -5)} ${pt(13, 5)}` +                                  // 前臂外側
-    ` Q${pt(13.5, 11)} ${pt(7, 11)}` +                                  // 手肘
-    ` Q${pt(-5, tri + 2 + m * 2)} ${pt(-17, tri)} Z`;                   // 三頭肌下緣
+  const top = 2 - m * 4;      // 肩膀處上臂上緣
+  const bul = m * 11.5;       // 二頭肌隆起（鐵幾乎沒有）
+  const fore = 10 + m * 9;    // 前臂外側肌肉
+  const tri = 7 + m * 6;      // 三頭肌下緣
+  const d = `M${pt(-17, top)}` +
+    ` Q${pt(-8, top - 4 - bul * 1.5)} ${pt(1, -4)}` +                   // 二頭肌上緣
+    ` Q${pt(1.6, -9)} ${pt(2.5, -13)}` +                                // 前臂內側到手腕
+    ` L${pt(8.5, -13)}` +                                               // 手腕（被拳頭蓋住）
+    ` Q${pt(fore, -5)} ${pt(12 + m * 2, 4)}` +                          // 前臂外側
+    ` Q${pt(12.5 + m * 2, tri + 1)} ${pt(6, tri + 1)}` +                // 手肘
+    ` Q${pt(-5, tri + 2 + m * 3)} ${pt(-17, tri)} Z`;                   // 三頭肌下緣
   o.push(L(d, lin(W, lt, md), dk, 1.6));
-  // 拳頭：正面握拳（指節朝前）。手掌塊在後，上面 4 根寬短、緊貼的圓頭手指，粗拇指橫壓在手指下緣。
+  const peak = 0.75 * top - 3 - 0.75 * bul;   // 二頭肌最高點（曲線中點）
+  o.push(L(`M${pt(1, -4)} Q${pt(3.5, -0.5)} ${pt(7, 1.5)}`, solid(W, 0), dk, 1.1));     // 手肘內側摺線
+  if (t >= 2) o.push(L(ellipseRot(61.5 - 8 * k, 65 + (peak + 3 + m * 3.2) * k, (3.5 + m * 3.5) * k, (1.2 + m * 1.5) * k, -10), solid(W, 0.8)));   // 光澤
+  if (t >= 4) o.push(L(`M${pt(-15, top + 5)} Q${pt(-9, top + 1.5)} ${pt(-4, top + 5)} Q${pt(1, top + 7.5)} ${pt(5, 3)}`, solid(W, 0), dk, 0.9));   // 青筋
+  if (t >= 6) for (const dx of [-12, -6]) o.push(L(`M${pt(dx, peak + 5.5)} Q${pt(dx + 1.6, peak + 8)} ${pt(dx + 0.6, top + 4)}`, solid(W, 0), dk, 0.8)); // 肌肉線條
+
+  // 拳頭：正面握拳（指節朝前），固定大小，接在手腕上。手掌塊在後，4 根寬短的圓頭手指，粗拇指橫壓在手指下緣。
+  const fs = 0.58;
+  const wx = 61.5 + 5.5 * k, wy = 65 - 13 * k;
+  const pf = (x, y) => `${f(wx + (x - 5.5) * fs)} ${f(wy + (y + 13) * fs)}`;
   const skin = lin(W, lt);
-  const rr = (x0, y0, x1, y1, r) => `M${pt(x0 + r, y0)} L${pt(x1 - r, y0)} Q${pt(x1, y0)} ${pt(x1, y0 + r)} L${pt(x1, y1 - r)}` +
-    ` Q${pt(x1, y1)} ${pt(x1 - r, y1)} L${pt(x0 + r, y1)} Q${pt(x0, y1)} ${pt(x0, y1 - r)} L${pt(x0, y0 + r)} Q${pt(x0, y0)} ${pt(x0 + r, y0)} Z`;
-  o.push(L(`M${pt(1.5, -12.5)} Q${pt(-4, -14.5)} ${pt(-4.2, -19.5)} L${pt(-4.2, -23)} L${pt(14.4, -23)} L${pt(14.4, -18.5)}` +
-    ` Q${pt(14.2, -13.8)} ${pt(10, -12.5)} Z`, skin, dk, 1.4));                                                                // 手掌
+  const rr = (x0, y0, x1, y1, r) => `M${pf(x0 + r, y0)} L${pf(x1 - r, y0)} Q${pf(x1, y0)} ${pf(x1, y0 + r)} L${pf(x1, y1 - r)}` +
+    ` Q${pf(x1, y1)} ${pf(x1 - r, y1)} L${pf(x0 + r, y1)} Q${pf(x0, y1)} ${pf(x0, y1 - r)} L${pf(x0, y0 + r)} Q${pf(x0, y0)} ${pf(x0 + r, y0)} Z`;
+  o.push(L(`M${pf(1.5, -12.5)} Q${pf(-4, -14.5)} ${pf(-4.2, -19.5)} L${pf(-4.2, -23)} L${pf(14.4, -23)} L${pf(14.4, -18.5)}` +
+    ` Q${pf(14.2, -13.8)} ${pf(10, -12.5)} Z`, skin, dk, 1.3));                                                                // 手掌
   [[-4.2, 0.5, -28.2], [0.5, 5.2, -29.6], [5.2, 9.9, -29.2], [9.9, 14.4, -27.6]].forEach(([x0, x1, y0]) =>
-    o.push(L(rr(x0, y0, x1, -21, 2.2), skin, dk, 1.3)));                                                                     // 手指
-  o.push(L(`M${pt(-3.4, -13.4)} Q${pt(-5.2, -18.2)} ${pt(-2.2, -20.2)} L${pt(5.4, -22.4)} Q${pt(8.4, -22.8)} ${pt(8.3, -20.4)}` +
-    ` Q${pt(8, -18.6)} ${pt(5.6, -18.2)} L${pt(0.8, -17.2)} Q${pt(-1.4, -16.2)} ${pt(-1.6, -13.2)} Z`, skin, dk, 1.3));   // 拇指：從手掌左下長出，斜壓在食指、中指下半
-  o.push(L(`M${pt(1, -4)} Q${pt(4, 0)} ${pt(8, 2)}`, solid(W, 0), dk, 1.1));             // 手肘內側摺線
-  if (t >= 2) o.push(L(ellipseRot(61.5 - 8 * k, 65 + (0.5 - bul * 0.45) * k, (4.5 + m * 2.5) * k, (1.5 + m * 1.2) * k, -10), solid(W, 0.8)));   // 光澤
-  if (t >= 4) o.push(L(`M${pt(-15, 6)} Q${pt(-9, 2.5)} ${pt(-4, 6)} Q${pt(1, 8.5)} ${pt(5, 4)}`, solid(W, 0), dk, 0.9));   // 青筋
-  if (t >= 6) for (const dx of [-12, -6]) o.push(L(`M${pt(dx, -2 - bul * 0.6)} Q${pt(dx + 1.8, 0)} ${pt(dx + 0.6, 4)}`, solid(W, 0), dk, 0.8)); // 肌肉線條
-  if (t >= 3) { // 力量線
+    o.push(L(rr(x0, y0, x1, -21, 2.2), skin, dk, 1.2)));                                                                     // 手指
+  o.push(L(`M${pf(-4.6, -16.6)} Q${pf(-4.8, -21.8)} ${pf(-0.4, -22)} L${pf(8, -22.4)} Q${pf(11, -22.2)} ${pf(10.8, -19.6)}` +
+    ` Q${pf(10.4, -17.2)} ${pf(7.6, -17.2)} L${pf(1.4, -16.4)} Q${pf(-1.4, -14.2)} ${pf(-4.6, -16.6)} Z`, skin, dk, 1.2));   // 拇指
+  if (t >= 3) { // 力量線，在拳頭右側
     const n = t >= 7 ? 3 : t >= 5 ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const a = (-30 + i * 32) * Math.PI / 180, c = [5, -21];
-      o.push(L(`M${pt(c[0] + 12.5 * Math.cos(a), c[1] + 12.5 * Math.sin(a))} L${pt(c[0] + 17 * Math.cos(a), c[1] + 17 * Math.sin(a))}`, solid(W, 0), W, 1.6));
+      o.push(L(`M${pf(c[0] + 13 * Math.cos(a), c[1] + 13 * Math.sin(a))} L${pf(c[0] + 18.5 * Math.cos(a), c[1] + 18.5 * Math.sin(a))}`, solid(W, 0), W, 1.5));
     }
   }
   return o;
