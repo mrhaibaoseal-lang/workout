@@ -75,7 +75,7 @@ function fixY(y) {
   }
   return y;
 }
-const fix = (zone) => ([x, y]) => zone === 'head' ? [x * 1.1, y * 1.1] : zone === 'leg' ? [x, y] : [x * 0.95, fixY(y)];
+const fix = (zone) => ([x, y]) => zone === 'head' ? [x * 1.1, y * 1.1] : zone === 'leg' ? [x * 0.9, y] : [x * 0.86, fixY(y)];
 function add(view, muscle, zone, pts, side = 'L', t = 1) { S.push({ view, muscle, zone, pts: pts.map(fix(zone)), side, t }); }
 const both = (fn) => { fn('front'); fn('back'); };
 
@@ -157,7 +157,7 @@ function shapes(view) {
 }
 const ART = { front: shapes('front'), back: shapes('back') };
 // 四肢中心線（左半邊，身形圖沿這條線縮放粗細）
-const AXES = { arm: [upper.A, upper.B, fore.B, hand.B].map(fix('arm')), leg: [thigh.A, thigh.B, shin.B, [-26, 424]] };
+const AXES = { arm: [upper.A, upper.B, fore.B, hand.B].map(fix('arm')), leg: [thigh.A, thigh.B, shin.B, [-26, 424]].map(fix('leg')) };
 module.exports = { ART, AXES };
 
 if (require.main === module) {
