@@ -1,92 +1,127 @@
 import SwiftUI
 import SwiftData
 
-/// 行程：日期膠囊＋當天的上課、打工、活動和排好的訓練時間軸。
+/// 行程：上面是一整週（左右滑或按箭頭換週，每天標出訓練與行程），
+/// 下面是選中那天：先看訓練，再看時間軸，空檔一眼就看得到。
 struct AgendaView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @AppStorage(EventStore.key) private var eventsRaw = ""
     @AppStorage(ClassStore.key) private var classesRaw = ""
+    @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @Environment(\.scenePhase) private var scenePhase
     @State private var selected = Calendar.current.startOfDay(for: .now)
     @State private var editing: LifeEvent?
+    @State private var showMonth = false
     @State private var refresh = 0
 
-    private struct Item: Identifiable {
+    fileprivate enum Kind {
+        case lesson, work, event, phone
+
+        var color: Color {
+            switch self {
+            case .lesson: Theme.accent
+            case .work: Theme.gold
+            case .event: Theme.accentSoft
+            case .phone: Theme.muted
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .lesson: "上課"
+            case .work: "打工"
+            case .event: "活動"
+            case .phone: "行事曆"
+            }
+        }
+    }
+
+    fileprivate struct Item: Identifiable {
         let id = UUID()
+        let kind: Kind
         let start: Date
-        let clock: String
+        let end: Date
+        let allDay: Bool
         let icon: String
-        let color: Color
-        let kind: String
         let title: String
         let detail: String
         var event: LifeEvent?
     }
 
-    private var items: [Item] {
-        _ = (refresh, eventsRaw, classesRaw)
-        let cal = Calendar.current
-        let day = cal.startOfDay(for: selected)
-        let next = cal.date(byAdding: .day, value: 1, to: day)!
-        func at(_ m: Int) -> Date { day.addingTimeInterval(TimeInterval(m * 60)) }
-        var list: [Item] = []
-
-        let weekday = cal.component(.weekday, from: day)
-        for c in ClassStore.decode(classesRaw) where c.weekday == weekday {
-            list.append(Item(start: at(c.startMin), clock: TimeFmt.hm(c.startMin), icon: "graduationcap.fill",
-                             color: Theme.accent, kind: "上課", title: c.name,
-                             detail: c.timeText + (c.room.isEmpty ? "" : " · \(c.room)")))
-        }
-        for s in ShiftReader.load().shifts where s.start >= day && s.start < next {
-            list.append(Item(start: s.start, clock: TimeFmt.hm(s.start), icon: "briefcase.fill",
-                             color: Theme.gold, kind: "打工", title: s.name,
-                             detail: "\(TimeFmt.hm(s.start))–\(TimeFmt.hm(s.end))"))
-        }
-        for e in EventStore.all(from: day, to: next) {
-            list.append(Item(start: e.allDay ? day : e.start,
-                             clock: e.allDay ? "整天" : TimeFmt.hm(e.start),
-                             icon: e.category.icon,
-                             color: e.fromPhone ? Theme.muted : Theme.accentSoft,
-                             kind: e.fromPhone ? "行事曆" : "活動",
-                             title: e.displayTitle,
-                             detail: e.allDay ? "" : e.timeText,
-                             event: e.fromPhone ? nil : e))
-        }
-        let plans = Planner.makePlan(sessions: sessions, horizon: 14)
-        if let p = plans.first(where: { $0.day == day }) {
-            if p.done {
-                list.append(Item(start: next, clock: "全天", icon: "checkmark.seal.fill", color: Theme.green,
-                                 kind: "訓練", title: "已完成訓練", detail: ""))
-            } else if let length = p.length, let start = p.start {
-                list.append(Item(start: start, clock: TimeFmt.hm(start), icon: "figure.strengthtraining.traditional",
-                                 color: Theme.hot, kind: "訓練", title: "建議訓練：\(length.title)", detail: "\(TimeFmt.hm(start)) 開始"))
-            } else {
-                list.append(Item(start: next, clock: "全天", icon: "moon.zzz.fill", color: Theme.muted,
-                                 kind: "休息", title: "休息", detail: p.reason))
-            }
-        }
-        return list.sorted { $0.start < $1.start }
+    fileprivate enum Training {
+        case done([WorkoutSession])
+        case planned(WorkoutLength, Date, String)
+        case rest(String)
+        case none
     }
 
-    private var days: [Date] {
-        let today = Calendar.current.startOfDay(for: .now)
-        return (0..<7).map { Calendar.current.date(byAdding: .day, value: $0, to: today)! }
+    /// 一次算好這週要用的資料，避免每個格子各自重讀。
+    private struct Snapshot {
+        let days: [Date]
+        let classes: [ClassBlock]
+        let shifts: [WorkShift]
+        let events: [LifeEvent]
+        let plans: [DayPlan]
+        let sessions: [WorkoutSession]
+
+        func items(on day: Date) -> [Item] {
+            let cal = Calendar.current
+            let next = cal.date(byAdding: .day, value: 1, to: day)!
+            func at(_ m: Int) -> Date { day.addingTimeInterval(TimeInterval(m * 60)) }
+            var list: [Item] = []
+            let weekday = cal.component(.weekday, from: day)
+            for c in classes where c.weekday == weekday {
+                list.append(Item(kind: .lesson, start: at(c.startMin), end: at(c.endMin), allDay: false,
+                                 icon: "graduationcap.fill", title: c.name, detail: c.room))
+            }
+            for s in shifts where s.start >= day && s.start < next {
+                let hours = s.end.timeIntervalSince(s.start) / 3600
+                list.append(Item(kind: .work, start: s.start, end: s.end, allDay: false, icon: "briefcase.fill",
+                                 title: s.name, detail: String(format: "%.1f 小時", hours)))
+            }
+            for e in events where e.end > day && e.start < next {
+                list.append(Item(kind: e.fromPhone ? .phone : .event, start: e.allDay ? day : e.start, end: e.end,
+                                 allDay: e.allDay, icon: e.category.icon, title: e.displayTitle,
+                                 detail: e.fromPhone ? "" : e.category.title,
+                                 event: e.fromPhone ? nil : e))
+            }
+            return list.sorted { $0.start < $1.start }
+        }
+
+        func training(on day: Date) -> Training {
+            let cal = Calendar.current
+            let done = sessions.filter { cal.isDate($0.date, inSameDayAs: day) }
+            if !done.isEmpty { return .done(done) }
+            guard let p = plans.first(where: { $0.day == day }) else { return .none }
+            if let length = p.length, let start = p.start { return .planned(length, start, p.reason) }
+            return .rest(p.reason)
+        }
+    }
+
+    private var snapshot: Snapshot {
+        _ = (refresh, eventsRaw, classesRaw, weeklyGoal)
+        let cal = Calendar.current
+        let start = SharedStore.weekStart(selected)
+        let end = cal.date(byAdding: .day, value: 7, to: start)!
+        return Snapshot(
+            days: (0..<7).map { cal.date(byAdding: .day, value: $0, to: start)! },
+            classes: ClassStore.decode(classesRaw),
+            shifts: ShiftReader.load().shifts,
+            events: EventStore.all(from: start, to: end),
+            plans: Planner.makePlan(sessions: sessions, horizon: 21),
+            sessions: Array(sessions.prefix(200))
+        )
     }
 
     var body: some View {
-        let list = items
+        let snap = snapshot
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
                     header
-                    dayStrip
-                    dayCard(list)
+                    weekCard(snap)
+                    dayContent(snap)
                     linksCard
-                    Text("新增活動後，訓練會自動避開並重新排。點活動可以修改，長按活動可以刪除。")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 4)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
@@ -97,17 +132,47 @@ struct AgendaView: View {
                 EventEditView(event: e, isNew: !EventStore.decode(eventsRaw).contains { $0.id == e.id },
                               onSave: save, onDelete: delete)
             }
+            .sheet(isPresented: $showMonth) {
+                NavigationStack {
+                    DatePicker("日期", selection: $selected, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .tint(Theme.accent)
+                        .padding()
+                        .navigationTitle("跳到日期")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar { Button("完成") { showMonth = false }.bold() }
+                }
+                .presentationDetents([.medium])
+            }
+            .onChange(of: selected) { _, new in
+                let day = Calendar.current.startOfDay(for: new)
+                if day != new { selected = day }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { refresh += 1 }
             }
         }
     }
 
+    // MARK: - 標題
+
     private var header: some View {
-        HStack {
-            Text("行程")
-                .font(.system(size: 30, weight: .black))
-                .foregroundStyle(Theme.fg)
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                Button { showMonth = true } label: {
+                    HStack(spacing: 4) {
+                        Text(selected.formatted(.dateTime.year().month(.wide)))
+                        Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                    }
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+                }
+                .accessibilityLabel("跳到其他日期")
+                Text("行程")
+                    .font(.system(size: 30, weight: .black))
+                    .foregroundStyle(Theme.fg)
+            }
             Spacer()
             Button {
                 editing = newEvent()
@@ -123,121 +188,308 @@ struct AgendaView: View {
         .padding(.top, 12)
     }
 
-    private var dayStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(days, id: \.self) { d in
-                    let on = Calendar.current.isDate(d, inSameDayAs: selected)
-                    let isToday = Calendar.current.isDateInToday(d)
-                    Button {
-                        selected = d
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(isToday ? "今天" : d.formatted(.dateTime.weekday(.abbreviated)))
-                                .font(.caption.weight(.bold))
-                            Text(d.formatted(.dateTime.day()))
-                                .font(Theme.number(20))
-                        }
-                        .foregroundStyle(on ? Theme.bg : Theme.fg)
-                        .frame(width: 54, height: 66)
-                        .background(on ? Theme.accent : Theme.surface,
-                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(on ? Theme.accent : Theme.line, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(d.formatted(.dateTime.month().day().weekday(.wide)))
-                    .accessibilityAddTraits(on ? .isSelected : [])
+    // MARK: - 週曆
+
+    private func weekCard(_ snap: Snapshot) -> some View {
+        let cal = Calendar.current
+        let thisWeek = SharedStore.weekStart(.now) == snap.days.first
+        return VStack(spacing: 10) {
+            HStack {
+                Button { shiftWeek(-1) } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 32)
+                }
+                .accessibilityLabel("上一週")
+                Spacer()
+                Text(weekTitle(snap.days))
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.fg)
+                Spacer()
+                Button { shiftWeek(1) } label: {
+                    Image(systemName: "chevron.right").frame(width: 44, height: 32)
+                }
+                .accessibilityLabel("下一週")
+            }
+            .foregroundStyle(Theme.accent)
+
+            HStack(spacing: 4) {
+                ForEach(snap.days, id: \.self) { day in
+                    dayCell(day, snap: snap, isSelected: day == selected, isToday: cal.isDateInToday(day))
+                        .onTapGesture { withAnimation(.snappy) { selected = day } }
                 }
             }
+
+            HStack(spacing: 10) {
+                legend(Theme.hot, "訓練")
+                legend(Kind.lesson.color, "上課")
+                legend(Kind.work.color, "打工")
+                legend(Kind.event.color, "活動")
+                Spacer()
+                if !thisWeek || !cal.isDateInToday(selected) {
+                    Button("回到今天") {
+                        withAnimation(.snappy) { selected = cal.startOfDay(for: .now) }
+                    }
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.accent)
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(Theme.muted)
+        }
+        .themeCard(padding: 12)
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 30).onEnded { v in
+                guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                if v.translation.width < -50 { shiftWeek(1) }
+                if v.translation.width > 50 { shiftWeek(-1) }
+            }
+        )
+    }
+
+    private func weekTitle(_ days: [Date]) -> String {
+        guard let f = days.first, let l = days.last else { return "" }
+        let cal = Calendar.current
+        let a = "\(cal.component(.month, from: f))/\(cal.component(.day, from: f))"
+        let b = "\(cal.component(.month, from: l))/\(cal.component(.day, from: l))"
+        return SharedStore.weekStart(.now) == f ? "本週 · \(a) – \(b)" : "\(a) – \(b)"
+    }
+
+    private func legend(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(text)
         }
     }
 
-    private func dayCard(_ list: [Item]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(selected.formatted(.dateTime.month().day().weekday(.wide)))
-                    .font(.headline.weight(.heavy))
-                    .foregroundStyle(Theme.fg)
-                Spacer()
-                DatePicker("選其他日期", selection: $selected, displayedComponents: .date)
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                    .frame(minHeight: 44)
-            }
-            if list.isEmpty {
-                Text("這天沒有安排")
-                    .foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { Divider().overlay(Theme.divider) }
-                        row(item).padding(.vertical, 10)
+    private func dayCell(_ day: Date, snap: Snapshot, isSelected: Bool, isToday: Bool) -> some View {
+        let kinds = Set(snap.items(on: day).map(\.kind))
+        let past = day < Calendar.current.startOfDay(for: .now)
+        return VStack(spacing: 5) {
+            Text(isToday ? "今天" : TimeFmt.weekday(day))
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(isSelected ? Theme.bg.opacity(0.8) : Theme.muted)
+            Text("\(Calendar.current.component(.day, from: day))")
+                .font(Theme.number(18))
+                .foregroundStyle(isSelected ? Theme.bg : past ? Theme.muted : Theme.fg)
+            trainingMark(snap.training(on: day), selected: isSelected)
+                .frame(height: 16)
+            HStack(spacing: 2) {
+                ForEach([Kind.lesson, .work, .event], id: \.self) { k in
+                    if kinds.contains(k) || (k == .event && kinds.contains(.phone)) {
+                        Circle().fill(isSelected ? Theme.bg : k.color).frame(width: 5, height: 5)
                     }
                 }
             }
+            .frame(height: 5)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.accent)
+            } else if isToday {
+                RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.accent, lineWidth: 1.5)
+            }
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(day.formatted(.dateTime.month().day().weekday(.wide)))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    @ViewBuilder
+    private func trainingMark(_ t: Training, selected: Bool) -> some View {
+        switch t {
+        case .done:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(selected ? Theme.bg : Theme.green)
+        case .planned(let length, _, _):
+            Text(length == .full ? "60" : "20")
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .foregroundStyle(selected ? Theme.accent : Theme.onHot)
+                .background(selected ? Theme.bg : Theme.hot, in: Capsule())
+        default:
+            Color.clear
+        }
+    }
+
+    private func shiftWeek(_ n: Int) {
+        withAnimation(.snappy) {
+            selected = Calendar.current.date(byAdding: .day, value: 7 * n, to: selected)!
+        }
+    }
+
+    // MARK: - 當天
+
+    @ViewBuilder
+    private func dayContent(_ snap: Snapshot) -> some View {
+        let items = snap.items(on: selected)
+        let allDay = items.filter(\.allDay)
+        let timed = items.filter { !$0.allDay }
+
+        trainingCard(snap.training(on: selected))
+
+        VStack(alignment: .leading, spacing: 10) {
+            Text(selected.formatted(.dateTime.month().day().weekday(.wide)))
+                .font(.headline.weight(.heavy))
+                .foregroundStyle(Theme.fg)
+
+            ForEach(allDay) { item in
+                Button { if let e = item.event { editing = e } } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: item.icon)
+                        Text(item.title).font(.subheadline.weight(.bold))
+                        Spacer()
+                        Text("整天").font(.caption.weight(.bold))
+                    }
+                    .foregroundStyle(item.kind.color)
+                    .padding(12)
+                    .background(item.kind.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(item.event == nil)
+            }
+
+            if timed.isEmpty && allDay.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.max")
+                    Text("這天沒有課、班或活動")
+                }
+                .foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity, minHeight: 60)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(timed.enumerated()), id: \.element.id) { i, item in
+                        if i > 0 { gap(from: timed[i - 1].end, to: item.start) }
+                        row(item)
+                    }
+                }
+            }
+
+            Text("訓練會自動避開課、班和活動。點自己加的活動可以修改，長按可以刪除。")
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
         }
         .themeCard()
     }
 
     @ViewBuilder
-    private func row(_ item: Item) -> some View {
-        if let e = item.event {
-            Button {
-                editing = e
-            } label: {
-                rowContent(item, tappable: true)
-            }
-            .buttonStyle(.plain)
-            .contextMenu {
-                Button("刪除", role: .destructive) { delete(e) }
-            }
-        } else {
-            rowContent(item, tappable: false)
+    private func trainingCard(_ t: Training) -> some View {
+        switch t {
+        case .done(let list):
+            banner(color: Theme.green, icon: "checkmark.seal.fill", caption: "已完成訓練",
+                   title: list.map(\.dayName).joined(separator: "、"),
+                   trailing: list.first.map { TimeFmt.hm($0.date) },
+                   note: list.map(\.length.title).joined(separator: "、"))
+        case .planned(let length, let start, let reason):
+            banner(color: Theme.hot, icon: "figure.strengthtraining.traditional", caption: "建議訓練",
+                   title: length.title, trailing: TimeFmt.hm(start), note: reason)
+        case .rest(let reason):
+            banner(color: Theme.muted, icon: "moon.zzz.fill", caption: "休息日",
+                   title: "不排訓練", trailing: nil, note: reason)
+        case .none:
+            EmptyView()
         }
     }
 
-    private func rowContent(_ item: Item, tappable: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(item.clock)
-                .font(Theme.number(15))
-                .foregroundStyle(Theme.fg)
-                .frame(width: 48, alignment: .leading)
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
+    private func banner(color: Color, icon: String, caption: String, title: String,
+                        trailing: String?, note: String?) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: icon)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(color)
+                .frame(width: 48, height: 48)
+                .background(color.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(caption).font(.caption.weight(.bold)).foregroundStyle(color)
+                Text(title).font(.title3.weight(.heavy)).foregroundStyle(Theme.fg)
+                if let note, !note.isEmpty {
+                    Text(note).font(.caption).foregroundStyle(Theme.muted).lineLimit(3)
+                }
+            }
+            Spacer(minLength: 0)
+            if let trailing {
+                Text(trailing).font(Theme.number(24)).foregroundStyle(Theme.fg)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(color.opacity(0.45), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func row(_ item: Item) -> some View {
+        let content = HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(TimeFmt.hm(item.start)).font(Theme.number(15, .bold)).foregroundStyle(Theme.fg)
+                Text(TimeFmt.hm(item.end)).font(Theme.number(12, .medium)).foregroundStyle(Theme.muted)
+            }
+            .frame(width: 46, alignment: .trailing)
+
+            HStack(spacing: 10) {
+                Capsule().fill(item.kind.color).frame(width: 4)
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Image(systemName: item.icon)
-                            .font(.caption)
-                            .foregroundStyle(item.color)
-                        Tag(text: item.kind, fg: item.color, bg: item.color.opacity(0.16))
+                        Image(systemName: item.icon).font(.caption)
+                        Text(item.kind.label).font(.caption2.weight(.bold))
+                        if !item.detail.isEmpty {
+                            Text("· " + item.detail).font(.caption2).foregroundStyle(Theme.muted)
+                        }
                     }
+                    .foregroundStyle(item.kind.color)
                     Text(item.title)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Theme.fg)
-                    if !item.detail.isEmpty {
-                        Text(item.detail)
-                            .font(.caption)
-                            .foregroundStyle(Theme.muted)
-                            .monospacedDigit()
-                    }
+                        .lineLimit(2)
                 }
                 Spacer(minLength: 0)
-                if tappable {
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.top, 4)
+                if item.event != nil {
+                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
                 }
             }
-            .padding(.leading, 12)
-            .overlay(alignment: .leading) {
-                Capsule().fill(item.color).frame(width: 4)
-            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(item.kind.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
+
+        if let e = item.event {
+            Button { editing = e } label: { content }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button("編輯", systemImage: "pencil") { editing = e }
+                    Button("刪除", systemImage: "trash", role: .destructive) { delete(e) }
+                }
+        } else {
+            content
+        }
     }
+
+    /// 兩個行程之間空超過 1 小時就標出來。
+    @ViewBuilder
+    private func gap(from: Date, to: Date) -> some View {
+        let minutes = Int(to.timeIntervalSince(from) / 60)
+        if minutes >= 60 {
+            HStack(spacing: 10) {
+                Color.clear.frame(width: 46, height: 1)
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                    Text("空檔 " + (minutes % 60 == 0 ? "\(minutes / 60) 小時" : "\(minutes / 60) 小時 \(minutes % 60) 分"))
+                }
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Theme.muted)
+                .padding(.leading, 6)
+            }
+            .padding(.vertical, 6)
+        }
+    }
+
+    // MARK: - 連結
 
     private var linksCard: some View {
         VStack(spacing: 0) {
@@ -276,9 +528,10 @@ struct AgendaView: View {
         .contentShape(Rectangle())
     }
 
+    // MARK: - 存取
+
     private func newEvent() -> LifeEvent {
-        let cal = Calendar.current
-        let base = cal.startOfDay(for: selected)
+        let base = Calendar.current.startOfDay(for: selected)
         let start = base.addingTimeInterval(19 * 3600)
         return LifeEvent(title: "", category: .meal, start: start, end: start.addingTimeInterval(2 * 3600))
     }

@@ -61,6 +61,7 @@ struct ProgressScreen: View {
             ScrollView {
                 VStack(spacing: 12) {
                     header
+                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal))
                     if entries.isEmpty {
                         ContentUnavailableView("還沒有紀錄", systemImage: "chart.line.uptrend.xyaxis",
                                                description: Text("練完第一次後，這裡會出現你的進步曲線。"))
