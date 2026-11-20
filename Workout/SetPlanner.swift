@@ -54,7 +54,7 @@ enum SetScheme: String, CaseIterable, Identifiable {
         case .straight: "每組同樣的重量，最適合新手練動作、穩定進步。"
         case .pyramid: "從輕到重：每組加重、次數變少，最後一組最重。"
         case .reverse: "先做最重的一組，之後每組減重約 10%、多做 2 下。"
-        case .dropset: "正式組做完，馬上減重約 25% 再做到力竭，連降 2 次，中間不休息。"
+        case .dropset: "正式組做完，馬上減重約 25% 再做到力竭，中間不休息。啞鈴動作用另一組先裝好的啞鈴降 1 次；滑輪拔片快，降 2 次。"
         }
     }
 }
@@ -85,6 +85,8 @@ struct PlannedSet {
     var weight: Double
     var reps: Int
     var kind: SetKind
+    /// 指定用哪一組器材（Drop set 用另一組先裝好的啞鈴）
+    var kit: String? = nil
 }
 
 enum SetPlanner {
@@ -139,12 +141,27 @@ enum SetPlanner {
             }
         case .dropset:
             var out = Array(repeating: PlannedSet(weight: weight, reps: reps, kind: .work), count: n)
+            // 兩手各拿一支的啞鈴動作：換片來不及，用另一組啞鈴先裝好減重後的重量，只降一次
+            if let other = pairKit(ladder) {
+                let alt = ladder.only(kit: other)
+                let d = alt.snap(weight * 0.75)
+                if d < weight, alt.loading(d) != nil {
+                    out.append(PlannedSet(weight: d, reps: reps, kind: .drop, kit: other))
+                }
+                return out
+            }
             let d1 = ladder.snap(weight * 0.75)
             let d2 = ladder.snap(weight * 0.55)
             if d1 < weight { out.append(PlannedSet(weight: d1, reps: reps, kind: .drop)) }
             if d2 < d1 { out.append(PlannedSet(weight: d2, reps: reps, kind: .drop)) }
             return out
         }
+    }
+
+    /// 兩手各一支的啞鈴動作，而且有第二組啞鈴可以先裝好
+    private static func pairKit(_ ladder: WeightLadder) -> String? {
+        guard ladder.loadings.first?.use == .pair else { return nil }
+        return ladder.otherKit
     }
 
     /// 熱身組。first = 這個部位（推／拉／腿）今天第一個動作，做完整熱身；之後的複合動作只做 1 組。

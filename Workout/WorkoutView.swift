@@ -6,6 +6,8 @@ struct SetDraft: Identifiable {
     var weight: Double
     var reps: Int
     var kind: SetKind = .work
+    /// 指定用哪一組啞鈴（Drop set 用另一組先裝好的）
+    var kit: String? = nil
     /// 還剩幾下力氣（RIR），-1 = 沒填
     var rir: Int = -1
     var done = false
@@ -59,6 +61,10 @@ struct WorkoutView: View {
     @State private var prCount: Set<String> = []
     @State private var summary: WorkoutSummary?
     @State private var toast: String?
+    /// 每組器材現在裝成什麼樣子，用來估換重量要多久
+    @State private var rigs: [String: RigState] = [:]
+    /// 休息時要做的事（換重量、先裝好 Drop set）
+    @State private var restNote: String?
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
     private var allDone: Bool {
@@ -85,6 +91,16 @@ struct WorkoutView: View {
     private var isGym: Bool { placeRaw == TrainingPlace.gym.rawValue }
     private var lessBarbell: Bool { limitBarbell && !isGym }
 
+    /// 在家有槓鈴動作：開始前先組好，整場只組一次。另一組啞鈴留給其他動作。
+    private var barbellPrep: String? {
+        guard !isGym, doneSets == 0 else { return nil }
+        let bars = drafts.filter { $0.ladder.loadings.first?.use == .barbell }
+        guard let first = bars.first, let kitName = first.ladder.loadings.first?.kit else { return nil }
+        let names = bars.map(\.item.exercise.name).joined(separator: "、")
+        let secs = Int(WeightKits.load().first { $0.name == kitName }?.assembleSeconds ?? 90)
+        return "開始前先用\(kitName)組好槓鈴（約 \(secs) 秒），\(names)用。其他動作用另一組啞鈴，整場不用再拆。"
+    }
+
     private var doneSets: Int { drafts.reduce(0) { $0 + $1.sets.filter(\.done).count } }
     private var totalSets: Int { drafts.reduce(0) { $0 + $1.sets.count } }
 
@@ -103,6 +119,15 @@ struct WorkoutView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 12) {
+                            if let prep = barbellPrep {
+                                Label(prep, systemImage: "wrench.adjustable.fill")
+                                    .font(.footnote.weight(.bold))
+                                    .foregroundStyle(Theme.hotText)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(14)
+                                    .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.hotLine, lineWidth: 1))
+                            }
                             ForEach(Array(drafts.indices), id: \.self) { i in
                                 ExerciseCard(draft: $drafts[i], number: i + 1, total: drafts.count,
                                              activeSetId: activeSetId, increment: increment,
@@ -253,7 +278,7 @@ struct WorkoutView: View {
     @ViewBuilder
     private var restCard: some View {
         if let end = restEnd {
-            RestCard(end: end, total: restTotal,
+            RestCard(end: end, total: restTotal, note: restNote,
                      onAdd: {
                          restEnd = end.addingTimeInterval(30)
                          restTotal += 30
@@ -283,18 +308,67 @@ struct WorkoutView: View {
             restEnd = nil
             askMore = true
         } else if !allDone {
+            if let l = loading(of: set, in: drafts[exerciseIndex]) {
+                rigs[l.kit] = RigState(use: l.use, plates: l.plates)
+            }
             let next = drafts[exerciseIndex].sets.first { !$0.done }?.kind
-            let rest = SetPlanner.rest(after: set.kind, next: next, normal: drafts[exerciseIndex].item.restSeconds)
+            var rest = SetPlanner.rest(after: set.kind, next: next, normal: drafts[exerciseIndex].item.restSeconds)
+            let (change, note) = restChores(after: exerciseIndex)
             if rest > 0 {
+                // 換重量也算休息，但換完至少還要喘一下
+                rest = max(rest, change + (set.kind == .warmup ? 20 : 30))
+                restNote = note
                 restTotal = Double(rest)
                 restEnd = Date().addingTimeInterval(TimeInterval(rest))
             } else {
                 restEnd = nil
-                showToast("馬上減重，不休息！")
+                showToast(note.map { "馬上減重，不休息！" + $0 } ?? "馬上減重，不休息！")
             }
         } else {
             restEnd = nil
         }
+    }
+
+    private func loading(of set: SetDraft, in d: ExerciseDraft) -> Loading? {
+        guard d.item.exercise.loaded, set.weight > 0 else { return nil }
+        return d.ladder.loading(set.weight, kit: set.kit)
+    }
+
+    /// 下一組（這個動作還沒做的，或下一個動作的第一組）
+    private func nextSet(after i: Int) -> (Int, SetDraft)? {
+        if let s = drafts[i].sets.first(where: { !$0.done }) { return (i, s) }
+        for j in drafts.indices where j > i {
+            if let s = drafts[j].sets.first(where: { !$0.done }) { return (j, s) }
+        }
+        return nil
+    }
+
+    /// 這次休息要做的事和大概的秒數：換成下一組的重量；下一組是 Drop set 前的最後一組，就先用另一組啞鈴裝好。
+    private func restChores(after i: Int) -> (Int, String?) {
+        let kits = WeightKits.load()
+        var seconds = 0
+        var notes: [String] = []
+        func prepare(_ l: Loading, label: String) {
+            guard let kit = kits.first(where: { $0.name == l.kit }) else { return }
+            let target = RigState(use: l.use, plates: l.plates)
+            guard rigs[l.kit] != target else { return }
+            let t = WeightKits.changeSeconds(kit: kit, from: rigs[l.kit], to: l)
+            seconds += t
+            notes.append("\(label)\(l.text)（約 \(t) 秒）")
+            rigs[l.kit] = target
+        }
+        guard let found = nextSet(after: i) else { return (0, nil) }
+        let (j, next) = found
+        if let l = loading(of: next, in: drafts[j]) {
+            prepare(l, label: j == i ? "換重量：" : "下一個動作（\(drafts[j].item.exercise.name)）：")
+        }
+        // 下一組做完就要 Drop set：趁現在把另一組啞鈴裝好
+        let rest = drafts[j].sets.filter { !$0.done }
+        if next.kind == .work, rest.count >= 2, rest[1].kind == .drop, rest[1].kit != nil,
+           let l = loading(of: rest[1], in: drafts[j]) {
+            prepare(l, label: "順便裝好 Drop set：")
+        }
+        return (seconds, notes.isEmpty ? nil : notes.joined(separator: "\n"))
     }
 
     /// 依「還剩幾下」自動調整這個動作接下來的正式組：還剩 4 下以上就加重，力竭又沒做到下限就減重。
@@ -396,7 +470,7 @@ struct WorkoutView: View {
         let warm = autoWarmup && length != .minimal
             ? SetPlanner.warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion, ladder: ladder)
             : []
-        let sets = (warm + work).map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind) }
+        let sets = (warm + work).map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit) }
         var lastText = ""
         if !last.isEmpty {
             let reps = last.map { String($0.reps) }.joined(separator: "、")
@@ -715,7 +789,7 @@ struct ActiveSetEditor: View {
                 }
             }
             if exercise.loaded, set.weight > 0 {
-                if let l = ladder.loading(set.weight) {
+                if let l = ladder.loading(set.weight, kit: set.kit) {
                     Label(l.text, systemImage: "circle.grid.2x1.fill")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(Theme.accentSoft)
@@ -796,6 +870,7 @@ struct ActiveSetEditor: View {
 struct RestCard: View {
     let end: Date
     let total: Double
+    var note: String? = nil
     let onAdd: () -> Void
     let onSkip: () -> Void
 
@@ -817,35 +892,43 @@ struct RestCard: View {
         let last3 = left < 3
         let beat = last3 ? 1 + 0.08 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
         let p = left / max(total, 1)
-        return HStack(spacing: 14) {
-            ZStack {
-                Ring(progress: p, color: col, lineWidth: 7)
-                // 圓環頭端的光點
-                GeometryReader { g in
-                    let r = Double(g.size.width) / 2 - 7
-                    let a = -Double.pi / 2 + 2 * Double.pi * p
-                    let w = Double(g.size.width), h = Double(g.size.height)
-                    Circle().fill(.white)
-                        .frame(width: 7, height: 7)
-                        .shadow(color: col, radius: 6)
-                        .position(x: w / 2 + r * cos(a), y: h / 2 + r * sin(a))
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Ring(progress: p, color: col, lineWidth: 7)
+                    // 圓環頭端的光點
+                    GeometryReader { g in
+                        let r = Double(g.size.width) / 2 - 7
+                        let a = -Double.pi / 2 + 2 * Double.pi * p
+                        let w = Double(g.size.width), h = Double(g.size.height)
+                        Circle().fill(.white)
+                            .frame(width: 7, height: 7)
+                            .shadow(color: col, radius: 6)
+                            .position(x: w / 2 + r * cos(a), y: h / 2 + r * sin(a))
+                    }
+                    Text(timerInterval: now...end, countsDown: true)
+                        .font(Theme.number(15))
+                        .foregroundStyle(last3 ? col : Theme.fg)
                 }
-                Text(timerInterval: now...end, countsDown: true)
-                    .font(Theme.number(15))
-                    .foregroundStyle(last3 ? col : Theme.fg)
+                .frame(width: 64, height: 64)
+                .scaleEffect(beat)
+                .shadow(color: col.opacity(last3 ? 0.6 : 0), radius: 10)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(last3 ? "準備！" : "休息中").font(.subheadline.weight(.bold)).foregroundStyle(last3 ? col : Theme.fg)
+                    Text("共 \(Int(total)) 秒").font(.caption).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 0)
+                Button("+30 秒", action: onAdd)
+                    .buttonStyle(GhostButtonStyle())
+                Button("跳過", action: onSkip)
+                    .buttonStyle(GhostButtonStyle())
             }
-            .frame(width: 64, height: 64)
-            .scaleEffect(beat)
-            .shadow(color: col.opacity(last3 ? 0.6 : 0), radius: 10)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(last3 ? "準備！" : "休息中").font(.subheadline.weight(.bold)).foregroundStyle(last3 ? col : Theme.fg)
-                Text("共 \(Int(total)) 秒").font(.caption).foregroundStyle(Theme.muted)
+            if let note {
+                Label(note, systemImage: "arrow.left.arrow.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.accentSoft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
-            Button("+30 秒", action: onAdd)
-                .buttonStyle(GhostButtonStyle())
-            Button("跳過", action: onSkip)
-                .buttonStyle(GhostButtonStyle())
         }
         .padding(14)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))

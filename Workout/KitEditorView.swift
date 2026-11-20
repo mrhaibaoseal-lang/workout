@@ -29,6 +29,11 @@ struct KitEditorView: View {
                         weightRow("連接桿", value: $kit.connector)
                     }
                     Toggle("槓片可以掛在下拉架", isOn: $kit.onCable)
+                    Stepper("拆裝鎖頭：一支 \(Int(kit.lockSeconds)) 秒", value: $kit.lockSeconds, in: 0...60, step: 1)
+                    Stepper("拿下或裝上一片：\(Int(kit.plateSeconds)) 秒", value: $kit.plateSeconds, in: 1...20, step: 1)
+                    if kit.makesBarbell {
+                        Stepper("組成槓鈴：\(Int(kit.assembleSeconds)) 秒", value: $kit.assembleSeconds, in: 10...300, step: 10)
+                    }
                     preview(kit)
                 } header: {
                     HStack {
@@ -49,7 +54,7 @@ struct KitEditorView: View {
                 }
                 Button("恢復預設（Tixteel＋舊啞鈴）", role: .destructive) { confirmReset = true }
             } footer: {
-                SectionLabel("排在最上面的那組優先用（主要啞鈴放第一個）。兩手各拿一支的動作，槓片要平分給兩支、左右對稱；單手動作（單臂划船、高腳杯深蹲、臀推）可以把整組槓片裝在同一支。舊啞鈴的把手和連接桿重量是估的，用體重計秤一下會更準。")
+                SectionLabel("排在最上面的那組優先用（主要啞鈴放第一個）。兩手各拿一支的動作，槓片要平分給兩支、左右對稱；單手動作（單臂划船、高腳杯深蹲、臀推）可以把整組槓片裝在同一支。舊啞鈴的把手和連接桿重量是估的，用體重計秤一下會更準。換重量的秒數用來拉長休息：要換片的那次休息，會自動延長到「換重量＋至少 30 秒」。")
             }
             .listRowBackground(Theme.surface)
         }
