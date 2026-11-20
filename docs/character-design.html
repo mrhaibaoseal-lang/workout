@@ -1,0 +1,499 @@
+<title>練壯人物風格</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: 單欄說明 + 動作切換 + 三種畫風卡片並排（手機堆疊），最後是吉祥物三表情 */
+:root{
+  --bg:#EDF0F2; --surface:#FFFFFF; --fg:#18202B; --muted:#5C6773; --line:#D5DBE1;
+  --accent:#2F5BEA; --accent-deep:#1D3A9E; --hot:#FF6A3D; --skin:#F2C9A8; --sticker:#FFFFFF;
+  --shirt:#3B4552; --shirt-deep:#262E38; --shorts:#1A1F26; --shorts-deep:#0E1216; --skin-deep:#D9AE8C; --shoe:#5C6773; --grey:#9AA4AF; --grey-deep:#727D89; --grey-sticker:#D3D9DF;
+  --display:"Space Grotesk","Noto Sans TC",system-ui,sans-serif;
+  --body:"Noto Sans TC",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151B; --surface:#1A2029; --fg:#E7EBF0; --muted:#98A2AE; --line:#2C3440;
+  --accent:#7D9BFF; --accent-deep:#4766D6; --hot:#FF8757; --skin:#E2B796; --sticker:#2A323E; --shirt:#5A6676; --shirt-deep:#434D5A; --shorts:#3A4350; --shorts-deep:#2A313B; --skin-deep:#C49C7D; --shoe:#98A2AE; --grey:#8B95A1; --grey-deep:#66717D; --grey-sticker:#4A5461; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151B; --surface:#1A2029; --fg:#E7EBF0; --muted:#98A2AE; --line:#2C3440;
+  --accent:#7D9BFF; --accent-deep:#4766D6; --hot:#FF8757; --skin:#E2B796; --sticker:#2A323E; --shirt:#5A6676; --shirt-deep:#434D5A; --shorts:#3A4350; --shorts-deep:#2A313B; --skin-deep:#C49C7D; --shoe:#98A2AE; --grey:#8B95A1; --grey-deep:#66717D; --grey-sticker:#4A5461; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:28px}
+h1{font-family:var(--display);font-size:1.9rem;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--display);font-size:1.15rem;margin:0}
+p{margin:0;color:var(--muted);max-width:62ch}
+.intro{display:grid;gap:8px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  padding:7px 14px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gear{display:grid;gap:14px}
+.gear-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px}
+@media (max-width:700px){.gear-layout{grid-template-columns:1fr}}
+.stage svg{max-width:340px;margin:0 auto}
+.cool .stage,.cool .preset{background:radial-gradient(120% 80% at 50% 30%,#26303D 0%,#141920 60%,#0C0F14 100%);border-color:#2C3440;
+  --line:#2C3440;--grey-sticker:#8D98A4;--grey:#66717D;--skin:#E9BE9C;color:#E7EBF0}
+.cool .preset small,.cool .stage .check{color:#98A2AE}
+.aura{animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.aura{animation:none}}
+.check{display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted)}
+.slots{display:grid;gap:12px}
+.slot{display:grid;gap:6px}
+.slot h3{margin:0;font-size:.85rem;color:var(--muted);font-weight:500}
+.slot .bar{gap:6px}
+.slot .chip{font-size:.85rem;padding:5px 11px;display:inline-flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.preset{cursor:pointer;text-align:left;font:inherit;color:inherit}
+.preset:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.preset svg{max-width:150px;margin:0 auto}
+.setinfo{font-size:.85rem;color:#C9D1DA}
+.loop ol{margin:0;padding-left:1.3em;display:grid;gap:8px;max-width:70ch}
+.loop li{color:var(--muted)}.loop li b{color:var(--fg)}
+.preset small{color:var(--muted)}
+.lbl{font-size:.85rem;color:var(--muted);margin-right:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;align-content:start}
+.tag{font-family:var(--display);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.card svg{width:100%;height:auto;max-width:100%;display:block}
+.card p{font-size:.92rem}
+.fit{font-size:.85rem;color:var(--fg)}
+.fit b{font-weight:700}
+.tip{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+.mascots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mascots figure{margin:0;display:grid;gap:4px;justify-items:center;font-size:.85rem;color:var(--muted)}
+@media (max-width:420px){h1{font-size:1.55rem}}
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="tag">練壯 · 人物美術提案</span>
+    <h1>四種可以直接用 SwiftUI 畫的人物風格</h1>
+    <p>全部是向量，由「關節座標」驅動，所以同一套骨架可以換畫風、能做動作動畫，橘色是該動作的主要發力肌群。下面可以切換動作和配色。</p>
+  </header>
+
+  <div class="bar" role="group" aria-label="選擇動作">
+    <button class="chip" id="ex-squat" data-ex="squat" aria-pressed="true">高腳杯深蹲</button>
+    <button class="chip" id="ex-press" data-ex="press" aria-pressed="false">啞鈴肩推</button>
+    <button class="chip" id="ex-rdl" data-ex="rdl" aria-pressed="false">啞鈴羅馬尼亞硬舉</button>
+    <button class="chip" id="toggle-play" aria-pressed="false">暫停動畫</button>
+  </div>
+  <div class="bar" role="group" aria-label="選擇配色">
+    <span class="lbl">配色</span>
+    <button class="chip" id="sc-bare" data-sc="bare" aria-pressed="false">打赤膊＋短褲</button>
+    <button class="chip" id="sc-outfit" data-sc="outfit" aria-pressed="false">1 · 上衣短褲</button>
+    <button class="chip" id="sc-grey" data-sc="grey" aria-pressed="true">3 · 中性灰</button>
+    <button class="chip" id="sc-blue" data-sc="blue" aria-pressed="false">原本的藍色</button>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <span class="tag">A · 膠囊扁平</span>
+      <svg id="svgA" viewBox="20 -14 180 204" role="img" aria-label="膠囊扁平風格人物"></svg>
+      <h2>膠囊扁平</h2>
+      <p>圓角粗線條＋圓頭，跟 iOS 的 SF Symbols 很搭，最乾淨。</p>
+      <div class="fit"><b>適合：</b>訓練中畫面、今天練什麼的動作卡</div>
+    </article>
+    <article class="card">
+      <span class="tag">B · 教練線稿</span>
+      <svg id="svgB" viewBox="20 -14 180 204" role="img" aria-label="教練線稿風格人物"></svg>
+      <h2>教練線稿</h2>
+      <p>細線＋關節點，淡色殘影標出動作範圍，最像教學圖。</p>
+      <div class="fit"><b>適合：</b>動作說明頁、姿勢提示</div>
+    </article>
+    <article class="card">
+      <span class="tag">C · 貼紙描邊</span>
+      <svg id="svgC" viewBox="20 -14 180 204" role="img" aria-label="貼紙描邊風格人物"></svg>
+      <h2>貼紙描邊</h2>
+      <p>外框一圈粗描邊、肌群整塊上色，比較有個性、辨識度高。</p>
+      <div class="fit"><b>適合：</b>小工具、通知、進步圖表旁的插圖</div>
+    </article>
+    <article class="card">
+      <span class="tag">D · 吉祥物「小壯」</span>
+      <div class="mascots" id="mascots"></div>
+      <h2>Q 版吉祥物</h2>
+      <p>大頭圓身，靠表情傳達狀態，不示範動作，負責陪伴感。</p>
+      <div class="fit"><b>適合：</b>完成、提醒、休息日、空白狀態</div>
+    </article>
+  </section>
+
+  <section class="gear cool" id="gearSec">
+    <span class="tag">已選：中性灰 ＋ 貼紙描邊 ＋ 酷炫版</span>
+    <h1>裝備圖鑑</h1>
+    <p>12 個系列 × 8 個部位，共 90 多件，剛好一年每月一個新系列。最後 5 個是超級英雄、奇幻戰士類型的原創系列。同系列湊滿 4 件會觸發「套裝效果」，光環換成系列顏色。點下面的系列卡可以一鍵換整套，右邊可以單件混搭。名稱、稀有度、數值都是範例。</p>
+    <div class="gear-layout">
+      <div class="card stage">
+        <svg id="svgG" viewBox="20 -14 180 204" role="img" aria-label="穿裝備的人物"></svg>
+        <div class="setinfo" id="setinfo"></div>
+        <label class="check"><input type="checkbox" id="g-muscle"> 同時顯示發力肌群</label>
+      </div>
+      <div class="card slots" id="slots"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="presets" id="presets"></div>
+  </section>
+
+  <section class="loop card">
+    <span class="tag">提案 · 讓你一直想去練</span>
+    <h2>新鮮感從哪裡來</h2>
+    <ol>
+      <li><b>練完開補給箱。</b>只有真的記錄完一次訓練才拿得到。每箱必掉 1 件，機率約 普通 60%、稀有 28%、史詩 10%、傳說 2%，10 箱內保證出史詩以上。</li>
+      <li><b>每月一個新系列。</b>12 個系列預先寫進 App，到那個月自動開放，不用更新 App。當月限定，錯過就要等輪迴，製造「這個月要練滿」的動力。</li>
+      <li><b>實力裝備，不靠運氣。</b>綁真實進步：連續 4 週有練、某個動作破個人紀錄、累積 100 次訓練。最帥的傳說裝備只能這樣拿。</li>
+      <li><b>套裝效果。</b>同系列湊 4 件，全身換成系列光環和特效（火焰、冰晶、電光、金光、暗影煙）。</li>
+      <li><b>重複的拆成碎片。</b>抽到重複的不浪費，碎片可以換指定的裝備，避免永遠缺一件。</li>
+    </ol>
+    <p>這些機制還沒做，等你挑要哪幾個，我再設計細節。</p>
+  </section>
+
+  <p class="tip">A、B、C 用同一份骨架資料：每個動作只要記兩組關節座標（起點、終點），App 裡用 SwiftUI <code>Path</code> 畫線、<code>withAnimation</code> 在兩組之間內插，不需要任何圖檔。D 是固定插圖，可以直接畫成 SwiftUI Shape 或匯出向量 PDF 放進 Assets。可以混搭，例如 A 當動作圖、D 當吉祥物。</p>
+</div>
+
+<script>
+// 側面、面向右；地面 y=184
+const POSES = {
+  squat:{ muscles:["thigh","glute"], gear:"goblet",
+    a:{head:[110,38],sh:[106,60],el:[116,86],ha:[122,64],hip:[104,110],kn:[110,146],an:[108,182],to:[124,184]},
+    b:{head:[114,76],sh:[106,98],el:[124,122],ha:[124,100],hip:[92,144],kn:[130,152],an:[108,182],to:[124,184]}},
+  press:{ muscles:["upper","delt"], gear:"db",
+    a:{head:[110,38],sh:[106,60],el:[118,84],ha:[118,60],hip:[104,110],kn:[107,146],an:[106,182],to:[122,184]},
+    b:{head:[110,38],sh:[106,60],el:[108,32],ha:[110,8],hip:[104,110],kn:[107,146],an:[106,182],to:[122,184]}},
+  rdl:{ muscles:["thigh","glute"], gear:"db",
+    a:{head:[110,38],sh:[106,60],el:[108,88],ha:[110,112],hip:[104,110],kn:[108,146],an:[108,182],to:[124,184]},
+    b:{head:[156,88],sh:[136,98],el:[134,126],ha:[132,150],hip:[90,118],kn:[112,148],an:[108,182],to:[124,184]}}
+};
+// 每段：名稱、起點、終點、A 風格粗細
+const SEGS = [
+  ["farUpper","sh","el",10,"far"],["farFore","el","ha",9,"far"],
+  ["farThigh","hip","kn",15,"far"],["farShin","kn","an",12,"far"],["farFoot","an","to",8,"far"],
+  ["torso","hip","sh",24,"near"],["neck","sh","head",9,"near"],
+  ["thigh","hip","kn",16,"near"],["shin","kn","an",13,"near"],["foot","an","to",9,"near"],
+  ["upper","sh","el",11,"near"],["fore","el","ha",10,"near"]
+];
+const FAR = [-6,-1];
+let scheme="grey";
+const OUT={torso:"shirt",upper:"shirt",neck:"skin",fore:"skin",shin:"skin",thigh:"shorts",foot:"shoe"};
+function col(style,n,far){
+  const base=n.replace(/^far(.)/,(_,c)=>c.toLowerCase());
+  if(scheme==="blue")return style==="C"?(far?"var(--line)":"var(--sticker)"):(far?"var(--accent-deep)":"var(--accent)");
+  if(scheme==="grey")return style==="C"?(far?"var(--grey)":"var(--grey-sticker)"):(far?"var(--grey-deep)":"var(--grey)");
+  let t=OUT[base];if(scheme==="bare"&&t==="shirt")t="skin";return `var(--${t}${far&&t!=="shoe"?"-deep":""})`;
+}
+const mBody=()=>scheme==="bare"?"var(--skin)":scheme==="outfit"?"var(--shirt)":scheme==="grey"?"var(--grey)":"var(--accent)";
+const lerp=(p,q,t)=>[p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t];
+function pose(ex,t){const o={};for(const k in POSES[ex].a)o[k]=lerp(POSES[ex].a[k],POSES[ex].b[k],t);return o}
+function pt(P,j,far){const p=P[j];return far?[p[0]+FAR[0],p[1]+FAR[1]]:p}
+const L=(a,b,w,c,extra="")=>`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${c}" stroke-width="${w}" ${extra} stroke-linecap="round"/>`;
+const C=(p,r,fill,extra="")=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${r}" fill="${fill}" ${extra}/>`;
+const ground=`<line x1="40" y1="186" x2="190" y2="186" stroke="var(--line)" stroke-width="3" stroke-linecap="round"/>`;
+function gear(ex,P,style){
+  const g=POSES[ex].gear, h=P.ha, hf=pt(P,"ha",true);
+  if(style==="B"){const s=`fill="none" stroke="var(--fg)" stroke-width="2.5"`;
+    return g==="goblet"?`<rect x="${(h[0]-6).toFixed(1)}" y="${(h[1]-4).toFixed(1)}" width="12" height="22" rx="4" ${s}/>`:C(h,8,"none",s);}
+  const fill=style==="A"?"var(--fg)":"var(--fg)", ring=style==="C"?`stroke="var(--fg)" stroke-width="3"`:"";
+  if(g==="goblet")return `<rect x="${(h[0]-7).toFixed(1)}" y="${(h[1]-5).toFixed(1)}" width="14" height="24" rx="5" fill="${fill}"/>`;
+  return C(hf,8,fill)+C(h,9,fill,ring)+C(h,3.5,"var(--surface)");
+}
+function drawA(ex,P){
+  const m=POSES[ex].muscles;let s=ground;
+  const gb=POSES[ex].gear==="db";
+  for(const [n,a,b,w,side] of SEGS){
+    const far=side==="far";
+    let c=col("A",n,far);
+    if(m.includes(n))c="var(--hot)";
+    s+=L(pt(P,a,far),pt(P,b,far),w,c);
+    if(n==="farFore"&&gb)s+=C(pt(P,"ha",true),8,"var(--fg)");
+  }
+  if(m.includes("glute"))s+=C(P.hip,11,"var(--hot)");
+  if(m.includes("delt"))s+=C(P.sh,10,"var(--hot)");
+  s+=C(P.head,14,"var(--skin)");
+  s+=POSES[ex].gear==="goblet"?gear(ex,P,"A"):C(P.ha,9,"var(--fg)")+C(P.ha,3.5,"var(--surface)");
+  return s;
+}
+function drawB(ex,P){
+  const m=POSES[ex].muscles, G=pose(ex,1);let s=ground;
+  // 殘影：動作終點
+  for(const [n,a,b,,side] of SEGS){if(side==="far")continue;s+=L(G[a],G[b],2,"var(--muted)",`opacity=".35" stroke-dasharray="3 5"`)}
+  s+=C(G.head,13,"none",`stroke="var(--muted)" stroke-width="2" opacity=".35" stroke-dasharray="3 5"`);
+  // 肌群底色
+  for(const [n,a,b] of SEGS)if(m.includes(n))s+=L(P[a],P[b],14,"var(--hot)",`opacity=".45"`);
+  if(m.includes("glute"))s+=C(P.hip,9,"var(--hot)",`opacity=".45"`);
+  if(m.includes("delt"))s+=C(P.sh,9,"var(--hot)",`opacity=".45"`);
+  for(const [n,a,b,,side] of SEGS){const far=side==="far";s+=L(pt(P,a,far),pt(P,b,far),3,far?"var(--muted)":"var(--fg)")}
+  for(const j of ["sh","el","ha","hip","kn","an"])s+=C(P[j],3.6,"var(--surface)",`stroke="var(--fg)" stroke-width="2.2"`);
+  s+=C(P.head,13,"var(--surface)",`stroke="var(--fg)" stroke-width="3"`);
+  s+=gear(ex,P,"B");
+  return s;
+}
+function drawC(ex,P){
+  const m=POSES[ex].muscles;let out="",fill="";const O=6;
+  const parts=[];
+  for(const [n,a,b,w,side] of SEGS){const far=side==="far";parts.push([pt(P,a,far),pt(P,b,far),w,m.includes(n)&&!far?"var(--hot)":col("C",n,far)])}
+  for(const [a,b,w] of parts)out+=L(a,b,w+O,"var(--fg)");
+  out+=C(P.head,14+O/2,"var(--fg)");
+  for(const [a,b,w,c] of parts)fill+=L(a,b,w,c);
+  if(m.includes("glute"))fill+=C(P.hip,11,"var(--hot)");
+  if(m.includes("delt"))fill+=C(P.sh,10,"var(--hot)");
+  fill+=C(P.head,14,"var(--skin)");
+  const eyeX=P.head[0]+6,eyeY=P.head[1]-2;
+  fill+=C([eyeX,eyeY],2.2,"var(--fg)");
+  return ground+out+fill+gear(ex,P,"C");
+}
+// 吉祥物
+function mascot(expr){
+  const face={
+    happy:`<path d="M84 76 q6 -7 12 0 M104 76 q6 -7 12 0" fill="none" stroke="var(--fg)" stroke-width="3.5" stroke-linecap="round"/><path d="M90 92 q10 11 20 0" fill="var(--fg)" stroke="var(--fg)" stroke-width="3" stroke-linejoin="round"/>`,
+    go:`<ellipse cx="90" cy="76" rx="3.6" ry="5" fill="var(--fg)"/><ellipse cx="110" cy="76" rx="3.6" ry="5" fill="var(--fg)"/><path d="M80 66 l10 3 M120 66 l-10 3" stroke="var(--fg)" stroke-width="3" stroke-linecap="round"/><path d="M93 92 h14" stroke="var(--fg)" stroke-width="3.5" stroke-linecap="round"/>`,
+    rest:`<path d="M84 77 q6 5 12 0 M104 77 q6 5 12 0" fill="none" stroke="var(--fg)" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="100" cy="93" rx="4" ry="3" fill="var(--fg)"/><text x="130" y="44" font-family="Space Grotesk,sans-serif" font-weight="700" font-size="16" fill="var(--accent)">z</text><text x="142" y="30" font-family="Space Grotesk,sans-serif" font-weight="700" font-size="12" fill="var(--accent)">z</text>`
+  }[expr];
+  const arm = expr==="go"
+    ? `<path d="M128 132 q18 -10 16 -34" fill="none" stroke="var(--fg)" stroke-width="18" stroke-linecap="round"/><path d="M128 132 q18 -10 16 -34" fill="none" stroke="${mBody()}" stroke-width="12" stroke-linecap="round"/><rect x="128" y="84" width="32" height="8" rx="3" fill="var(--fg)"/><rect x="124" y="76" width="10" height="24" rx="3" fill="var(--fg)"/><rect x="154" y="76" width="10" height="24" rx="3" fill="var(--fg)"/>`
+    : expr==="happy"
+    ? `<path d="M128 130 l16 -26" stroke="var(--fg)" stroke-width="18" stroke-linecap="round"/><path d="M128 130 l16 -26" stroke="${mBody()}" stroke-width="12" stroke-linecap="round"/><circle cx="146" cy="100" r="9" fill="var(--skin)" stroke="var(--fg)" stroke-width="3"/>`
+    : `<path d="M126 134 l10 14" stroke="var(--fg)" stroke-width="18" stroke-linecap="round"/><path d="M126 134 l10 14" stroke="${mBody()}" stroke-width="12" stroke-linecap="round"/>`;
+  const leftArm=`<path d="M72 134 l-10 14" stroke="var(--fg)" stroke-width="18" stroke-linecap="round"/><path d="M72 134 l-10 14" stroke="${mBody()}" stroke-width="12" stroke-linecap="round"/>`;
+  return `<svg viewBox="30 10 150 180" role="img" aria-label="吉祥物小壯">
+    <ellipse cx="100" cy="184" rx="40" ry="5" fill="var(--line)"/>
+    <rect x="80" y="160" width="16" height="24" rx="8" fill="var(--fg)"/><rect x="104" y="160" width="16" height="24" rx="8" fill="var(--fg)"/>
+    ${leftArm}
+    <rect x="68" y="116" width="64" height="54" rx="24" fill="${mBody()}" stroke="var(--fg)" stroke-width="4"/>
+    <circle cx="100" cy="80" r="44" fill="var(--skin)" stroke="var(--fg)" stroke-width="4"/>
+    <path d="M58 64 q42 -22 84 0 l-2 10 q-40 -20 -80 0 z" fill="var(--hot)" stroke="var(--fg)" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="78" cy="90" r="6" fill="var(--hot)" opacity=".35"/><circle cx="122" cy="90" r="6" fill="var(--hot)" opacity=".35"/>
+    ${face}${arm}
+  </svg>`;
+}
+function drawMascots(){document.getElementById("mascots").innerHTML=[["happy","完成了"],["go","該練了"],["rest","休息日"]]
+  .map(([e,l])=>`<figure>${mascot(e)}<figcaption>${l}</figcaption></figure>`).join("");}
+drawMascots();
+
+const RAR=[{n:"",c:"transparent"},{n:"普通",c:"#8A949F"},{n:"稀有",c:"#2F7BEA"},{n:"史詩",c:"#8A4FE0"},{n:"傳說",c:"#E0A21B"}];
+const SERIES=[
+  {id:"basic", name:"基本款",r:1,c1:"#3E4652",c2:"#F4F5F7",c3:"#9AA4AF",glow:"#C9D1DA"},
+  {id:"street",name:"街頭",  r:2,c1:"#2F6FE0",c2:"#F4F5F7",c3:"#FFCC33",glow:"#4D8DFF"},
+  {id:"neon",  name:"霓虹",  r:3,c1:"#141A24",c2:"#19E3FF",c3:"#FF3DCB",glow:"#19E3FF",fx:"bolt"},
+  {id:"lava",  name:"熔岩",  r:3,c1:"#2A1A16",c2:"#FF5A1F",c3:"#FFC23D",glow:"#FF5A1F",fx:"fire"},
+  {id:"frost", name:"冰霜",  r:3,c1:"#DDF4FF",c2:"#4FB8FF",c3:"#FFFFFF",glow:"#8FDBFF",fx:"ice"},
+  {id:"gold",  name:"黃金",  r:4,c1:"#F2B630",c2:"#FFF1B8",c3:"#C8302C",glow:"#FFC83D",fx:"gold"},
+  {id:"shadow",name:"暗影",  r:4,c1:"#1A1424",c2:"#9B5CFF",c3:"#E2D4FF",glow:"#9B5CFF",fx:"smoke"},
+  // 英雄類型（原創）
+  {id:"titan", name:"鈦甲",  r:4,c1:"#8C98A8",c2:"#31F2D4",c3:"#2A3340",glow:"#31F2D4",hero:"科技裝甲"},
+  {id:"night", name:"夜巡者",r:3,c1:"#1C2230",c2:"#FF8A1F",c3:"#3B4558",glow:"#FF8A1F",hero:"黑夜義警"},
+  {id:"dawn",  name:"曙光",  r:4,c1:"#EEF3FA",c2:"#E0A21B",c3:"#2E6BFF",glow:"#FFD45C",hero:"披風英雄"},
+  {id:"rune",  name:"符文戰神",r:4,c1:"#2C2F3A",c2:"#3DF5A0",c3:"#C9A86A",glow:"#3DF5A0",hero:"奇幻戰士"},
+  {id:"astral",name:"星界魔導",r:4,c1:"#22184A",c2:"#FF6BD6",c3:"#8FE3FF",glow:"#FF6BD6",hero:"奇幻法師"}
+];
+const SLOTS=[["head","頭部"],["top","上衣"],["bottom","下身"],["feet","鞋子"],["hands","手部"],["back","背部"],["bell","啞鈴造型"],["fx","特效"]];
+const COVER={armor:["torso","upper","fore"],greaves:["thigh","shin"],tank:["torso"],tee:["torso","upper"],comp:["torso","upper","fore"],shorts:["thigh"],jogger:["thigh","shin"]};
+// 每個系列在每個部位長什麼樣
+const FORM={
+  basic: {head:["band","吸汗頭帶","c2"],top:["tank","灰背心","c1"],bottom:["shorts","黑短褲","#22272E"],feet:["shoe","白球鞋","c2"],hands:["wrist","白護腕","c2"],bell:["bell","鑄鐵啞鈴","#1B2027"]},
+  street:{head:["cap","街頭棒球帽","c1"],top:["tee","街頭 T 恤","c1","c2"],bottom:["shorts","白籃球褲","c2","c1"],feet:["shoe","藍色球鞋","c1"],hands:["glove","街頭手套","c2"],bell:["bell","電鍍啞鈴","#C9D1DA"]},
+  neon:  {head:["visor","霓虹護目鏡","c2"],top:["comp","霓虹緊身衣","c1","c2"],bottom:["jogger","霓虹長褲","c1","c3"],feet:["shoe","發光跑鞋","c3"],hands:["glove","電光手套","c2"],back:["ring","能量背環","c2"],bell:["bell","霓虹啞鈴","c2"],fx:["bolt","電光"]},
+  lava:  {head:["band","火焰頭帶","c2","c3"],top:["tank","熔岩背心","c1","c2"],bottom:["shorts","岩漿短褲","c2","c3"],feet:["shoe","熔岩戰靴","c2"],hands:["glove","火拳手套","c2"],back:["cape","火焰披風","c2","c3"],bell:["bell","岩漿啞鈴","c2"],fx:["fire","火焰"]},
+  frost: {head:["beanie","冰晶毛帽","c2","c3"],top:["tee","冰霜 T 恤","c1","c2"],bottom:["jogger","冰霜長褲","c2","c3"],feet:["shoe","冰刃鞋","c3"],hands:["glove","霜凍手套","c3"],back:["cape","冰晶披風","c2","c3"],bell:["bell","冰塊啞鈴","c1"],fx:["ice","冰晶"]},
+  gold:  {head:["crown","王者之冠","c1"],top:["tank","黃金背心","c1","c3"],bottom:["shorts","黃金短褲","c3","c1"],feet:["shoe","黃金戰靴","c1"],hands:["glove","黃金拳套","c1"],back:["cape","王者披風","c3","c1"],bell:["bell","純金啞鈴","c1"],fx:["gold","金光"]},
+  shadow:{head:["mask","暗影面罩","c1","c2"],top:["comp","暗影戰衣","c1","c2"],bottom:["jogger","暗影長褲","c1","c2"],feet:["shoe","無聲靴","c1"],hands:["glove","暗影手甲","c1"],back:["cape","暗影披風","c1","c2"],bell:["bell","虛空啞鈴","c2"],fx:["smoke","暗影煙"]},
+  titan: {head:["helmet","鈦甲頭盔","c1","c2"],top:{f:"armor",n:"鈦甲胸甲",c:"c1",c2:"c2",pa:1,em:"core",gl:1},bottom:{f:"greaves",n:"鈦甲腿甲",c:"c1",c2:"c2",gl:1},feet:["shoe","推進靴","c3"],hands:["glove","鈦甲手甲","c1"],back:["jets","背部推進器","c2"],bell:["bell","能量啞鈴","c2"],fx:["scan","全像掃描"]},
+  night: {head:["hood","義警兜帽","c1","c3"],top:{f:"armor",n:"戰術背心",c:"c3",c2:"c2",em:"chevron"},bottom:["jogger","戰術長褲","c1","c2"],feet:["shoe","戰術靴","c1"],hands:["glove","戰術手套","c1"],back:["cape","夜行斗篷","c1","c2"],bell:["bell","消光啞鈴","#2A303A"],fx:["rain","夜雨"]},
+  dawn:  {head:["circlet","曙光頭環","c2","c3"],top:{f:"comp",n:"曙光戰衣",c:"c1",c2:"c2",em:"star"},bottom:["jogger","曙光長褲","c3","c2"],feet:["shoe","曙光長靴","c3"],hands:["glove","曙光護手","c2"],back:["cape","曙光披風","c3","c2"],bell:["bell","聖光啞鈴","c2"],fx:["rays","聖光"]},
+  rune:  {head:["horns","戰神角盔","c3","c1"],top:{f:"armor",n:"符文戰甲",c:"c1",c2:"c2",pa:1,em:"rune",gl:1},bottom:{f:"greaves",n:"符文腿甲",c:"c1",c2:"c2",gl:1},feet:["shoe","青銅戰靴","c3"],hands:["glove","符文拳套","c3"],back:["sword","背負巨劍","c3","c2"],bell:["bell","符文啞鈴","c2"],fx:["magic","符文法陣"]},
+  astral:{head:["tiara","星晶冠","c2","c3"],top:{f:"comp",n:"星界法袍",c:"c1",c2:"c2",em:"diamond",gl:1},bottom:["jogger","星界長褲","c1","c3"],feet:["shoe","星光鞋","c3"],hands:["glove","星界護手","c2"],back:["wings","能量羽翼","c2","c3"],bell:["bell","星核啞鈴","c3"],fx:["stars","星塵"]}
+};
+const ITEMS={};
+for(const [k] of SLOTS){ITEMS[k]=[{id:"none",name:k==="feet"?"赤腳":k==="bell"?"預設":"無",r:0}];
+  for(const se of SERIES){const f=FORM[se.id][k];if(!f)continue;const col=v=>v&&v.startsWith("c")?se[v]:v;
+    const o=Array.isArray(f)?{f:f[0],n:f[1],c:f[2],c2:f[3]}:f;
+    ITEMS[k].push({id:se.id,name:o.n,form:o.f,c:col(o.c),c2:col(o.c2),r:se.r,series:se.id,cover:COVER[o.f],pa:o.pa,em:o.em,gl:o.gl})}}
+const ALL=Object.values(ITEMS).reduce((n,a)=>n+a.length-1,0);
+const fullSet=id=>Object.fromEntries(SLOTS.map(([k])=>[k,ITEMS[k].some(i=>i.id===id)?id:"none"]));
+let G=fullSet("lava"), showM=false;
+const item=(slot,id)=>ITEMS[slot].find(i=>i.id===id)||ITEMS[slot][0];
+const mix=(a,b,t)=>lerp(a,b,t);
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
+const K="#0A0D12";
+function setBonus(g){const cnt={};for(const [k] of SLOTS){const it=item(k,g[k]);if(it.series)cnt[it.series]=(cnt[it.series]||0)+1}
+  let best=null;for(const id in cnt)if(cnt[id]>=4&&(!best||cnt[id]>cnt[best]))best=id;return best?{se:SERIES.find(s=>s.id===best),n:cnt[best]}:null}
+function topRarity(g){let m=0;for(const [k] of SLOTS)m=Math.max(m,item(k,g[k]).r||0);return m}
+function power(g){let p=320;for(const [k] of SLOTS)p+=[0,60,140,260,480][item(k,g[k]).r||0];if(setBonus(g))p=Math.round(p*1.2);return p}
+function quad(a,b,wa,wb){const d=sub(b,a),l=Math.hypot(d[0],d[1])||1,n=[-d[1]/l,d[0]/l];
+  return [[a[0]+n[0]*wa,a[1]+n[1]*wa],[b[0]+n[0]*wb,b[1]+n[1]*wb],[b[0]-n[0]*wb,b[1]-n[1]*wb],[a[0]-n[0]*wa,a[1]-n[1]*wa]]
+  .map(p=>p.map(v=>v.toFixed(1)).join(",")).join(" ")}
+const HERO={upper:13,farUpper:12,thigh:18,farThigh:16,fore:11,farFore:10,shin:13,farShin:12};
+const f1=v=>v.toFixed(1);
+function cape(P,it,t){const [x,y]=P.sh,sw=Math.sin(t*2.2)*4;
+  const d=`M${f1(x+4)} ${f1(y-8)} Q${f1(x-16)} ${f1(y+18)} ${f1(x-26+sw)} ${f1(y+80)} L${f1(x-6+sw*.6)} ${f1(y+84)} Q${f1(x+2)} ${f1(y+34)} ${f1(x+8)} ${f1(y-2)} Z`;
+  return `<path d="${d}" fill="${it.c}" stroke="${K}" stroke-width="5" stroke-linejoin="round"/>`+
+    `<path d="M${f1(x-26+sw)} ${f1(y+80)} L${f1(x-6+sw*.6)} ${f1(y+84)}" stroke="${it.c2||it.c}" stroke-width="4" stroke-linecap="round"/>`+
+    `<path d="M${f1(x-6)} ${f1(y+6)} Q${f1(x-14)} ${f1(y+40)} ${f1(x-16+sw)} ${f1(y+76)}" fill="none" stroke="#000" stroke-width="3" opacity=".18"/>`}
+function fxLayer(fx,P,col,col2,t,front){let s="";const cx=P.hip[0]+6;
+  if(fx==="fire"){for(let i=0;i<10;i++){const ph=(t*.9+i/10)%1,x=cx-40+((i*37)%80)+Math.sin(t*3+i)*3,y=184-ph*120,sz=(1-ph)*9+2;
+      if((i%2===0)!==front)continue;
+      s+=`<path d="M${f1(x)} ${f1(y-sz*1.8)} Q${f1(x+sz)} ${f1(y)} ${f1(x)} ${f1(y+sz*.6)} Q${f1(x-sz)} ${f1(y)} ${f1(x)} ${f1(y-sz*1.8)}Z" fill="${i%3?col:col2}" opacity="${f1(.9-ph*.8)}"/>`}}
+  if(fx==="ice"&&front){for(let i=0;i<10;i++){const ph=(t*.25+i/10)%1,x=cx-50+((i*41)%100)+Math.sin(t+i)*6,y=-6+ph*190,r=3+(i%3);
+      s+=`<g transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(t*40+i*20)})" stroke="${col2}" stroke-width="1.6" stroke-linecap="round" opacity="${f1(Math.sin(ph*Math.PI))}"><path d="M-${r} 0H${r}M0 -${r}V${r}M-${r*.7} -${r*.7}L${r*.7} ${r*.7}M-${r*.7} ${r*.7}L${r*.7} -${r*.7}"/></g>`}}
+  if(fx==="bolt"&&front){for(let i=0;i<3;i++){if(Math.sin(t*9+i*2.1)<.3)continue;const x=cx-44+i*42+Math.sin(t*5+i)*6,y=40+((i*47)%100);
+      s+=`<path d="M${f1(x)} ${f1(y)} l6 10 -5 2 7 12 -4 1 6 11" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" filter="url(#gblur2)"/><path d="M${f1(x)} ${f1(y)} l6 10 -5 2 7 12 -4 1 6 11" fill="none" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/>`}}
+  if(fx==="gold"&&front){for(let i=0;i<9;i++){const ph=(t*.35+i/9)%1,x=cx-50+((i*53)%110)+Math.sin(t+i)*4,y=180-ph*170,o=Math.sin(ph*Math.PI);
+      s+=`<path d="M${f1(x)} ${f1(y-4)} l1.3 2.7 2.7 1.3 -2.7 1.3 -1.3 2.7 -1.3 -2.7 -2.7 -1.3 2.7 -1.3z" fill="${col}" opacity="${f1(o*.9)}"/>`}}
+  if(fx==="rays"&&!front){const [x,y]=P.sh;for(let i=0;i<12;i++){const a=i/12*Math.PI*2+t*.3,x2=x+Math.cos(a)*95,y2=y+Math.sin(a)*95;
+      s+=`<path d="M${f1(x)} ${f1(y)} L${f1(x2+Math.cos(a+1.57)*9)} ${f1(y2+Math.sin(a+1.57)*9)} L${f1(x2-Math.cos(a+1.57)*9)} ${f1(y2-Math.sin(a+1.57)*9)}Z" fill="${col}" opacity=".13"/>`}}
+  if(fx==="magic"&&!front){const x=P.an[0]-2;s+=`<g transform="translate(${f1(x)} 186) scale(1 .28)"><g transform="rotate(${f1(t*30)})"><circle r="52" fill="none" stroke="${col}" stroke-width="3" filter="url(#gblur2)"/><circle r="52" fill="none" stroke="${col}" stroke-width="2"/><circle r="40" fill="none" stroke="${col}" stroke-width="2" stroke-dasharray="6 5"/><path d="M0 -52 L45 26 L-45 26Z M0 52 L-45 -26 L45 -26Z" fill="none" stroke="${col}" stroke-width="1.5" opacity=".8"/></g></g>`;
+      for(let i=0;i<6;i++){const ph=(t*.5+i/6)%1;s+=C([x-40+i*16,186-ph*90],1.8,col,`opacity="${f1(1-ph)}"`)}}
+  if(fx==="scan"&&front){const ph=(t*.45)%1,y=184-ph*190;s+=`<ellipse cx="${f1(P.hip[0]+10)}" cy="${f1(y)}" rx="42" ry="5" fill="none" stroke="${col}" stroke-width="3" filter="url(#gblur2)" opacity="${f1(Math.sin(ph*Math.PI))}"/><ellipse cx="${f1(P.hip[0]+10)}" cy="${f1(y)}" rx="42" ry="5" fill="none" stroke="${col}" stroke-width="1.2" opacity="${f1(Math.sin(ph*Math.PI))}"/>`;
+      for(let i=0;i<5;i++){const yy=10+i*36+((t*20)%36);s+=L([30,yy],[36,yy],1.5,col,`opacity=".5"`)}}
+  if(fx==="rain"&&front){for(let i=0;i<22;i++){const ph=(t*1.4+i/22)%1,x=26+((i*67)%170)-ph*14,y=-14+ph*200;s+=L([x,y],[x-4,y+12],1.4,"#9FB3D1",`opacity=".55"`)}}
+  if(fx==="stars"&&front){for(let i=0;i<12;i++){const x=34+((i*59)%150),y=-6+((i*83)%180),o=.5+.5*Math.sin(t*3+i*1.7),r=1.5+(i%3);
+      s+=`<path d="M${x} ${f1(y-r*2)} Q${x} ${y} ${f1(x+r*2)} ${y} Q${x} ${y} ${x} ${f1(y+r*2)} Q${x} ${y} ${f1(x-r*2)} ${y} Q${x} ${y} ${x} ${f1(y-r*2)}Z" fill="${i%2?col:col2}" opacity="${f1(o)}"/>`}}
+  if(fx==="smoke"&&!front){for(let i=0;i<8;i++){const ph=(t*.3+i/8)%1,x=cx-36+((i*29)%72)+Math.sin(t*1.5+i)*8,y=186-ph*150;
+      s+=`<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(8+ph*10)}" ry="${f1(6+ph*6)}" fill="${i%2?col:"#000"}" opacity="${f1((1-ph)*.55)}" filter="url(#gblur2)"/>`}}
+  return s}
+function drawGear(ex,P,g,muscle,tt){
+  const t=tt??performance.now()/1000;
+  const m=POSES[ex].muscles,O=6,cover={},stripe={},sglow={},rr=topRarity(g),bonus=setBonus(g);
+  const rc=bonus?bonus.se.glow:RAR[rr].c;
+  for(const sl of ["top","bottom"]){const it=item(sl,g[sl]);for(const k of (it.cover||[])){cover[k]=it.c;if(it.c2)stripe[k]=it.c2;if(it.gl)sglow[k]=1}}
+  const shoe=item("feet",g.feet);if(shoe.c)cover.foot=shoe.c;
+  const shapes=[];
+  for(const [n,a,b,w0,side] of SEGS){const far=side==="far",base=n.replace(/^far(.)/,(_,c)=>c.toLowerCase());
+    let c=cover[base]||(base==="neck"?"var(--skin)":far?"var(--grey)":"var(--grey-sticker)");
+    if(muscle&&m.includes(n)&&!far)c="var(--hot)";
+    const w=(HERO[n]||w0)+(base==="foot"&&shoe.c?3:0);
+    if(n==="torso")shapes.push({t:"torso",a:P.hip,b:P.sh,c,base});
+    else shapes.push({t:"line",a:pt(P,a,far),b:pt(P,b,far),w,c,far,base});}
+  const sil=(extra,color,attr="")=>{let o="";for(const sh of shapes){
+      if(sh.t==="line")o+=L(sh.a,sh.b,sh.w+extra,color,attr);
+      else{const e=extra/2;o+=`<polygon points="${quad(sh.a,sh.b,10+e,16+e)}" fill="${color}" stroke="${color}" stroke-width="${2+e}" stroke-linejoin="round" ${attr}/>`+C(sh.b,15+e,color,attr)+C(sh.a,10+e,color,attr)}}
+    return o+C(P.head,13+extra/2,color,attr)};
+  const fxIt=item("fx",g.fx),fxSe=fxIt.series&&SERIES.find(s=>s.id===fxIt.series);
+  let s=`<ellipse cx="${P.an[0]-2}" cy="186" rx="46" ry="7" fill="${rr?rc:"var(--line)"}" opacity="${rr?.45:1}" filter="url(#gblur)"/>`;
+  s+=`<ellipse cx="${P.an[0]-2}" cy="186" rx="30" ry="3.5" fill="${rr?rc:"var(--line)"}" opacity="${rr?.9:.8}"/>`;
+  if(fxSe)s+=fxLayer(fxIt.form,P,fxSe.c2,fxSe.c3,t,false);
+  const bk=item("back",g.back);
+  if(bk.form==="ring"){const [x,y]=P.sh;s+=`<circle cx="${f1(x-6)}" cy="${f1(y+4)}" r="${f1(26+Math.sin(t*3)*1.5)}" fill="none" stroke="${bk.c}" stroke-width="5" filter="url(#gblur2)"/><circle cx="${f1(x-6)}" cy="${f1(y+4)}" r="26" fill="none" stroke="${bk.c}" stroke-width="2.5"/>`}
+  if(rr>=2)s+=`<g class="aura" filter="url(#gblur)" opacity="${bonus||rr>=4?.85:.6}">${sil(O+12,rc)}</g>`;
+  if(bk.form==="cape")s+=cape(P,bk,t);
+  if(bk.form==="sword"){const a=mix(P.hip,P.sh,.15),b=mix(P.hip,P.sh,1.25),d=sub(b,a),l=Math.hypot(...d),n=[-d[1]/l,d[0]/l],sg=n[0]>0?-1:1;
+    const A=[a[0]+n[0]*sg*13,a[1]+n[1]*sg*13],B=[b[0]+n[0]*sg*13-6,b[1]+n[1]*sg*13];
+    s+=L(A,B,9,K)+L(A,B,5,bk.c)+L(mix(A,B,.2),mix(A,B,.95),1.5,bk.c2,`filter="url(#gblur2)"`)+L(mix(A,B,.2),mix(A,B,.95),1,"#fff");
+    const hg=mix(A,B,1.05);s+=L([hg[0]-7,hg[1]+3],[hg[0]+7,hg[1]-3],8,K)+L([hg[0]-7,hg[1]+3],[hg[0]+7,hg[1]-3],4,bk.c)+L(hg,mix(A,B,1.25),6,K)+L(hg,mix(A,B,1.25),3,"#5A3B22");}
+  if(bk.form==="wings"){const [x,y]=P.sh,fl=Math.sin(t*3)*6;
+    for(const [dx,op] of [[0,.5],[8,.35]])s+=`<path d="M${f1(x-4)} ${f1(y+4)} L${f1(x-46-dx)} ${f1(y-34+fl)} L${f1(x-34-dx)} ${f1(y-8+fl/2)} L${f1(x-52-dx)} ${f1(y+4+fl/3)} L${f1(x-30-dx)} ${f1(y+14)} L${f1(x-40-dx)} ${f1(y+34)} Z" fill="${bk.c}" opacity="${op}" stroke="${bk.c2}" stroke-width="1.5" filter="url(#gblur2)"/><path d="M${f1(x-4)} ${f1(y+4)} L${f1(x-46-dx)} ${f1(y-34+fl)} L${f1(x-34-dx)} ${f1(y-8+fl/2)} L${f1(x-52-dx)} ${f1(y+4+fl/3)} L${f1(x-30-dx)} ${f1(y+14)} L${f1(x-40-dx)} ${f1(y+34)} Z" fill="${bk.c}" opacity="${op}" stroke="${bk.c2}" stroke-width="1.5"/>`;}
+  if(bk.form==="jets"){const a=mix(P.hip,P.sh,.75),d=sub(P.sh,P.hip),l=Math.hypot(...d),n=[-d[1]/l,d[0]/l],sg=n[0]>0?-1:1,o=[a[0]+n[0]*sg*15,a[1]+n[1]*sg*15];
+    const fl=10+Math.sin(t*20)*3;s+=`<rect x="${f1(o[0]-5)}" y="${f1(o[1]-10)}" width="10" height="20" rx="4" fill="#8C98A8" stroke="${K}" stroke-width="2.5"/>`;
+    s+=`<path d="M${f1(o[0]-4)} ${f1(o[1]+10)} Q${f1(o[0])} ${f1(o[1]+10+fl*2)} ${f1(o[0]+4)} ${f1(o[1]+10)}Z" fill="${bk.c}" filter="url(#gblur2)"/><path d="M${f1(o[0]-2.5)} ${f1(o[1]+10)} Q${f1(o[0])} ${f1(o[1]+10+fl)} ${f1(o[0]+2.5)} ${f1(o[1]+10)}Z" fill="#fff"/>`;}
+  s+=sil(O+(rr?5:0),rr?rc:"var(--fg)");
+  s+=sil(O,K);
+  for(const sh of shapes){
+    if(sh.t==="line"){s+=L(sh.a,sh.b,sh.w,sh.c);if(stripe[sh.base]&&!muscle){if(sglow[sh.base])s+=L(mix(sh.a,sh.b,.08),mix(sh.a,sh.b,.92),5,stripe[sh.base],`filter="url(#gblur2)"`);s+=L(mix(sh.a,sh.b,.08),mix(sh.a,sh.b,.92),2.6,stripe[sh.base]);}if(sh.far)s+=L(sh.a,sh.b,sh.w,"#000",`opacity=".22"`);}
+    else{s+=`<polygon points="${quad(sh.a,sh.b,10,16)}" fill="${sh.c}" stroke="${sh.c}" stroke-width="2" stroke-linejoin="round"/>`+C(sh.b,15,sh.c)+C(sh.a,10,sh.c);
+      if(stripe.torso&&!muscle){if(sglow.torso)s+=L(mix(sh.a,sh.b,.05),mix(sh.a,sh.b,1.02),6,stripe.torso,`filter="url(#gblur2)"`);s+=L(mix(sh.a,sh.b,.05),mix(sh.a,sh.b,1.02),3,stripe.torso)}
+      s+=L(mix(sh.a,sh.b,.72),mix(sh.a,sh.b,.6),2,"#000",`opacity=".18"`)+L(mix(sh.a,sh.b,.18),mix(sh.a,sh.b,.42),2,"#000",`opacity=".12"`);}
+  }
+  for(const sh of shapes)if(sh.t==="line"&&!sh.far&&sh.w>=11){const d=sub(sh.b,sh.a),l=Math.hypot(...d)||1,n=[-d[1]/l*sh.w*.25,d[0]/l*sh.w*.25];
+    const sgn=n[0]<0?1:-1;const a=[sh.a[0]+n[0]*sgn,sh.a[1]+n[1]*sgn],b=[sh.b[0]+n[0]*sgn,sh.b[1]+n[1]*sgn];
+    s+=L(mix(a,b,.2),mix(a,b,.75),2.5,"#fff",`opacity=".35"`);}
+  if(muscle&&m.includes("glute"))s+=C(P.hip,11,"var(--hot)");
+  if(muscle&&m.includes("delt"))s+=C(P.sh,11,"var(--hot)");
+  const tp=item("top",g.top);
+  if(tp.pa&&!muscle){s+=`<path d="M${f1(P.sh[0]-13)} ${f1(P.sh[1]+4)} A13 13 0 0 1 ${f1(P.sh[0]+13)} ${f1(P.sh[1]+4)} Z" fill="${tp.c}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`+
+    `<path d="M${f1(P.sh[0]-9)} ${f1(P.sh[1]-2)} A10 10 0 0 1 ${f1(P.sh[0]+9)} ${f1(P.sh[1]-2)}" fill="none" stroke="${tp.c2}" stroke-width="2"/>`}
+  if(tp.em&&!muscle){const d=sub(P.sh,P.hip),l=Math.hypot(...d)||1;let n=[-d[1]/l,d[0]/l];if(n[0]<0)n=[-n[0],-n[1]];
+    const c0=mix(P.hip,P.sh,.68),[ex0,ey0]=[c0[0]+n[0]*8,c0[1]+n[1]*8],e2=tp.c2,G2=`filter="url(#gblur2)"`;
+    if(tp.em==="core")s+=C([ex0,ey0],6,e2,G2)+C([ex0,ey0],4.5,e2,`stroke="${K}" stroke-width="1.8"`)+C([ex0,ey0],1.8,"#fff");
+    if(tp.em==="chevron")s+=`<path d="M${f1(ex0-4)} ${f1(ey0-3)} l4 4 4 -4" fill="none" stroke="${e2}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if(tp.em==="star")s+=`<path d="M${f1(ex0)} ${f1(ey0-6)} l1.8 3.8 4.2 .6 -3 2.9 .7 4.2 -3.7 -2 -3.7 2 .7 -4.2 -3 -2.9 4.2 -.6z" fill="${e2}" stroke="${K}" stroke-width="1.4" stroke-linejoin="round"/>`;
+    if(tp.em==="diamond")s+=`<path d="M${f1(ex0)} ${f1(ey0-6)} l4 6 -4 6 -4 -6z" fill="${e2}" ${G2}/><path d="M${f1(ex0)} ${f1(ey0-6)} l4 6 -4 6 -4 -6z" fill="${e2}" stroke="${K}" stroke-width="1.4"/>`;
+    if(tp.em==="rune")s+=`<path d="M${f1(ex0-3)} ${f1(ey0-6)} v12 M${f1(ex0-3)} ${f1(ey0-2)} l6 -4 M${f1(ex0-3)} ${f1(ey0+2)} l6 4" fill="none" stroke="${e2}" stroke-width="3" stroke-linecap="round" ${G2}/><path d="M${f1(ex0-3)} ${f1(ey0-6)} v12 M${f1(ex0-3)} ${f1(ey0-2)} l6 -4 M${f1(ex0-3)} ${f1(ey0+2)} l6 4" fill="none" stroke="${e2}" stroke-width="1.8" stroke-linecap="round"/>`;}
+  const band=(a,b,w,c)=>L(a,b,w+5,K,`stroke-linecap="butt"`)+L(a,b,w,c,`stroke-linecap="butt"`);
+  const hn=item("hands",g.hands);
+  if(hn.form){const far0=pt(P,"el",true),far1=pt(P,"ha",true),lo=hn.form==="wrist"?.62:.7,hi=hn.form==="wrist"?.86:1.05,w=hn.form==="wrist"?12:15;
+    s+=band(mix(far0,far1,lo),mix(far0,far1,hi),w-1,hn.c)+band(mix(P.el,P.ha,lo),mix(P.el,P.ha,hi),w,hn.c);}
+  // 頭
+  const [hx,hy]=P.head;s+=C(P.head,13,"var(--skin)");
+  s+=`<path d="M${hx-9} ${hy+8} Q${hx} ${hy+15} ${hx+11} ${hy+6}" fill="none" stroke="#000" stroke-width="3" opacity=".12" stroke-linecap="round"/>`;
+  const hd=item("head",g.head);let ey=hy-1,eyes=true;
+  if(hd.form==="band"){const tc=hd.c2||hd.c;
+    s+=L([hx-15,hy-3],[hx-24,hy+3+Math.sin(t*4)*2],6,K)+L([hx-15,hy-3],[hx-24,hy+3+Math.sin(t*4)*2],3,tc);
+    s+=L([hx-15,hy-4],[hx-22,hy-9+Math.sin(t*4+1)*2],6,K)+L([hx-15,hy-4],[hx-22,hy-9+Math.sin(t*4+1)*2],3,tc);
+    s+=`<rect x="${hx-13}" y="${hy-9}" width="26" height="6" fill="${hd.c}" stroke="${K}" stroke-width="2.5"/>`+C(P.head,14.5,"none",`stroke="${K}" stroke-width="3"`);}
+  if(hd.form==="cap"){ey=hy+2;
+    s+=L([hx+5,hy-3],[hx+24,hy-1],5,K)+L([hx+5,hy-3],[hx+24,hy-1],2.5,hd.c);
+    s+=`<path d="M${hx-14.5} ${hy-2} A14.5 14.5 0 0 1 ${hx+14.5} ${hy-2} Z" fill="${hd.c}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`;}
+  if(hd.form==="beanie"){ey=hy+2;
+    s+=`<path d="M${hx-14.5} ${hy-1} A14.5 16 0 0 1 ${hx+14.5} ${hy-1} Z" fill="${hd.c}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`;
+    s+=`<rect x="${hx-15}" y="${hy-5}" width="30" height="6" rx="2" fill="${hd.c2}" stroke="${K}" stroke-width="2.5"/>`+C([hx-2,hy-17],4.5,hd.c2,`stroke="${K}" stroke-width="2.5"`);}
+  if(hd.form==="crown"){
+    s+=`<path d="M${hx-11} ${hy-10} L${hx-12} ${hy-23} L${hx-5} ${hy-16} L${hx} ${hy-27} L${hx+5} ${hy-16} L${hx+12} ${hy-23} L${hx+11} ${hy-10} Z" fill="${hd.c}" stroke="${K}" stroke-width="2.5" stroke-linejoin="round"/>`+C([hx,hy-14],2.6,"#C8302C",`stroke="${K}" stroke-width="1.2"`);}
+  if(hd.form==="visor"){eyes=false;
+    s+=`<rect x="${hx-3}" y="${hy-6}" width="19" height="7" rx="3.5" fill="${hd.c}" filter="url(#gblur2)"/><rect x="${hx-3}" y="${hy-6}" width="19" height="7" rx="3.5" fill="${hd.c}" stroke="${K}" stroke-width="2.2"/>`+L([hx-3,hy-3],[hx-14,hy-4],3,K);}
+  if(hd.form==="helmet"){eyes=false;
+    s+=C(P.head,15,hd.c,`stroke="${K}" stroke-width="3"`)+L([hx-6,hy-15],[hx+4,hy-15],4,hd.c2,`filter="url(#gblur2)"`)+L([hx-8,hy-15.5],[hx+6,hy-15.5],2,K);
+    s+=`<rect x="${hx+1}" y="${hy-4}" width="15" height="6" rx="3" fill="${hd.c2}" filter="url(#gblur2)"/><rect x="${hx+1}" y="${hy-4}" width="15" height="6" rx="3" fill="${hd.c2}" stroke="${K}" stroke-width="2"/>`+L([hx-10,hy+6],[hx-2,hy+9],2,K,`opacity=".5"`);}
+  if(hd.form==="hood"){
+    s+=`<path d="M${hx+10} ${hy-12} A17 17 0 1 0 ${hx+8} ${hy+14} L${hx+3} ${hy+9} A10 11 0 0 1 ${hx+4} ${hy-9} Z" fill="${hd.c}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`;
+    s+=`<path d="M${hx+1} ${hy+3} Q${hx+8} ${hy+2} ${hx+14} ${hy+3} L${hx+12} ${hy+10} Q${hx+5} ${hy+13} ${hx+2} ${hy+9} Z" fill="${hd.c2}" stroke="${K}" stroke-width="2"/>`;}
+  if(hd.form==="circlet"){
+    s+=`<path d="M${hx-13} ${hy-5} Q${hx} ${hy-10} ${hx+13} ${hy-6}" fill="none" stroke="${K}" stroke-width="5"/><path d="M${hx-13} ${hy-5} Q${hx} ${hy-10} ${hx+13} ${hy-6}" fill="none" stroke="${hd.c}" stroke-width="2.6"/>`;
+    s+=`<path d="M${hx+9} ${hy-13} l3 5 -3 5 -3 -5z" fill="${hd.c2}" stroke="${K}" stroke-width="1.6"/>`;}
+  if(hd.form==="horns"){
+    s+=`<path d="M${hx-14.5} ${hy-2} A14.5 14.5 0 0 1 ${hx+14.5} ${hy-2} Z" fill="${hd.c2}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`;
+    for(const sx of [-1,1])s+=`<path d="M${hx+sx*6} ${hy-12} Q${hx+sx*20} ${hy-18} ${hx+sx*17} ${hy-32} Q${hx+sx*13} ${hy-20} ${hx+sx*1} ${hy-14} Z" fill="${hd.c}" stroke="${K}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    s+=L([hx-12,hy-4],[hx+12,hy-4],2,"#3DF5A0");}
+  if(hd.form==="tiara"){
+    for(let i=-1;i<=1;i++){const bx=hx+i*9,by=hy-20-(i===0?6:0)+Math.sin(t*2.5+i)*2;
+      s+=`<path d="M${f1(bx)} ${f1(by-6)} l3.5 6 -3.5 6 -3.5 -6z" fill="${hd.c}" filter="url(#gblur2)"/><path d="M${f1(bx)} ${f1(by-6)} l3.5 6 -3.5 6 -3.5 -6z" fill="${i===0?hd.c:hd.c2}" stroke="${K}" stroke-width="1.4"/>`}}
+  if(hd.form==="mask"){eyes=false;
+    s+=`<path d="M${hx-14} ${hy+1} A14 14 0 0 1 ${hx+14} ${hy+1} L${hx+14} ${hy+4} Q${hx} ${hy+16} ${hx-14} ${hy+4} Z" fill="${hd.c}" stroke="${K}" stroke-width="2.5" opacity=".95"/>`;
+    s+=`<rect x="${hx+3}" y="${hy-3}" width="9" height="3" rx="1.5" fill="${hd.c2}" filter="url(#gblur2)"/><rect x="${hx+3}" y="${hy-3}" width="9" height="3" rx="1.5" fill="${hd.c2}"/>`;}
+  if(eyes){s+=`<path d="M${hx+3} ${ey-5} l7 2" stroke="${K}" stroke-width="2.4" stroke-linecap="round"/><rect x="${hx+5}" y="${ey-1.6}" width="5" height="3.2" rx="1.6" fill="${K}"/>`}
+  // 啞鈴
+  const bl=item("bell",g.bell),bc=bl.c||"#1B2027",glow=bl.series&&bl.r>=3,h=P.ha,hf=pt(P,"ha",true);
+  if(POSES[ex].gear==="goblet"){const r=`<rect x="${f1(h[0]-7)}" y="${f1(h[1]-5)}" width="14" height="24" rx="5" fill="${bc}" stroke="${K}" stroke-width="2.5"`;
+    s+=(glow?r+` filter="url(#gblur2)"/>`:"")+r+`/>`;}
+  else{for(const [p,rad] of [[hf,8],[h,9]]){if(glow)s+=C(p,rad+2,bc,`filter="url(#gblur2)"`);s+=C(p,rad,bc,`stroke="${K}" stroke-width="2.5"`)+C(p,3.2,K)}}
+  if(fxSe)s+=fxLayer(fxIt.form,P,fxSe.c2,fxSe.c3,t,true);
+  if(rr)s+=`<text x="176" text-anchor="end" y="2" font-family="Space Grotesk,sans-serif" font-weight="700" font-size="9" letter-spacing="1.5" fill="${rc}">${bonus?bonus.se.name+"套裝":RAR[rr].n}</text>`;
+  s+=`<text x="176" text-anchor="end" y="14" font-family="Space Grotesk,sans-serif" font-weight="700" font-size="11" fill="#E7EBF0">戰力 ${power(g)}</text>`;
+  return `<defs><filter id="gblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter><filter id="gblur2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>`+s;
+}
+function rarDot(r){return r?`<span class="dot" style="background:${RAR[r].c}"></span>`:""}
+function drawSlots(){
+  document.getElementById("slots").innerHTML=SLOTS.map(([k,l])=>`<div class="slot"><h3>${l}</h3><div class="bar" role="group" aria-label="${l}">${
+    ITEMS[k].map(i=>`<button class="chip" id="g-${k}-${i.id}" data-slot="${k}" data-item="${i.id}" aria-pressed="${G[k]===i.id}">${rarDot(i.r)}${i.name}</button>`).join("")}</div></div>`).join("");
+  document.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>{G[b.dataset.slot]=b.dataset.item;drawSlots();if(!playing)render(.55)});
+  const bo=setBonus(G);
+  document.getElementById("setinfo").innerHTML=bo?`<b style="color:${bo.se.glow}">套裝效果啟動</b>：${bo.se.name} ${bo.n}/${SLOTS.filter(([k])=>ITEMS[k].some(i=>i.id===bo.se.id)).length} 件`:`同系列湊 4 件啟動套裝效果`;
+}
+drawSlots();
+document.getElementById("legend").innerHTML=RAR.slice(1).map((r,i)=>`<span>${rarDot(i+1)}${r.n}</span>`).join("")+`<span>共 ${ALL} 件</span>`;
+function drawPresets(){document.getElementById("presets").innerHTML=SERIES.map((se,i)=>`<button class="card preset" id="preset-${se.id}" data-p="${se.id}"><span class="tag" style="color:${se.glow}">${se.hero||RAR[se.r].n+"系列"}</span><svg viewBox="30 -14 160 204" role="img" aria-label="${se.name}套裝">${drawGear("squat",pose("squat",0),fullSet(se.id),false,i*.7)}</svg><h2>${se.name}</h2></button>`).join("");
+document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{G=fullSet(b.dataset.p);drawSlots();if(!playing)render(.55)});}
+drawPresets();
+document.getElementById("g-muscle").onchange=e=>{showM=e.target.checked;if(!playing)render(.55)};
+let ex="squat", playing=!matchMedia("(prefers-reduced-motion: reduce)").matches, t0=performance.now();
+const A=document.getElementById("svgA"),B=document.getElementById("svgB"),Cc=document.getElementById("svgC");
+const playBtn=document.getElementById("toggle-play");
+function render(t){const P=pose(ex,t);A.innerHTML=drawA(ex,P);B.innerHTML=drawB(ex,P);Cc.innerHTML=drawC(ex,P);document.getElementById("svgG").innerHTML=drawGear(ex,P,G,showM)}
+function frame(now){
+  if(playing){const T=2600,ph=((now-t0)%T)/T;render(.5-.5*Math.cos(ph*2*Math.PI))}
+  requestAnimationFrame(frame);
+}
+render(.55);
+function syncPlay(){playBtn.textContent=playing?"暫停動畫":"播放動畫";playBtn.setAttribute("aria-pressed",String(!playing))}
+syncPlay();
+playBtn.onclick=()=>{playing=!playing;if(!playing)render(.55);syncPlay()};
+document.querySelectorAll("[data-ex]").forEach(b=>b.onclick=()=>{
+  ex=b.dataset.ex;document.querySelectorAll("[data-ex]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  if(!playing)render(.55);
+});
+document.querySelectorAll("[data-sc]").forEach(b=>b.onclick=()=>{
+  scheme=b.dataset.sc;document.querySelectorAll("[data-sc]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  drawMascots();if(!playing)render(.55);
+});
+requestAnimationFrame(frame);
+</script>
