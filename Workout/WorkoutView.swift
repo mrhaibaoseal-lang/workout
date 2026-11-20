@@ -27,6 +27,8 @@ struct ExerciseDraft: Identifiable {
     var scheme: SetScheme = .straight
     /// 這個動作裝得出來的重量
     var ladder = WeightLadder(loadings: [], step: 2.5)
+    /// 這次因為停滯先減重（做完就從這次重新算停滯）
+    var plateauReset = false
     var id: String { item.id }
 
     /// 已經開始做正式組，就不能再改排法或換動作。
@@ -502,35 +504,21 @@ struct WorkoutView: View {
         return nil
     }
 
-    /// 這次休息要換的器材：換成下一組的重量；下一組是 Drop set 前的最後一組，就先用另一組啞鈴裝好。
+    /// 這次休息要換的器材：換成下一組的重量；下一組是 Drop set 前的最後一組，就先用另一組啞鈴裝好；
+    /// 下一組是用另一組啞鈴的熱身，順便把主要啞鈴裝成正式組重量。
     /// 不改 rigs，休息結束（或做下一組）時才當作換好了。
     private func restChanges(after i: Int) -> [RigChange] {
-        let kits = WeightKits.load()
-        var state = rigs
-        var out: [RigChange] = []
-        func prepare(_ l: Loading, label: String) {
-            guard let kit = kits.first(where: { $0.name == l.kit }) else { return }
-            let target = RigState(use: l.use, plates: l.plates)
-            let from = state[l.kit]
-            guard from != target else { return }
-            let t = WeightKits.changeSeconds(kit: kit, from: from, to: l)
-            if from == nil && l.plates.isEmpty { return }
-            out.append(RigChange(label: label, kit: l.kit, use: l.use, from: from?.plates, to: l.plates, seconds: t,
-                                 assemble: from.map { ($0.use == .barbell) != (l.use == .barbell) } ?? false))
-            state[l.kit] = target
-        }
         guard let found = nextSet(after: i) else { return [] }
-        let (j, next) = found
-        if let l = loading(of: next, in: drafts[j]) {
-            prepare(l, label: j == i ? "換重量" : "下一個動作（\(drafts[j].item.exercise.name)）")
+        let (j, _) = found
+        let upcoming = drafts[j].sets.filter { !$0.done }
+            .map { SetPlanner.PlanStep(kind: $0.kind, kit: $0.kit, loading: loading(of: $0, in: drafts[j])) }
+        let steps = SetPlanner.rigSteps(upcoming: upcoming, sameExercise: j == i,
+                                        exerciseName: drafts[j].item.exercise.name,
+                                        rigs: rigs, kits: WeightKits.load())
+        return steps.map {
+            RigChange(label: $0.label, kit: $0.loading.kit, use: $0.loading.use, from: $0.from?.plates,
+                      to: $0.loading.plates, seconds: $0.seconds, assemble: $0.assemble)
         }
-        // 下一組做完就要 Drop set：趁現在把另一組啞鈴裝好
-        let rest = drafts[j].sets.filter { !$0.done }
-        if next.kind == .work, rest.count >= 2, rest[1].kind == .drop, rest[1].kit != nil,
-           let l = loading(of: rest[1], in: drafts[j]) {
-            prepare(l, label: "順便裝好 Drop set")
-        }
-        return out
     }
 
     /// 依「還剩幾下」自動調整這個動作接下來的正式組：還剩 4 下以上就加重，力竭又沒做到下限就減重。
@@ -593,12 +581,13 @@ struct WorkoutView: View {
         } else {
             let ex = drafts[i].item.exercise
             let w = drafts[i].sets.first { $0.kind == .work }?.weight ?? 0
-            let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i), ladder: drafts[i].ladder)
+            let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i),
+                                          ladder: drafts[i].ladder, avoidKit: barbellKit)
             if warm.isEmpty {
                 showToast(w > 0 ? "這個動作重量不重，不用熱身" : "先填正式組的重量，才能算熱身組")
                 return
             }
-            drafts[i].sets.insert(contentsOf: warm.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: .warmup) }, at: 0)
+            drafts[i].sets.insert(contentsOf: warm.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: .warmup, kit: $0.kit) }, at: 0)
         }
     }
 
@@ -619,20 +608,24 @@ struct WorkoutView: View {
         showToast("換成「\(ex.name)」")
     }
 
-    private func makeDraft(_ item: PlannedExercise, firstInRegion: Bool, scheme chosenOverride: SetScheme? = nil) -> ExerciseDraft {
+    /// 這場被拿去接槓鈴的那組器材（熱身不用它）
+    private var barbellKit: String? {
+        isGym ? nil : SetPlanner.barbellKit(in: drafts.map(\.ladder))
+    }
+
+    private func makeDraft(_ item: PlannedExercise, firstInRegion: Bool, scheme chosenOverride: SetScheme? = nil,
+                           avoidKit: String? = nil) -> ExerciseDraft {
         let phase = ProgramBuilder.phase(week: week)
         let last = Progression.lastSets(for: item.exercise.id, in: sessions)
         let ladder = WeightLadder.make(item.exercise, gym: isGym, step: increment)
         let chosen = chosenOverride ?? SchemeStore.scheme(for: item.exercise.id)
-        // 只做 1 組的日子不排遞增／遞減
-        let scheme = length == .minimal ? .straight : SetPlanner.resolve(chosen, exercise: item.exercise, phase: phase)
-        let s = Progression.suggest(item, last: last, phase: phase, ladder: ladder, scheme: scheme)
-        let work = SetPlanner.workSets(scheme: scheme, count: item.sets, weight: s.weight, reps: s.reps,
-                                       low: item.low, high: item.high, ladder: ladder)
-        let warm = autoWarmup && length != .minimal
-            ? SetPlanner.warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion, ladder: ladder)
-            : []
-        let sets = (warm + work).map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit) }
+        let plateau = length == .minimal || phase != .normal ? nil : Plateau.check(exerciseId: item.exercise.id, sessions: sessions)
+        let planned = SetPlanner.plannedSets(item: item, last: last, phase: phase, ladder: ladder, chosen: chosen,
+                                             minimal: length == .minimal, autoWarmup: autoWarmup,
+                                             firstInRegion: firstInRegion, avoidKit: avoidKit ?? barbellKit,
+                                             plateau: plateau)
+        let s = planned.suggestion
+        let sets = planned.sets.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit) }
         var lastText = ""
         if !last.isEmpty {
             let reps = last.map { String($0.reps) }.joined(separator: "、")
@@ -641,9 +634,11 @@ struct WorkoutView: View {
                 ? "上次 \(Progression.format(w)) kg × \(reps)"
                 : "上次 \(reps) \(item.exercise.unit.label)"
         }
-        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets,
-                             last: last.map { LastSet(weight: $0.weight, reps: $0.reps) },
-                             chosen: chosen, scheme: scheme, ladder: ladder)
+        var draft = ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets,
+                                  last: last.map { LastSet(weight: $0.weight, reps: $0.reps) },
+                                  chosen: chosen, scheme: planned.scheme, ladder: ladder)
+        draft.plateauReset = plateau != nil
+        return draft
     }
 
     /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
@@ -671,11 +666,14 @@ struct WorkoutView: View {
         bests = b
         let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length, limitBarbell: lessBarbell)
         var seen = Set<String>()
+        let planBarbellKit = isGym ? nil : SetPlanner.barbellKit(in: plan.map {
+            WeightLadder.make($0.exercise, gym: false, step: increment)
+        })
         drafts = plan.map { item in
             let region = item.exercise.pattern.region
             let first = region.map { !seen.contains($0) } ?? false
             if let region { seen.insert(region) }
-            return makeDraft(item, firstInRegion: first)
+            return makeDraft(item, firstInRegion: first, avoidKit: planBarbellKit)
         }
     }
 
@@ -714,6 +712,10 @@ struct WorkoutView: View {
             }
         }
         try? context.save()
+        // 停滯後減重重新爬的動作：從這次之後重新算
+        for d in drafts where d.plateauReset && d.sets.contains(where: { $0.done && $0.kind == .work }) {
+            Plateau.markReset(d.item.exercise.id)
+        }
         // 成果畫面：週目標、連續週數用存檔前的紀錄＋這一次算
         let dates = sessions.filter { $0 !== session }.map(\.date)
         withAnimation(.easeOut(duration: 0.25)) {

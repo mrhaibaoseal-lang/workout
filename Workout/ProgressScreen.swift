@@ -76,6 +76,10 @@ struct ProgressScreen: View {
                     } else {
                         let records = self.records
                         statTiles(records: records.count)
+                        NavigationLink { RecordsScreen() } label: { RecordsLinkCard() }
+                            .buttonStyle(.plain)
+                        MuscleVolumeCard(sessions: sessions)
+                        FatigueMapCard(sessions: sessions)
                         ShadowRivalCard(sessions: sessions)
                         TonnageCard(sessions: sessions)
                         weeklyCard

@@ -165,7 +165,40 @@ enum SetPlanner {
     }
 
     /// 熱身組。first = 這個部位（推／拉／腿）今天第一個動作，做完整熱身；之後的複合動作只做 1 組。
-    static func warmups(for exercise: Exercise, workWeight w: Double, first: Bool, ladder: WeightLadder) -> [PlannedSet] {
+    /// 兩手各一支的啞鈴動作，如果有另一組啞鈴可以用，熱身組改指定用另一組（主要啞鈴只裝一次正式組重量）。
+    /// avoidKit：這場另一組啞鈴已經接成槓鈴時傳它的名字，熱身就不用它。
+    static func warmups(for exercise: Exercise, workWeight w: Double, first: Bool, ladder: WeightLadder,
+                        avoidKit: String? = nil) -> [PlannedSet] {
+        let base = baseWarmups(for: exercise, workWeight: w, first: first, ladder: ladder)
+        guard !base.isEmpty, let other = warmupKit(ladder, workWeight: w, avoid: avoidKit) else { return base }
+        let alt = ladder.only(kit: other)
+        let ws = alt.weights
+        guard let lowest = ws.first else { return base }
+        var out: [PlannedSet] = []
+        for s in base {
+            // 不超過目標的最近一級；都比目標重就用最輕的；永遠不超過正式組重量
+            let x = ws.last { $0 <= s.weight + 0.01 } ?? lowest
+            guard x < w - 0.01 else { continue }
+            if let last = out.last, x <= last.weight + 0.01 { continue }
+            out.append(PlannedSet(weight: x, reps: s.reps, kind: .warmup, kit: other))
+        }
+        return out.isEmpty ? base : out
+    }
+
+    /// 熱身可以改用的另一組啞鈴：兩手各一支、正式組用主要啞鈴裝得出來、另一組沒被拿去接槓鈴。
+    static func warmupKit(_ ladder: WeightLadder, workWeight w: Double, avoid: String?) -> String? {
+        guard let other = pairKit(ladder), other != avoid,
+              let main = ladder.loadings.first?.kit,
+              ladder.loading(w)?.kit == main else { return nil }
+        return other
+    }
+
+    /// 這場有槓鈴動作（在家）時，被拿去接槓鈴的那組器材名字。
+    static func barbellKit(in ladders: [WeightLadder]) -> String? {
+        ladders.first { $0.loadings.first?.use == .barbell }?.loadings.first?.kit
+    }
+
+    private static func baseWarmups(for exercise: Exercise, workWeight w: Double, first: Bool, ladder: WeightLadder) -> [PlannedSet] {
         guard exercise.loaded, w > 0, exercise.pattern.region != nil else { return [] }
         var out: [PlannedSet] = []
         if !first {
@@ -191,10 +224,177 @@ enum SetPlanner {
         return out
     }
 
+    /// 一個動作排好的組（建議重量、排法、全部的組）。makeDraft 和預估時間共用，才不會算出不一樣的東西。
+    struct ExercisePlan {
+        let scheme: SetScheme
+        let suggestion: Suggestion
+        let sets: [PlannedSet]
+    }
+
+    static func plannedSets(item: PlannedExercise, last: [SetEntry], phase: Phase, ladder: WeightLadder,
+                            chosen: SetScheme, minimal: Bool, autoWarmup: Bool,
+                            firstInRegion: Bool, avoidKit: String?, plateau: PlateauInfo? = nil) -> ExercisePlan {
+        // 只做 1 組的日子不排遞增／遞減
+        let scheme: SetScheme = minimal ? .straight : resolve(chosen, exercise: item.exercise, phase: phase)
+        // 連續 3 次沒進步：先減重重新爬（Plateau.adjust）
+        let s = Plateau.adjust(Progression.suggest(item, last: last, phase: phase, ladder: ladder, scheme: scheme),
+                               item: item, info: plateau, ladder: ladder, phase: phase)
+        let work = workSets(scheme: scheme, count: item.sets, weight: s.weight, reps: s.reps,
+                            low: item.low, high: item.high, ladder: ladder)
+        let warm = autoWarmup && !minimal
+            ? warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion,
+                      ladder: ladder, avoidKit: avoidKit)
+            : []
+        return ExercisePlan(scheme: scheme, suggestion: s, sets: warm + work)
+    }
+
+    /// 還沒做的一組，算換重量用的最少資訊
+    struct PlanStep {
+        var kind: SetKind
+        var kit: String?
+        var loading: Loading?
+    }
+
+    /// 休息時要做的一件換重量的事
+    struct RigStep {
+        let label: String
+        let loading: Loading
+        let from: RigState?
+        let seconds: Int
+        let assemble: Bool
+    }
+
+    /// 下一組（upcoming 的第一個，後面是同一個動作還沒做的組）要換什麼：
+    /// 換成下一組的重量；下一組做完就要 Drop set，就先用另一組啞鈴裝好；
+    /// 下一組是用另一組啞鈴的（最後一個）熱身，順便把主要啞鈴裝成正式組重量。
+    /// 不改 rigs，呼叫的人自己決定什麼時候當作換好了。
+    static func rigSteps(upcoming: [PlanStep], sameExercise: Bool, exerciseName: String,
+                         rigs: [String: RigState], kits: [WeightKit]) -> [RigStep] {
+        var state = rigs
+        var out: [RigStep] = []
+        func prepare(_ l: Loading, label: String) {
+            guard let kit = kits.first(where: { $0.name == l.kit }) else { return }
+            let target = RigState(use: l.use, plates: l.plates)
+            let from = state[l.kit]
+            guard from != target else { return }
+            let t = WeightKits.changeSeconds(kit: kit, from: from, to: l)
+            if from == nil && l.plates.isEmpty { return }
+            out.append(RigStep(label: label, loading: l, from: from, seconds: t,
+                               assemble: from.map { ($0.use == .barbell) != (l.use == .barbell) } ?? false))
+            state[l.kit] = target
+        }
+        guard let next = upcoming.first else { return [] }
+        if let l = next.loading {
+            prepare(l, label: sameExercise ? "換重量" : "下一個動作（\(exerciseName)）")
+        }
+        if next.kind == .work, upcoming.count >= 2, upcoming[1].kind == .drop, upcoming[1].kit != nil,
+           let l = upcoming[1].loading {
+            prepare(l, label: "順便裝好 Drop set")
+        }
+        if next.kind == .warmup, let warmKit = next.kit,
+           !upcoming.dropFirst().contains(where: { $0.kind == .warmup }),
+           let work = upcoming.first(where: { $0.kind == .work }),
+           let l = work.loading, l.kit != warmKit {
+            prepare(l, label: "順便裝好正式組")
+        }
+        return out
+    }
+
     /// 這組做完要休息幾秒。下一組是遞減組就不休息；熱身組休息短一點。
     static func rest(after done: SetKind, next: SetKind?, normal: Int) -> Int {
         if next == .drop { return 0 }
         if done == .warmup { return next == .warmup ? 45 : 75 }
         return normal
+    }
+}
+
+/// 預估整場訓練要花多久：照 makeDraft 一樣排好每一組，再照順序走一遍，
+/// 加上換重量、組槓鈴的時間（休息裡的換重量算在休息內，和訓練時的規則一樣）。
+enum WorkoutTimeEstimator {
+    /// 做一組大約幾秒
+    static let setSeconds = 45
+
+    private struct Entry {
+        let ex: Int
+        let name: String
+        let kind: SetKind
+        let kit: String?
+        let loading: Loading?
+        let restSeconds: Int
+    }
+
+    static func seconds(plan: [PlannedExercise], sessions: [WorkoutSession], gym: Bool, increment: Double,
+                        autoWarmup: Bool, week: Int, length: WorkoutLength) -> Int {
+        guard !plan.isEmpty else { return 0 }
+        let phase = ProgramBuilder.phase(week: week)
+        let minimal = length == .minimal
+        let kits = WeightKits.load()
+        let ladders = plan.map { WeightLadder.make($0.exercise, gym: gym, step: increment) }
+        let barKit = SetPlanner.barbellKit(in: ladders)
+
+        var entries: [Entry] = []
+        var seen = Set<String>()
+        for (n, item) in plan.enumerated() {
+            let ex = item.exercise
+            let region = ex.pattern.region
+            let first = region.map { !seen.contains($0) } ?? false
+            if let region { seen.insert(region) }
+            let last = Progression.lastSets(for: ex.id, in: sessions)
+            let p = SetPlanner.plannedSets(item: item, last: last, phase: phase, ladder: ladders[n],
+                                           chosen: SchemeStore.scheme(for: ex.id), minimal: minimal,
+                                           autoWarmup: autoWarmup, firstInRegion: first, avoidKit: barKit)
+            for s in p.sets {
+                let l: Loading? = ex.loaded && s.weight > 0 ? ladders[n].loading(s.weight, kit: s.kit) : nil
+                entries.append(Entry(ex: n, name: ex.name, kind: s.kind, kit: s.kit, loading: l, restSeconds: item.restSeconds))
+            }
+        }
+        guard !entries.isEmpty else { return 0 }
+
+        var total = 0
+        var rigs: [String: RigState] = [:]
+        // 槓鈴整場只組一次
+        if let barKit, let kit = kits.first(where: { $0.name == barKit }) {
+            total += Int(kit.assembleSeconds)
+        }
+        func steps(from index: Int, sameExercise: Bool) -> [SetPlanner.RigStep] {
+            let e = entries[index]
+            let upcoming = entries[index...].prefix(while: { $0.ex == e.ex })
+                .map { SetPlanner.PlanStep(kind: $0.kind, kit: $0.kit, loading: $0.loading) }
+            return SetPlanner.rigSteps(upcoming: upcoming, sameExercise: sameExercise, exerciseName: e.name,
+                                       rigs: rigs, kits: kits)
+        }
+        func apply(_ list: [SetPlanner.RigStep]) {
+            for c in list { rigs[c.loading.kit] = RigState(use: c.loading.use, plates: c.loading.plates) }
+        }
+        // 第一組開始前先裝好
+        let startSteps = steps(from: 0, sameExercise: false)
+        total += startSteps.reduce(0) { $0 + $1.seconds }
+        apply(startSteps)
+
+        for (k, e) in entries.enumerated() {
+            total += setSeconds
+            if let l = e.loading { rigs[l.kit] = RigState(use: l.use, plates: l.plates) }
+            guard k + 1 < entries.count else { break }
+            let next = entries[k + 1]
+            let chores = steps(from: k + 1, sameExercise: next.ex == e.ex)
+            let change = chores.reduce(0) { $0 + $1.seconds }
+            var rest = SetPlanner.rest(after: e.kind, next: next.kind, normal: e.restSeconds)
+            if rest > 0 {
+                rest = max(rest, change + (e.kind == .warmup ? 20 : 30))
+                total += rest
+            } else {
+                // 不休息的遞減組：換的時間照樣要花
+                total += change
+            }
+            apply(chores)
+        }
+        return total
+    }
+
+    static func minutes(plan: [PlannedExercise], sessions: [WorkoutSession], gym: Bool, increment: Double,
+                        autoWarmup: Bool, week: Int, length: WorkoutLength) -> Int {
+        let s = seconds(plan: plan, sessions: sessions, gym: gym, increment: increment,
+                        autoWarmup: autoWarmup, week: week, length: length)
+        return max(5, Int((Double(s) / 60).rounded()) + 5)
     }
 }

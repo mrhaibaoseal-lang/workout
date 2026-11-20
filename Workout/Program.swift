@@ -124,6 +124,7 @@ enum ProgramBuilder {
     }
 
     static func phase(week: Int) -> Phase {
+        if Plateau.deloadActive { return .deload }
         if week <= 2 { return .rampUp }
         if week % blockWeeks == 0 { return .deload }
         return .normal
@@ -183,6 +184,13 @@ enum ProgramBuilder {
             )
         }
         return length == .minimal ? Array(all.prefix(1)) : all
+    }
+
+    /// 照實際排出來的組（含熱身）、換重量和組槓鈴的時間估算。
+    static func estimatedMinutes(_ plan: [PlannedExercise], sessions: [WorkoutSession], gym: Bool, increment: Double,
+                                 autoWarmup: Bool, week: Int, length: WorkoutLength) -> Int {
+        WorkoutTimeEstimator.minutes(plan: plan, sessions: sessions, gym: gym, increment: increment,
+                                     autoWarmup: autoWarmup, week: week, length: length)
     }
 
     static func estimatedMinutes(_ plan: [PlannedExercise]) -> Int {

@@ -16,6 +16,7 @@ struct TodayView: View {
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
+    @AppStorage(Keys.autoWarmup) private var autoWarmup = true
     // Read so the view refreshes when any planner input changes.
     @AppStorage(ClassStore.key) private var classesRaw = ""
     @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
@@ -349,7 +350,9 @@ struct TodayView: View {
     private var summaryLine: String {
         let sets = plan.reduce(0) { $0 + $1.sets }
         if length == .minimal { return "\(day.focus) · 做 1 組就算數" }
-        return "約 \(ProgramBuilder.estimatedMinutes(plan)) 分鐘 · \(plan.count) 個動作 · \(sets) 組"
+        let minutes = ProgramBuilder.estimatedMinutes(plan, sessions: sessions, gym: placeRaw == TrainingPlace.gym.rawValue,
+                                                      increment: increment, autoWarmup: autoWarmup, week: week, length: length)
+        return "約 \(minutes) 分鐘 · \(plan.count) 個動作 · \(sets) 組"
     }
 
     // MARK: Exercises
