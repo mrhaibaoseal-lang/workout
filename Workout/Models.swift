@@ -50,14 +50,16 @@ enum Keys {
 }
 
 enum Equipment: String, CaseIterable, Identifiable {
-    case dumbbell, bench, band, pullupBar, kettlebell
+    case dumbbell, barbell, kettlebell, bench, cable, band, pullupBar
 
     var id: String { rawValue }
 
     var name: String {
         switch self {
         case .dumbbell: "啞鈴"
-        case .bench: "健身椅 / 穩固長椅"
+        case .barbell: "槓鈴"
+        case .bench: "可調式健身椅"
+        case .cable: "高位下拉架（滑輪）"
         case .band: "彈力帶"
         case .pullupBar: "單槓"
         case .kettlebell: "壺鈴"
@@ -67,7 +69,9 @@ enum Equipment: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .dumbbell: "dumbbell.fill"
+        case .barbell: "figure.strengthtraining.traditional"
         case .bench: "bed.double.fill"
+        case .cable: "arrow.down.to.line"
         case .band: "lasso"
         case .pullupBar: "figure.climbing"
         case .kettlebell: "scalemass.fill"

@@ -13,6 +13,8 @@ struct DayTemplate: Identifiable {
     let id: String
     let name: String
     let focus: String
+    /// B days start from the second exercise variant so A and B differ.
+    var variant: Int = 0
     let slots: [Slot]
 }
 
@@ -67,15 +69,15 @@ enum ProgramBuilder {
             Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
             Slot(pattern: .core, sets: 3, low: 8, high: 15, essential: false),
         ]),
-        DayTemplate(id: "upperB", name: "上半身 B", focus: "肩、背、手臂", slots: [
+        DayTemplate(id: "upperB", name: "上半身 B", focus: "肩、背、手臂", variant: 1, slots: [
             Slot(pattern: .vPush, sets: 3, low: 6, high: 10, essential: true),
             Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hPush, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .vPull, sets: 3, low: 6, high: 10, essential: false),
             Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
-            Slot(pattern: .core, sets: 3, low: 8, high: 15, essential: false),
+            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
         ]),
-        DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、後腿、核心", slots: [
+        DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、後腿、核心", variant: 1, slots: [
             Slot(pattern: .hinge, sets: 3, low: 6, high: 10, essential: true),
             Slot(pattern: .lunge, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .glute, sets: 3, low: 10, high: 15, essential: true),
@@ -107,7 +109,7 @@ enum ProgramBuilder {
                 .filter { !usedIds.contains($0.id) }
             guard !options.isEmpty else { return nil }
             let top = Array(options.prefix(2))
-            let exercise = top[block % top.count]
+            let exercise = top[(block + day.variant) % top.count]
             usedIds.insert(exercise.id)
 
             var sets = slot.sets

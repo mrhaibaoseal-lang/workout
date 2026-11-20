@@ -25,7 +25,7 @@ struct WorkoutView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
-    @AppStorage(Keys.increment) private var increment = 2.0
+    @AppStorage(Keys.increment) private var increment = 2.5
 
     @State private var drafts: [ExerciseDraft] = []
     @State private var startedAt = Date()

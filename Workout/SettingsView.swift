@@ -26,7 +26,7 @@ struct EquipmentPicker: View {
 struct SettingsView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
-    @AppStorage(Keys.increment) private var increment = 2.0
+    @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @State private var confirmRestart = false
 
