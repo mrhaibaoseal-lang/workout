@@ -32,7 +32,6 @@ struct DayPlan: Identifiable {
 enum Planner {
     static let fullNeeds = 75   // 60 分鐘 + 換衣服、喝水
     static let shortNeeds = 30
-    static let tiredWorkMinutes = 360
 
     static func makePlan(sessions: [WorkoutSession], now: Date = .now, horizon: Int = 7) -> [DayPlan] {
         let cfg = PlannerConfig.load()
@@ -44,11 +43,12 @@ enum Planner {
         // Plan whole weeks so the weekly goal is spread properly.
         let lastShown = cal.date(byAdding: .day, value: horizon - 1, to: today)!
         let planEnd = cal.date(byAdding: .day, value: 7, to: SharedStore.weekStart(lastShown))!
+        let events = EventStore.all(from: today, to: planEnd.addingTimeInterval(86400))
 
         var evaluated: [(day: Date, busy: [BusyBlock], option: PlanOption?, tired: Bool)] = []
         var d = today
         while d < planEnd {
-            let e = evaluate(day: d, now: now, cfg: cfg, classes: classes, shifts: shifts)
+            let e = evaluate(day: d, now: now, cfg: cfg, classes: classes, shifts: shifts, events: events)
             evaluated.append((d, e.busy, e.option, e.tired))
             d = cal.date(byAdding: .day, value: 1, to: d)!
         }
@@ -89,7 +89,7 @@ enum Planner {
     }
 
     private static func evaluate(day: Date, now: Date, cfg: PlannerConfig,
-                                 classes: [ClassBlock], shifts: [WorkShift])
+                                 classes: [ClassBlock], shifts: [WorkShift], events: [LifeEvent])
     -> (busy: [BusyBlock], option: PlanOption?, tired: Bool) {
         let cal = Calendar.current
         let weekday = cal.component(.weekday, from: day)
@@ -110,6 +110,22 @@ enum Planner {
                                   label: "打工 \(TimeFmt.hm(s.start))–\(TimeFmt.hm(s.end))", isWork: true))
             if s.start >= day && s.start < dayEnd {
                 workMinutes += Int(s.end.timeIntervalSince(s.start) / 60)
+            }
+        }
+        let eventBuffer: TimeInterval = 15 * 60
+        var allDayEvent = false
+        for e in events where e.start < dayEnd && e.end > day {
+            if e.allDay {
+                allDayEvent = true
+                busy.append(BusyBlock(start: day, end: dayEnd.addingTimeInterval(TimeInterval((cfg.latestHour - 24) * 3600)),
+                                      label: "整天：\(e.displayTitle)", isWork: false))
+                continue
+            }
+            let end = e.category == .drink ? at(cfg.latestHour * 60) : e.end.addingTimeInterval(eventBuffer)
+            busy.append(BusyBlock(start: e.start.addingTimeInterval(-eventBuffer), end: end,
+                                  label: "\(e.displayTitle) \(e.timeText)", isWork: e.category == .shoot))
+            if e.category == .shoot {
+                workMinutes += Int(e.end.timeIntervalSince(e.start) / 60)
             }
         }
         busy.sort { $0.start < $1.start }
@@ -142,10 +158,12 @@ enum Planner {
             return nil
         }
 
-        let tired = workMinutes >= tiredWorkMinutes
+        let tired = cfg.tiredHours > 0 && workMinutes >= cfg.tiredHours * 60
         let load = Double(classMinutes + workMinutes) / 600
         var option: PlanOption?
-        if !tired, let f = fit(fullNeeds) {
+        if allDayEvent {
+            option = nil
+        } else if !tired, let f = fit(fullNeeds) {
             option = PlanOption(length: .full, start: f.start, score: 3 - (f.early ? 0.7 : 0) - load)
         } else if let s = fit(shortNeeds) {
             option = PlanOption(length: .short, start: s.start,
@@ -163,9 +181,11 @@ enum Planner {
     private static func reason(busy: [BusyBlock], option: PlanOption?, picked: Bool, done: Bool, tired: Bool) -> String {
         if done { return "今天練完了 ✓" }
         let summary = busy.isEmpty ? "整天沒課沒班" : busy.map(\.label).joined(separator: "、")
-        if picked { return summary }
+        if picked {
+            return tired ? "打工／拍片時間長，先排精簡版；精神好的話直接選完整版。\n\(summary)" : summary
+        }
         if option == nil {
-            return tired ? "長時間打工（\(summary)），休息" : "空檔不夠（\(summary)）"
+            return tired ? "打工／拍片時間長（\(summary)），建議休息" : "沒有空檔（\(summary)）"
         }
         return "這週已經排滿，當休息日"
     }

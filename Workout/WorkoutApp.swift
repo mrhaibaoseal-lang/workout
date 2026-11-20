@@ -25,10 +25,12 @@ struct RootView: View {
     @AppStorage(Keys.earliestHour) private var earliestHour = 12
     @AppStorage(Keys.preferredHour) private var preferredHour = 14
     @AppStorage(Keys.latestHour) private var latestHour = 25
+    @AppStorage(EventStore.key) private var eventsRaw = ""
+    @AppStorage(Keys.tiredHours) private var tiredHours = 6
 
     /// Changes whenever anything the widget or reminders depend on changes.
     private var syncKey: String {
-        "\(onboarded)-\(sessions.count)-\(sessions.first?.date.timeIntervalSince1970 ?? 0)-\(weeklyGoal)-\(reminderOn)-\(reminderLead)-\(classesRaw.hashValue)-\(commuteSchool)-\(commuteWork)-\(earliestHour)-\(preferredHour)-\(latestHour)"
+        "\(onboarded)-\(sessions.count)-\(sessions.first?.date.timeIntervalSince1970 ?? 0)-\(weeklyGoal)-\(reminderOn)-\(reminderLead)-\(classesRaw.hashValue)-\(commuteSchool)-\(commuteWork)-\(earliestHour)-\(preferredHour)-\(latestHour)-\(eventsRaw.hashValue)-\(tiredHours)"
     }
 
     var body: some View {
@@ -39,6 +41,8 @@ struct RootView: View {
                         .tabItem { Label("今天", systemImage: "figure.strengthtraining.traditional") }
                     ProgressScreen()
                         .tabItem { Label("進步", systemImage: "chart.line.uptrend.xyaxis") }
+                    AgendaView()
+                        .tabItem { Label("行程", systemImage: "calendar") }
                     HistoryView()
                         .tabItem { Label("紀錄", systemImage: "list.bullet.rectangle") }
                     SettingsView()

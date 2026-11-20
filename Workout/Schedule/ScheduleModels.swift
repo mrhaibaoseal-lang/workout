@@ -121,6 +121,8 @@ struct PlannerConfig {
     var preferredHour: Int
     /// 最晚結束時間（小時，可超過 24 表示隔天凌晨）
     var latestHour: Int
+    /// 打工＋拍片超過幾小時就不排完整版（0 = 不限制）
+    var tiredHours: Int
 
     static func load() -> PlannerConfig {
         let d = UserDefaults.standard
@@ -131,7 +133,8 @@ struct PlannerConfig {
             commuteWork: int(Keys.commuteWork, 5),
             earliestHour: int(Keys.earliestHour, 12),
             preferredHour: int(Keys.preferredHour, 14),
-            latestHour: int(Keys.latestHour, 25)
+            latestHour: int(Keys.latestHour, 25),
+            tiredHours: int(Keys.tiredHours, 6)
         )
     }
 }

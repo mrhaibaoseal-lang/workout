@@ -37,6 +37,8 @@ struct SettingsView: View {
     @AppStorage(Keys.earliestHour) private var earliestHour = 12
     @AppStorage(Keys.preferredHour) private var preferredHour = 14
     @AppStorage(Keys.latestHour) private var latestHour = 25
+    @AppStorage(Keys.tiredHours) private var tiredHours = 6
+    @AppStorage(Keys.readPhoneCalendar) private var readPhoneCalendar = false
     @State private var confirmRestart = false
     @State private var shiftInfo = ShiftReader.load()
 
@@ -68,9 +70,22 @@ struct SettingsView: View {
                     } label: {
                         Label("課表", systemImage: "graduationcap")
                     }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label("班表（打工薪水帳）", systemImage: "briefcase")
-                        Text(shiftStatus).font(.caption).foregroundStyle(.secondary)
+                    NavigationLink {
+                        ShiftListView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("班表（打工薪水帳）", systemImage: "briefcase")
+                            Text(shiftStatus).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Toggle(isOn: $readPhoneCalendar) {
+                        Label("也讀 iPhone 行事曆", systemImage: "calendar")
+                    }
+                    .onChange(of: readPhoneCalendar) { _, on in
+                        guard on else { return }
+                        Task {
+                            if !(await PhoneCalendar.requestAccess()) { readPhoneCalendar = false }
+                        }
                     }
                     Stepper("到學校 \(commuteSchool) 分鐘", value: $commuteSchool, in: 0...120, step: 5)
                     Stepper("到打工地點 \(commuteWork) 分鐘", value: $commuteWork, in: 0...120, step: 5)
@@ -83,10 +98,16 @@ struct SettingsView: View {
                     Picker("最晚結束", selection: $latestHour) {
                         ForEach(20...28, id: \.self) { Text(hourLabel($0)).tag($0) }
                     }
+                    Picker("打工／拍片超過", selection: $tiredHours) {
+                        Text("4 小時不排完整版").tag(4)
+                        Text("6 小時不排完整版").tag(6)
+                        Text("8 小時不排完整版").tag(8)
+                        Text("不限制").tag(0)
+                    }
                 } header: {
                     Text("自動排程")
                 } footer: {
-                    Text("App 會扣掉上課、打工和通勤時間，找出每天的空檔，自動排出這週要練哪幾天、練多久、幾點開始。班表直接從「打工薪水帳」讀取，改班後打開練壯就會重新排。")
+                    Text("App 會扣掉上課、打工、活動和通勤時間，找出每天的空檔，自動排出這週要練哪幾天、練多久、幾點開始。這只是建議：首頁隨時可以改成完整版、精簡版或只做 1 組。班表直接從「打工薪水帳」讀取，改班後打開練壯就會重新排。")
                 }
 
                 Section {

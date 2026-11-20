@@ -19,6 +19,8 @@ struct TodayView: View {
     @AppStorage(Keys.earliestHour) private var earliestHour = 12
     @AppStorage(Keys.preferredHour) private var preferredHour = 14
     @AppStorage(Keys.latestHour) private var latestHour = 25
+    @AppStorage(EventStore.key) private var eventsRaw = ""
+    @AppStorage(Keys.tiredHours) private var tiredHours = 6
     @Environment(\.scenePhase) private var scenePhase
     @State private var refresh = 0
     @State private var lengthChosen = false
@@ -42,7 +44,7 @@ struct TodayView: View {
     }
     private var plans: [DayPlan] {
         _ = refresh
-        _ = (classesRaw, commuteSchool, commuteWork, earliestHour, preferredHour, latestHour, weeklyGoal)
+        _ = (classesRaw, commuteSchool, commuteWork, earliestHour, preferredHour, latestHour, weeklyGoal, eventsRaw, tiredHours)
         return Planner.makePlan(sessions: sessions)
     }
 

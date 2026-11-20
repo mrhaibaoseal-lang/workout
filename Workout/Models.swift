@@ -67,6 +67,8 @@ enum Keys {
     static let preferredHour = "preferredHour"
     static let latestHour = "latestHour"
     static let reminderLead = "reminderLead"
+    static let tiredHours = "tiredHours"
+    static let readPhoneCalendar = "readPhoneCalendar"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60
