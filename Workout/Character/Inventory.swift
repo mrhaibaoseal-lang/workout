@@ -10,14 +10,20 @@ struct InventoryState: Codable, Equatable {
     var pity: Int = 0
     var claimedMilestones: Set<String> = []
 
-    /// 初始狀態：基本款全部擁有並穿上。
+    /// 初始狀態：基本款全部擁有，但什麼都不穿，只有內褲。
     static func starter() -> InventoryState {
         var s = InventoryState()
         for it in GearCatalog.basicItems() {
             s.owned.insert(it.id)
-            s.loadout[it.slot] = it.id
         }
         return s
+    }
+
+    /// 舊版初始會把基本款全部穿上；還維持那個樣子（沒換過裝）的就脫掉。
+    var isUntouchedOldStarter: Bool {
+        let basics = GearCatalog.basicItems()
+        return !basics.isEmpty && basics.allSatisfy { loadout[$0.slot] == $0.id }
+            && loadout.slots.count == basics.count
     }
 }
 
@@ -132,8 +138,16 @@ final class InventoryStore: ObservableObject {
         if let raw = UserDefaults.standard.string(forKey: InventoryStore.key),
            let data = raw.data(using: .utf8),
            let decoded = try? JSONDecoder().decode(InventoryState.self, from: data) {
-            state = decoded
+            var s = decoded
+            // 一次性：舊的初始穿搭改成只穿內褲。
+            let flag = "workout.character.nakedStart"
+            if !UserDefaults.standard.bool(forKey: flag) {
+                UserDefaults.standard.set(true, forKey: flag)
+                if s.isUntouchedOldStarter { s.loadout = Loadout() }
+            }
+            state = s
         } else {
+            UserDefaults.standard.set(true, forKey: "workout.character.nakedStart")
             state = InventoryState.starter()
         }
     }

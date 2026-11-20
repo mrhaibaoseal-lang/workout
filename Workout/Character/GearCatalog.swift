@@ -95,6 +95,8 @@ enum GearSlot: String, CaseIterable, Identifiable, Hashable {
     var emptyName: String {
         switch self {
         case .feet: return "赤腳"
+        case .top: return "赤膊"
+        case .bottom: return "內褲"
         case .bell: return "預設"
         default: return "無"
         }

@@ -316,6 +316,23 @@ enum CharacterRenderer {
             }
         }
 
+        // 沒穿下身時畫一件內褲（初始角色只有內褲）
+        if loadout.item(.bottom) == nil {
+            let briefs = Color(gearHex: "#34477A")
+            let band = Color(gearHex: "#C9D3E6")
+            let farHip = P.point(.hip, far: true)
+            pen.line(&c, farHip, mix(farHip, P.point(.kn, far: true), 0.26), 17, briefs)
+            pen.circle(&c, P.hip, 11, fill: briefs)
+            pen.line(&c, P.hip, mix(P.hip, P.sh, 0.2), 22, briefs)
+            pen.line(&c, P.hip, mix(P.hip, P.kn, 0.26), 19, briefs)
+            let d = sub(P.sh, P.hip)
+            var l = hyp(d)
+            if l == 0 { l = 1 }
+            let n = pt(-d.y / l * 11, d.x / l * 11)
+            let w = mix(P.hip, P.sh, 0.2)
+            pen.line(&c, pt(w.x - n.x, w.y - n.y), pt(w.x + n.x, w.y + n.y), 3, band)
+        }
+
         // 高光線
         for sh in shapes where !sh.isTorso && !sh.far && sh.w >= 11 {
             let d = sub(sh.b, sh.a)
