@@ -10,6 +10,8 @@
 - 安裝方式：使用者在手機上用 **Feather** 簽名，憑證是 **FlareStore** 的。
 - 發佈方式：workflow 最後呼叫 `mrhaibaoseal-lang/feather-source@main` 的 action，把 IPA 發佈成 Release，私人 Feather 來源（Cloudflare Worker）會自動收錄。repo 必須是 public。
 - Feather 靠版本號判斷「有更新」：build 號用 `${{ github.run_number }}`，每次都會遞增。
+- **每次推送有功能或介面變更，都要升 `project.yml` 的 `MARKETING_VERSION`**（使用者靠它辨認版本）：新功能／改版升次版本（0.5.0 → 0.6.0），小修正升修訂號（0.5.0 → 0.5.1）。回報時寫成「0.5.0（build 號）」。
+- App 圖示：`Workout/Assets.xcassets/AppIcon.appiconset/AppIcon.png`，由 `scripts/make_icon.py` 產生（1024px、不透明），同一張也傳給 Feather 來源的 `icon:`。
 
 ## FlareStore 憑證能力
 完整清單見共用說明：https://github.com/mrhaibaoseal-lang/feather-source/blob/main/CLAUDE.md
