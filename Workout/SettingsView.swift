@@ -83,8 +83,6 @@ struct SettingsView: View {
     @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
-    @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
-    @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.reminderOn) private var reminderOn = true
     @AppStorage(Keys.reminderLead) private var reminderLead = 0
@@ -250,11 +248,16 @@ struct SettingsView: View {
 
                 Section {
                     Stepper("每週 \(weeklyGoal) 次", value: $weeklyGoal, in: 2...6)
-                    Stepper("每次加重 \(Progression.format(increment)) kg", value: $increment, in: 0.5...5, step: 0.5)
-                    Stepper("啞鈴最重（每支）\(Progression.format(maxDumbbell)) kg", value: $maxDumbbell, in: 5...60, step: 2.5)
-                    Stepper("槓鈴最重（含槓）\(Progression.format(maxBarbell)) kg", value: $maxBarbell, in: 10...150, step: 5)
+                    NavigationLink {
+                        KitEditorView()
+                    } label: {
+                        Label("我的啞鈴與槓片", systemImage: "dumbbell")
+                    }
+                    Stepper("健身房每次加重 \(Progression.format(increment)) kg", value: $increment, in: 0.5...5, step: 0.5)
                 } header: {
                     SectionLabel("目標")
+                } footer: {
+                    SectionLabel("在家時，加重建議只會跳到你的啞鈴裝得出來的重量，還會告訴你每邊要裝哪幾片。")
                 }
                 .listRowBackground(Theme.surface)
 

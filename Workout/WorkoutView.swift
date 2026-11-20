@@ -21,6 +21,8 @@ struct ExerciseDraft: Identifiable {
     var chosen: SetScheme = .auto
     /// 實際用的排法
     var scheme: SetScheme = .straight
+    /// 這個動作裝得出來的重量
+    var ladder = WeightLadder(loadings: [], step: 2.5)
     var id: String { item.id }
 
     /// 已經開始做正式組，就不能再改排法或換動作。
@@ -42,8 +44,6 @@ struct WorkoutView: View {
     @AppStorage(Keys.autoWarmup) private var autoWarmup = true
     @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.increment) private var increment = 2.5
-    @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
-    @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
 
     @State private var drafts: [ExerciseDraft] = []
     @State private var startedAt = Date()
@@ -303,15 +303,17 @@ struct WorkoutView: View {
         guard drafts[i].item.exercise.loaded, set.weight > 0, set.rir >= 0 else { return }
         let later = drafts[i].sets.indices.filter { $0 > s && !drafts[i].sets[$0].done && drafts[i].sets[$0].kind == .work }
         guard !later.isEmpty else { return }
-        var delta = 0.0
-        if set.rir >= 4 { delta = increment }
-        else if set.rir == 0 && set.reps < drafts[i].item.low { delta = -increment }
-        guard delta != 0 else { return }
+        let ladder = drafts[i].ladder
+        let up: Bool
+        if set.rir >= 4 { up = true }
+        else if set.rir == 0 && set.reps < drafts[i].item.low { up = false }
+        else { return }
         for j in later {
-            drafts[i].sets[j].weight = max(0, drafts[i].sets[j].weight + delta)
+            let w = drafts[i].sets[j].weight
+            drafts[i].sets[j].weight = up ? ladder.up(w) : ladder.down(w)
         }
-        let amount = Progression.format(abs(delta))
-        showToast(delta > 0 ? "還很有力氣，接下來每組加 \(amount) kg" : "太吃力了，接下來每組減 \(amount) kg")
+        let next = drafts[i].sets[later[0]].weight
+        showToast(up ? "還很有力氣，接下來改 \(Progression.format(next)) kg" : "太吃力了，接下來改 \(Progression.format(next)) kg")
     }
 
     private func showToast(_ text: String) {
@@ -355,7 +357,7 @@ struct WorkoutView: View {
         } else {
             let ex = drafts[i].item.exercise
             let w = drafts[i].sets.first { $0.kind == .work }?.weight ?? 0
-            let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i), step: increment)
+            let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i), ladder: drafts[i].ladder)
             if warm.isEmpty {
                 showToast(w > 0 ? "這個動作重量不重，不用熱身" : "先填正式組的重量，才能算熱身組")
                 return
@@ -384,15 +386,15 @@ struct WorkoutView: View {
     private func makeDraft(_ item: PlannedExercise, firstInRegion: Bool, scheme chosenOverride: SetScheme? = nil) -> ExerciseDraft {
         let phase = ProgramBuilder.phase(week: week)
         let last = Progression.lastSets(for: item.exercise.id, in: sessions)
-        let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
+        let ladder = WeightLadder.make(item.exercise, gym: isGym, step: increment)
         let chosen = chosenOverride ?? SchemeStore.scheme(for: item.exercise.id)
         // 只做 1 組的日子不排遞增／遞減
         let scheme = length == .minimal ? .straight : SetPlanner.resolve(chosen, exercise: item.exercise, phase: phase)
-        let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap, scheme: scheme)
+        let s = Progression.suggest(item, last: last, phase: phase, ladder: ladder, scheme: scheme)
         let work = SetPlanner.workSets(scheme: scheme, count: item.sets, weight: s.weight, reps: s.reps,
-                                       low: item.low, high: item.high, step: increment)
+                                       low: item.low, high: item.high, ladder: ladder)
         let warm = autoWarmup && length != .minimal
-            ? SetPlanner.warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion, step: increment)
+            ? SetPlanner.warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion, ladder: ladder)
             : []
         let sets = (warm + work).map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind) }
         var lastText = ""
@@ -403,7 +405,7 @@ struct WorkoutView: View {
                 ? "上次 \(Progression.format(w)) kg × \(reps)"
                 : "上次 \(reps) \(item.exercise.unit.label)"
         }
-        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets, chosen: chosen, scheme: scheme)
+        return ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets, chosen: chosen, scheme: scheme, ladder: ladder)
     }
 
     /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
@@ -567,7 +569,7 @@ struct ExerciseCard: View {
                 ForEach($draft.sets) { $set in
                     let tag = label(for: set)
                     if set.id == activeSetId {
-                        ActiveSetEditor(set: $set, tag: tag, exercise: ex, increment: increment) {
+                        ActiveSetEditor(set: $set, tag: tag, exercise: ex, ladder: draft.ladder) {
                             onComplete(set.id)
                         }
                     } else {
@@ -674,7 +676,7 @@ struct ActiveSetEditor: View {
     @Binding var set: SetDraft
     let tag: String
     let exercise: Exercise
-    let increment: Double
+    let ladder: WeightLadder
     let onDone: () -> Void
 
     var body: some View {
@@ -685,8 +687,8 @@ struct ActiveSetEditor: View {
             HStack(spacing: 10) {
                 if exercise.loaded {
                     stepperBox(
-                        minus: { set.weight = max(0, set.weight - increment) },
-                        plus: { set.weight += increment },
+                        minus: { set.weight = ladder.down(set.weight) },
+                        plus: { set.weight = ladder.up(set.weight) },
                         minusLabel: "減少重量", plusLabel: "增加重量"
                     ) {
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
@@ -710,6 +712,17 @@ struct ActiveSetEditor: View {
                         Text(exercise.unit.label).font(.caption).foregroundStyle(Theme.muted)
                     }
                     .frame(minWidth: 52)
+                }
+            }
+            if exercise.loaded, set.weight > 0 {
+                if let l = ladder.loading(set.weight) {
+                    Label(l.text, systemImage: "circle.grid.2x1.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.accentSoft)
+                } else if !ladder.isEmpty {
+                    Label("你的器材裝不出 \(Progression.format(set.weight)) kg，按 ＋／− 會跳到裝得出來的重量", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.hotText)
                 }
             }
             if set.kind == .work {

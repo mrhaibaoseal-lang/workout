@@ -116,7 +116,7 @@ enum SetPlanner {
 
     /// 正式組（含 Drop set 的遞減組）。weight 是建議的「最重那組」重量。
     static func workSets(scheme: SetScheme, count: Int, weight: Double, reps: Int,
-                         low: Int, high: Int, step: Double) -> [PlannedSet] {
+                         low: Int, high: Int, ladder: WeightLadder) -> [PlannedSet] {
         let n = max(1, count)
         guard weight > 0 else {
             // 不知道重量（第一次做）或徒手：先用固定排法
@@ -128,19 +128,19 @@ enum SetPlanner {
         case .pyramid:
             return (0..<n).map { i in
                 let t = n == 1 ? 1 : Double(i) / Double(n - 1)
-                let w = round(weight * (0.8 + 0.2 * t), step: step)
+                let w = ladder.snap(weight * (0.8 + 0.2 * t))
                 let r = Int((Double(high) - Double(high - low) * t).rounded())
                 return PlannedSet(weight: w, reps: r, kind: .work)
             }
         case .reverse:
             return (0..<n).map { i in
-                let w = round(weight * (1 - 0.1 * Double(i)), step: step)
+                let w = ladder.snap(weight * (1 - 0.1 * Double(i)))
                 return PlannedSet(weight: w, reps: min(high, low + 2 * i), kind: .work)
             }
         case .dropset:
             var out = Array(repeating: PlannedSet(weight: weight, reps: reps, kind: .work), count: n)
-            let d1 = round(weight * 0.75, step: step)
-            let d2 = round(weight * 0.55, step: step)
+            let d1 = ladder.snap(weight * 0.75)
+            let d2 = ladder.snap(weight * 0.55)
             if d1 < weight { out.append(PlannedSet(weight: d1, reps: reps, kind: .drop)) }
             if d2 < d1 { out.append(PlannedSet(weight: d2, reps: reps, kind: .drop)) }
             return out
@@ -148,25 +148,26 @@ enum SetPlanner {
     }
 
     /// 熱身組。first = 這個部位（推／拉／腿）今天第一個動作，做完整熱身；之後的複合動作只做 1 組。
-    static func warmups(for exercise: Exercise, workWeight w: Double, first: Bool, step: Double) -> [PlannedSet] {
+    static func warmups(for exercise: Exercise, workWeight w: Double, first: Bool, ladder: WeightLadder) -> [PlannedSet] {
         guard exercise.loaded, w > 0, exercise.pattern.region != nil else { return [] }
         var out: [PlannedSet] = []
         if !first {
-            let x = round(w * 0.6, step: step)
+            let x = ladder.snap(w * 0.6)
             if w >= 10 && x < w { out.append(PlannedSet(weight: x, reps: 6, kind: .warmup)) }
             return out
         }
         if exercise.requires.contains(.barbell) {
-            guard w > barWeight else { return [] }
-            out.append(PlannedSet(weight: barWeight, reps: 10, kind: .warmup))
+            let bar = ladder.weights.first ?? barWeight
+            guard w > bar else { return [] }
+            out.append(PlannedSet(weight: bar, reps: 10, kind: .warmup))
             for (pct, reps) in [(0.5, 8), (0.7, 5), (0.85, 3)] {
-                let x = round(w * pct, step: step)
+                let x = ladder.snap(w * pct)
                 if x > (out.last?.weight ?? 0) && x < w { out.append(PlannedSet(weight: x, reps: reps, kind: .warmup)) }
             }
         } else {
             let plan: [(Double, Int)] = w >= 8 ? [(0.5, 10), (0.75, 5)] : (w >= 4 ? [(0.5, 10)] : [])
             for (pct, reps) in plan {
-                let x = round(w * pct, step: step)
+                let x = ladder.snap(w * pct)
                 if x > (out.last?.weight ?? 0) && x < w { out.append(PlannedSet(weight: x, reps: reps, kind: .warmup)) }
             }
         }

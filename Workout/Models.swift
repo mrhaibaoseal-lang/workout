@@ -110,6 +110,8 @@ enum Keys {
     static let height = "height"
     /// 槓鈴要自己用啞鈴組裝：在家少排槓鈴
     static let limitBarbell = "limitBarbell"
+    /// 啞鈴組和槓片，JSON [WeightKit]
+    static let kits = "kits"
     /// 上次看到的牌位分數，用來播「分數入帳」動畫。
     static let lastRankPoints = "lastRankPoints"
     /// 上次看到分數的時間（找出這段時間新增的加減分）。

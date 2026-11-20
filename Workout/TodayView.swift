@@ -16,8 +16,6 @@ struct TodayView: View {
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
-    @AppStorage(Keys.maxDumbbell) private var maxDumbbell = 20.0
-    @AppStorage(Keys.maxBarbell) private var maxBarbell = 40.0
     // Read so the view refreshes when any planner input changes.
     @AppStorage(ClassStore.key) private var classesRaw = ""
     @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
@@ -327,9 +325,9 @@ struct TodayView: View {
     private var rows: [Row] {
         plan.enumerated().map { i, item in
             let last = Progression.lastSets(for: item.exercise.id, in: sessions)
-            let cap = Progression.maxWeight(for: item.exercise, dumbbell: maxDumbbell, barbell: maxBarbell)
+            let ladder = WeightLadder.make(item.exercise, gym: placeRaw == TrainingPlace.gym.rawValue, step: increment)
             let scheme = SetPlanner.resolve(SchemeStore.scheme(for: item.exercise.id), exercise: item.exercise, phase: phase)
-            let s = Progression.suggest(item, last: last, phase: phase, increment: increment, maxWeight: cap, scheme: scheme)
+            let s = Progression.suggest(item, last: last, phase: phase, ladder: ladder, scheme: scheme)
             let lastWeight = last.map(\.weight).max() ?? 0
             let load: String
             if !item.exercise.loaded {

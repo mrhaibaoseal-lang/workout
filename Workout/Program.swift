@@ -216,8 +216,9 @@ enum Progression {
         return []
     }
 
-    static func suggest(_ item: PlannedExercise, last: [SetEntry], phase: Phase, increment: Double,
-                        maxWeight: Double? = nil, scheme: SetScheme = .straight) -> Suggestion {
+    /// ladder：這個動作裝得出來的重量（沒有設定器材時用固定級距）。
+    static func suggest(_ item: PlannedExercise, last: [SetEntry], phase: Phase, ladder: WeightLadder,
+                        scheme: SetScheme = .straight) -> Suggestion {
         let ex = item.exercise
         guard !last.isEmpty else {
             let note = ex.loaded
@@ -235,20 +236,22 @@ enum Progression {
 
         switch phase {
         case .deload:
-            return Suggestion(weight: roundHalf(lastWeight * 0.8), reps: item.low,
+            return Suggestion(weight: ex.loaded ? ladder.snap(lastWeight * 0.8) : lastWeight, reps: item.low,
                               note: "減量週：重量減輕約兩成，輕鬆做完")
         case .rampUp:
             return Suggestion(weight: lastWeight, reps: min(bestReps, item.high),
                               note: "適應期：用上次的重量，別拚到力竭")
         case .normal:
             if allHitTop {
-                if ex.loaded, let cap = maxWeight, lastWeight + increment > cap {
-                    return Suggestion(weight: lastWeight, reps: bestReps + 1,
-                                      note: "已到器材最大重量，改成多做 1 下或下放放慢到 3 秒")
-                }
                 if ex.loaded {
-                    return Suggestion(weight: lastWeight + increment, reps: item.low,
-                                      note: "上次全部達標 💪 加重 \(format(increment)) kg")
+                    let next = ladder.up(lastWeight)
+                    if next <= lastWeight + 0.01 {
+                        return Suggestion(weight: lastWeight, reps: bestReps + 1,
+                                          note: "已經是你器材最重的了，改成多做 1 下，或下放放慢到 3 秒")
+                    }
+                    var note = "上次全部達標 💪 加重 \(format(next - lastWeight)) kg"
+                    if let l = ladder.loading(next) { note += "（\(l.text)）" }
+                    return Suggestion(weight: next, reps: item.low, note: note)
                 }
                 return Suggestion(weight: lastWeight, reps: item.high,
                                   note: "已經達標，下放放慢到 3 秒增加難度")
@@ -256,13 +259,6 @@ enum Progression {
             return Suggestion(weight: lastWeight, reps: min(bestReps + 1, item.high),
                               note: "目標：比上次多做 1 \(ex.unit.label)")
         }
-    }
-
-    /// Heaviest load the user's equipment allows for this exercise.
-    static func maxWeight(for ex: Exercise, dumbbell: Double, barbell: Double) -> Double? {
-        if ex.requires.contains(.barbell) { return barbell }
-        if ex.requires.contains(.dumbbell) { return dumbbell }
-        return nil
     }
 
     static func roundHalf(_ x: Double) -> Double {
