@@ -423,7 +423,8 @@ private struct Replay {
             s.camp.milestones += 1
             addXP(150)
             addPurse(100)
-            report!.milestones.append("訓練營進度 \(s.camp.milestones * 25)%")
+            let label = "訓練營進度 \(s.camp.milestones * 25)%"
+            report!.milestones.append(label)
         }
 
         checkQuests()
@@ -437,9 +438,10 @@ private struct Replay {
         if s.recordWins >= 20 && s.recordLosses == 0 { award("undefeated_20", day) }
         for (i, t) in Badges.tonnage.enumerated() where s.tonnage >= t.kg { award("ton_\(i)", day) }
 
-        report!.levelAfter = s.level
-        report!.tierAfter = s.tier
-        report!.recordAfter = s.record
+        let level = s.level, tier = s.tier, record = s.record
+        report!.levelAfter = level
+        report!.tierAfter = tier
+        report!.recordAfter = record
         if report!.levelAfter > report!.levelBefore {
             event(day, .good, "升上 Lv.\(report!.levelAfter)", "")
         }
@@ -489,7 +491,8 @@ private struct Replay {
                 s.questsDone += 1
                 addXP(k.xp)
                 addPurse(k.purse)
-                report?.quests.append(k.title(goal: input.goal))
+                let title = k.title(goal: input.goal)
+                report?.quests.append(title)
             }
         }
         if s.questsDone >= 10, let d = report?.date { award("quest_10", cal.startOfDay(for: d)) }
