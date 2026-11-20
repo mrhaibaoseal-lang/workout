@@ -12,6 +12,7 @@ struct ProgressScreen: View {
     @Query(sort: \SetEntry.date) private var entries: [SetEntry]
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @State private var selectedId: String?
+    @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
     /// Exercises with history, most-trained first.
     private var exerciseIds: [String] {
@@ -26,6 +27,7 @@ struct ProgressScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal))
                     if entries.isEmpty {
                         ContentUnavailableView("還沒有紀錄", systemImage: "chart.line.uptrend.xyaxis",
                                                description: Text("練完第一次後，這裡會出現你的進步曲線。"))

@@ -28,6 +28,14 @@ struct TodayView: View {
     @State private var length: WorkoutLength = .full
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
+    @AppStorage(Keys.lastRankIndex) private var lastRankIndex = -1
+    @State private var rankChange: RankChange?
+
+    private struct RankChange: Identifiable {
+        let id = UUID()
+        let rank: Rank
+        let promoted: Bool
+    }
 
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
     private var phase: Phase { ProgramBuilder.phase(week: week) }
@@ -62,6 +70,7 @@ struct TodayView: View {
                         TodayPlanCard(plan: today)
                     }
                     WeekStrip(plans: plans)
+                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal))
                     WeekCard(week: week, phase: phase,
                              done: Stats.sessionsThisWeek(sessions), goal: weeklyGoal,
                              streak: Stats.weekStreak(sessions))
@@ -78,19 +87,43 @@ struct TodayView: View {
                 .padding()
             }
             .navigationTitle("今天練什麼")
+            .onAppear { checkRank() }
+            .onChange(of: sessions.count) { checkRank() }
+            .sheet(item: $rankChange) { c in
+                RankChangeView(rank: c.rank, promoted: c.promoted)
+            }
             .onAppear {
                 guard !lengthChosen, let today = plans.first, !today.done else { return }
                 length = today.length ?? .minimal
             }
             .onChange(of: length) { lengthChosen = true }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { refresh += 1 }
+                if phase == .active {
+                    refresh += 1
+                    checkRank()
+                }
             }
             .fullScreenCover(item: $active) { a in
                 WorkoutView(day: a.day, length: a.length, week: week) {
                     pickedDay = nil
                 }
             }
+        }
+    }
+
+    /// 牌位變了就跳晉級／降級畫面；第一次只記下來不跳。
+    private func checkRank() {
+        let r = RankEngine.rank(sessions: sessions, goal: weeklyGoal)
+        guard lastRankIndex >= 0 else {
+            lastRankIndex = r.index
+            return
+        }
+        guard r.index != lastRankIndex else { return }
+        let promoted = r.index > lastRankIndex
+        lastRankIndex = r.index
+        // 等訓練畫面收起來再跳。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            rankChange = RankChange(rank: r, promoted: promoted)
         }
     }
 

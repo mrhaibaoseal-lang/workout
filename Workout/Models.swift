@@ -69,6 +69,8 @@ enum Keys {
     static let reminderLead = "reminderLead"
     static let tiredHours = "tiredHours"
     static let readPhoneCalendar = "readPhoneCalendar"
+    /// 上次看到的牌位（Rank.index），用來判斷要不要跳晉級畫面。
+    static let lastRankIndex = "lastRankIndex"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60
