@@ -11,6 +11,11 @@
 - 發佈方式：workflow 最後呼叫 `mrhaibaoseal-lang/feather-source@main` 的 action，把 IPA 發佈成 Release，私人 Feather 來源（Cloudflare Worker）會自動收錄。repo 必須是 public。
 - Feather 靠版本號判斷「有更新」：build 號用 `${{ github.run_number }}`，每次都會遞增。
 - **每次推送有功能或介面變更，都要升 `project.yml` 的 `MARKETING_VERSION`**（使用者靠它辨認版本）：新功能／改版升次版本（0.5.0 → 0.6.0），小修正升修訂號（0.5.0 → 0.5.1）。回報時寫成「0.5.0（build 號）」。
+- **每次把更新推到開發分支後，都要問使用者「要不要推上 main？」**。新的 session 是從 main 開始的，
+  沒合進 main 的改動，下一次做新功能時就讀不到（之前發生過好幾個分支的工作都沒進 main）。
+  - 使用者說好，才推 main：先 `git fetch origin main`，確認能快轉（main 是 HEAD 的祖先）再 `git push origin HEAD:main`；
+    不能快轉就先停下來，跟使用者說明。
+  - session 一開始，先檢查有沒有比 main 新、但還沒合進去的 `claude/*` 分支，有的話告訴使用者。
 - App 圖示：`Workout/Assets.xcassets/AppIcon.appiconset/AppIcon.png`，由 `scripts/make_icon.py` 產生（1024px、不透明），同一張也傳給 Feather 來源的 `icon:`。
 
 ## FlareStore 憑證能力
