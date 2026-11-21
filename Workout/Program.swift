@@ -13,6 +13,8 @@ struct Slot {
     var exerciseId: String? = nil
     /// 自訂課表：完整版的休息秒數（內建課表依重點動作 120／60 秒）。
     var rest: Int? = nil
+    /// 自訂課表：和上一個動作連成超級組／循環組。
+    var linkPrev = false
 }
 
 struct DayTemplate: Identifiable {
@@ -85,6 +87,12 @@ struct PlannedExercise: Identifiable {
     let essential: Bool
     /// 自訂課表指定的動作今天排不了（器材不夠或已刪除），改用這個動作時，記原本的名字。
     var replaced: String? = nil
+    /// 超級組／循環組：同一個數字的相鄰動作輪流做（`Superset`）。
+    var group: Int? = nil
+    /// 指定用哪一組器材（超級組裡另一個動作已經用主要啞鈴時，改用另一組）。
+    var kit: String? = nil
+    /// 超級組裡和別的動作共用這組器材（分不開），每輪要換重量。
+    var sharedKit: String? = nil
 
     var id: String { exercise.id }
 }
@@ -166,19 +174,21 @@ enum ProgramBuilder {
 
     /// limitBarbell：槓鈴組裝麻煩時，除了 keepBarbell 的位置，其他都先用啞鈴等器材。
     static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength,
-                     limitBarbell: Bool = false) -> [PlannedExercise] {
+                     limitBarbell: Bool = false, gym: Bool = false) -> [PlannedExercise] {
         let phase = phase(week: week)
         let block = block(week: week)
         var usedIds = Set<String>()
         let siblings = days
 
-        let all: [PlannedExercise] = day.slots.compactMap { slot in
+        var slotOf: [Int] = []
+        var all: [PlannedExercise] = day.slots.enumerated().compactMap { n, slot -> PlannedExercise? in
             if length != .full && !slot.essential { return nil }
             // 自訂課表指定的動作：器材夠、沒被刪掉就直接用
             var replaced: String? = nil
             if let fid = slot.exerciseId, let fixed = ExerciseLibrary.byId(fid), !usedIds.contains(fid) {
                 if fixed.requires.isSubset(of: equipment) && !CustomExercises.isHidden(fid) {
                     usedIds.insert(fid)
+                    slotOf.append(n)
                     return planned(fixed, slot: slot, day: day, phase: phase, length: length, replaced: nil)
                 }
                 replaced = fixed.name
@@ -208,9 +218,23 @@ enum ProgramBuilder {
             }
             let exercise = slot.keepBarbell ? top[0] : top[(block + variant) % top.count]
             usedIds.insert(exercise.id)
+            slotOf.append(n)
             return planned(exercise, slot: slot, day: day, phase: phase, length: length, replaced: replaced)
         }
-        return length == .minimal ? Array(all.prefix(1)) : all
+        if length == .minimal { return Array(all.prefix(1)) }
+        // 超級組：自訂課表照每格的「和上一個連在一起」（中間的格子沒排到就不連）；內建課表看設定
+        let link: [Bool]
+        if day.custom {
+            link = all.indices.map { i in
+                i > 0 && day.slots[slotOf[i]].linkPrev && slotOf[i - 1] == slotOf[i] - 1
+            }
+        } else {
+            link = UserDefaults.standard.bool(forKey: Keys.autoSuperset) ? Superset.autoLinks(all) : []
+        }
+        Superset.assignGroups(&all, link: link)
+        let replaceable = all.indices.map { day.slots[slotOf[$0]].exerciseId == nil || all[$0].replaced != nil }
+        Superset.separateKits(&all, gym: gym, equipment: equipment, replaceable: replaceable)
+        return all
     }
 
     private static func planned(_ exercise: Exercise, slot: Slot, day: DayTemplate, phase: Phase,

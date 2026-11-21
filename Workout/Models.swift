@@ -142,6 +142,8 @@ enum Keys {
     static let activeProgram = "activeProgram"
     /// 自動挑動作時也排自訂動作（預設關）
     static let customInAutoPick = "customInAutoPick"
+    /// 內建課表：相鄰的單關節動作兩兩配成超級組（預設關）
+    static let autoSuperset = "autoSuperset"
     /// 每個動作上次用的節奏，JSON [exerciseId: "3-1-1"]
     static let tempos = "tempos"
     /// 間歇計時上次的設定，JSON [IntervalKind: IntervalSetup]

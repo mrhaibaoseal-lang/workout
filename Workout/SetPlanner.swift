@@ -96,10 +96,11 @@ enum SetPlanner {
     static let isolation: Set<MovementPattern> = [.biceps, .triceps, .lateral, .rear]
 
     /// 把 auto 換成實際的排法。
-    static func resolve(_ scheme: SetScheme, exercise: Exercise, phase: Phase) -> SetScheme {
+    /// grouped：在超級組裡（輪流做、另一組啞鈴可能被另一個動作用），自動模式不排 Drop set。
+    static func resolve(_ scheme: SetScheme, exercise: Exercise, phase: Phase, grouped: Bool = false) -> SetScheme {
         guard exercise.loaded else { return .straight }
         guard scheme == .auto else { return scheme }
-        if phase == .normal && isolation.contains(exercise.pattern) { return .dropset }
+        if phase == .normal && isolation.contains(exercise.pattern) && !grouped { return .dropset }
         return .straight
     }
 
@@ -235,7 +236,7 @@ enum SetPlanner {
                             chosen: SetScheme, minimal: Bool, autoWarmup: Bool,
                             firstInRegion: Bool, avoidKit: String?, plateau: PlateauInfo? = nil) -> ExercisePlan {
         // 只做 1 組的日子不排遞增／遞減
-        let scheme: SetScheme = minimal ? .straight : resolve(chosen, exercise: item.exercise, phase: phase)
+        let scheme: SetScheme = minimal ? .straight : resolve(chosen, exercise: item.exercise, phase: phase, grouped: item.group != nil)
         // 連續 3 次沒進步：先減重重新爬（Plateau.adjust）
         let s = Plateau.adjust(Progression.suggest(item, last: last, phase: phase, ladder: ladder, scheme: scheme),
                                item: item, info: plateau, ladder: ladder, phase: phase)
@@ -268,8 +269,10 @@ enum SetPlanner {
     /// 換成下一組的重量；下一組做完就要 Drop set，就先用另一組啞鈴裝好；
     /// 下一組是用另一組啞鈴的（最後一個）熱身，順便把主要啞鈴裝成正式組重量。
     /// 不改 rigs，呼叫的人自己決定什麼時候當作換好了。
+    /// also：超級組一輪結束的休息，順便把同一組其他動作下一輪的重量裝好（名字、裝法）。
     static func rigSteps(upcoming: [PlanStep], sameExercise: Bool, exerciseName: String,
-                         rigs: [String: RigState], kits: [WeightKit]) -> [RigStep] {
+                         rigs: [String: RigState], kits: [WeightKit],
+                         also: [(name: String, loading: Loading)] = []) -> [RigStep] {
         var state = rigs
         var out: [RigStep] = []
         func prepare(_ l: Loading, label: String) {
@@ -297,6 +300,12 @@ enum SetPlanner {
            let l = work.loading, l.kit != warmKit {
             prepare(l, label: "順便裝好正式組")
         }
+        // 同一組器材被下一組用到的，不能先裝成別的
+        var busy = Set([next.loading?.kit].compactMap { $0 })
+        for a in also where !busy.contains(a.loading.kit) {
+            prepare(a.loading, label: "順便裝好「\(a.name)」（超級組）")
+            busy.insert(a.loading.kit)
+        }
         return out
     }
 
@@ -315,12 +324,10 @@ enum WorkoutTimeEstimator {
     static let setSeconds = 45
 
     private struct Entry {
-        let ex: Int
         let name: String
         let kind: SetKind
         let kit: String?
         let loading: Loading?
-        let restSeconds: Int
     }
 
     static func seconds(plan: [PlannedExercise], sessions: [WorkoutSession], gym: Bool, increment: Double,
@@ -329,10 +336,11 @@ enum WorkoutTimeEstimator {
         let phase = ProgramBuilder.phase(week: week)
         let minimal = length == .minimal
         let kits = WeightKits.load()
-        let ladders = plan.map { WeightLadder.make($0.exercise, gym: gym, step: increment) }
+        let ladders = plan.map { WeightLadder.make($0, gym: gym, step: increment) }
         let barKit = SetPlanner.barbellKit(in: ladders)
 
-        var entries: [Entry] = []
+        // sets[n][k]：第 n 個動作的第 k 組
+        var sets: [[Entry]] = []
         var seen = Set<String>()
         for (n, item) in plan.enumerated() {
             let ex = item.exercise
@@ -343,12 +351,14 @@ enum WorkoutTimeEstimator {
             let p = SetPlanner.plannedSets(item: item, last: last, phase: phase, ladder: ladders[n],
                                            chosen: SchemeStore.scheme(for: ex.id), minimal: minimal,
                                            autoWarmup: autoWarmup, firstInRegion: first, avoidKit: barKit)
-            for s in p.sets {
+            sets.append(p.sets.map { s in
                 let l: Loading? = ex.loaded && s.weight > 0 ? ladders[n].loading(s.weight, kit: s.kit) : nil
-                entries.append(Entry(ex: n, name: ex.name, kind: s.kind, kit: s.kit, loading: l, restSeconds: item.restSeconds))
-            }
+                return Entry(name: ex.name, kind: s.kind, kit: s.kit, loading: l)
+            })
         }
-        guard !entries.isEmpty else { return 0 }
+        // 照實際做的順序（超級組輪流做）
+        let order = Superset.order(groups: plan.map(\.group), kinds: sets.map { $0.map(\.kind) })
+        guard !order.isEmpty else { return 0 }
 
         var total = 0
         var rigs: [String: RigState] = [:]
@@ -356,35 +366,53 @@ enum WorkoutTimeEstimator {
         if let barKit, let kit = kits.first(where: { $0.name == barKit }) {
             total += Int(kit.assembleSeconds)
         }
-        func steps(from index: Int, sameExercise: Bool) -> [SetPlanner.RigStep] {
-            let e = entries[index]
-            let upcoming = entries[index...].prefix(while: { $0.ex == e.ex })
+        /// 從 order[index] 開始要換的；roundEnd = 超級組一輪結束，順便裝好同組其他動作。
+        func steps(from index: Int, sameExercise: Bool, roundEnd: Bool) -> [SetPlanner.RigStep] {
+            let st = order[index]
+            let upcoming = order[index...].filter { $0.exercise == st.exercise }
+                .map { sets[$0.exercise][$0.set] }
                 .map { SetPlanner.PlanStep(kind: $0.kind, kit: $0.kit, loading: $0.loading) }
-            return SetPlanner.rigSteps(upcoming: upcoming, sameExercise: sameExercise, exerciseName: e.name,
-                                       rigs: rigs, kits: kits)
+            var also: [(name: String, loading: Loading)] = []
+            if roundEnd, let g = st.group {
+                var got = Set([st.exercise])
+                for o in order[index...] where o.group == g && !got.contains(o.exercise) {
+                    got.insert(o.exercise)
+                    if let l = sets[o.exercise][o.set].loading { also.append((plan[o.exercise].exercise.name, l)) }
+                }
+            }
+            return SetPlanner.rigSteps(upcoming: upcoming, sameExercise: sameExercise, exerciseName: sets[st.exercise][st.set].name,
+                                       rigs: rigs, kits: kits, also: also)
         }
         func apply(_ list: [SetPlanner.RigStep]) {
             for c in list { rigs[c.loading.kit] = RigState(use: c.loading.use, plates: c.loading.plates) }
         }
         // 第一組開始前先裝好
-        let startSteps = steps(from: 0, sameExercise: false)
+        let startSteps = steps(from: 0, sameExercise: false, roundEnd: true)
         total += startSteps.reduce(0) { $0 + $1.seconds }
         apply(startSteps)
 
-        for (k, e) in entries.enumerated() {
+        for (k, st) in order.enumerated() {
+            let e = sets[st.exercise][st.set]
             total += setSeconds
             if let l = e.loading { rigs[l.kit] = RigState(use: l.use, plates: l.plates) }
-            guard k + 1 < entries.count else { break }
-            let next = entries[k + 1]
-            let chores = steps(from: k + 1, sameExercise: next.ex == e.ex)
+            guard k + 1 < order.count else { break }
+            let nx = order[k + 1]
+            let transition = Superset.isTransition(st, nx)
+            let chores = steps(from: k + 1, sameExercise: nx.exercise == st.exercise, roundEnd: !transition)
             let change = chores.reduce(0) { $0 + $1.seconds }
-            var rest = SetPlanner.rest(after: e.kind, next: next.kind, normal: e.restSeconds)
-            if rest > 0 {
-                rest = max(rest, change + (e.kind == .warmup ? 20 : 30))
-                total += rest
+            if transition {
+                // 超級組輪內換動作：不休息，要換重量就花換的時間
+                total += change > 0 ? change + Superset.transitionExtra : 0
             } else {
-                // 不休息的遞減組：換的時間照樣要花
-                total += change
+                var rest = SetPlanner.rest(after: e.kind, next: sets[nx.exercise][nx.set].kind,
+                                           normal: Superset.restSeconds(after: st, plan: plan))
+                if rest > 0 {
+                    rest = max(rest, change + (e.kind == .warmup ? 20 : 30))
+                    total += rest
+                } else {
+                    // 不休息的遞減組：換的時間照樣要花
+                    total += change
+                }
             }
             apply(chores)
         }

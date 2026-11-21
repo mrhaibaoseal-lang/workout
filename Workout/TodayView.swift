@@ -53,6 +53,8 @@ struct TodayView: View {
     @AppStorage(Keys.customPrograms) private var programsRaw = ""
     @AppStorage(Keys.customExercises) private var customExercisesRaw = ""
     @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
+    @AppStorage(Keys.autoSuperset) private var autoSuperset = false
+    @AppStorage(Keys.kits) private var kitsRaw = ""
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -70,8 +72,10 @@ struct TodayView: View {
     }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
-        ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
-                            limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue)
+        _ = (autoSuperset, kitsRaw)
+        return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
+                                   limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
+                                   gym: placeRaw == TrainingPlace.gym.rawValue)
     }
     private var trainedToday: Bool {
         sessions.first.map { Calendar.current.isDateInToday($0.date) } ?? false
@@ -398,8 +402,9 @@ struct TodayView: View {
     private var rows: [Row] {
         plan.enumerated().map { i, item in
             let last = Progression.lastSets(for: item.exercise.id, in: sessions)
-            let ladder = WeightLadder.make(item.exercise, gym: placeRaw == TrainingPlace.gym.rawValue, step: increment)
-            let scheme = SetPlanner.resolve(SchemeStore.scheme(for: item.exercise.id), exercise: item.exercise, phase: phase)
+            let ladder = WeightLadder.make(item, gym: placeRaw == TrainingPlace.gym.rawValue, step: increment)
+            let scheme = SetPlanner.resolve(SchemeStore.scheme(for: item.exercise.id), exercise: item.exercise, phase: phase,
+                                            grouped: item.group != nil)
             let s = Progression.suggest(item, last: last, phase: phase, ladder: ladder, scheme: scheme)
             let lastWeight = last.map(\.weight).max() ?? 0
             let load: String
@@ -451,6 +456,15 @@ struct TodayView: View {
                                 Text("\(r.item.sets) 組 × \(r.item.low)–\(r.item.high) \(r.item.exercise.unit.label)")
                                     .font(.caption)
                                     .foregroundStyle(Theme.muted)
+                                if let g = r.item.group {
+                                    let size = rows.filter { $0.item.group == g }.count
+                                    let letter = Superset.letters(rows.map(\.item.group))[g] ?? "A"
+                                    Label("\(Superset.name(size: size)) \(letter)" + (r.item.kit.map { " · 用\($0)" } ?? "")
+                                          + (r.item.sharedKit != nil ? " · 每輪要換重量" : ""),
+                                          systemImage: "arrow.triangle.2.circlepath")
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(r.item.sharedKit != nil ? Theme.hotText : Theme.accent)
+                                }
                                 if let from = r.item.replaced {
                                     Text("代替「\(from)」（器材不夠）")
                                         .font(.caption2)

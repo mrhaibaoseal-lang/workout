@@ -227,6 +227,14 @@ struct WeightLadder {
                             all: kits.flatMap { WeightKits.loadings($0, use) })
     }
 
+    /// 這個動作今天用的階梯：超級組指定了器材，就只用那一組。
+    static func make(_ item: PlannedExercise, gym: Bool, step: Double) -> WeightLadder {
+        let base = make(item.exercise, gym: gym, step: step)
+        guard !gym, let kit = item.kit else { return base }
+        let pinned = base.only(kit: kit)
+        return pinned.isEmpty ? base : pinned
+    }
+
     /// 只用某一組器材的階梯（同重量取片數最少的裝法）
     func only(kit: String) -> WeightLadder {
         var best: [Loading] = []

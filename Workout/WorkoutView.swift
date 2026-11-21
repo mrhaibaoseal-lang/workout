@@ -85,7 +85,8 @@ struct WorkoutView: View {
     /// 每組器材現在裝成什麼樣子，用來估換重量要多久
     @State private var rigs: [String: RigState] = [:]
     /// 正在休息：剛做完的是第幾個動作（用來算下一組和要換的重量）
-    @State private var restAfter: Int?
+    /// 剛做完、正在休息的那一組
+    @State private var restAfter: UUID?
     /// 休息頁縮成底部的小卡
     @State private var restMinimized = false
     /// 為什麼休息這麼久
@@ -109,15 +110,21 @@ struct WorkoutView: View {
         drafts.allSatisfy { $0.sets.allSatisfy(\.done) }
     }
 
-    /// The set being worked on: the one the user tapped, else the first unfinished set.
+    /// The set being worked on: the one the user tapped, else the first unfinished set (in superset order).
     private var activeSetId: UUID? {
         if let f = focused, drafts.contains(where: { $0.sets.contains { $0.id == f && !$0.done } }) {
             return f
         }
-        for d in drafts {
-            if let s = d.sets.first(where: { !$0.done }) { return s.id }
-        }
-        return nil
+        return order.first { !drafts[$0.exercise].sets[$0.set].done }.map { drafts[$0.exercise].sets[$0.set].id }
+    }
+
+    /// 整場做組的順序（超級組輪流做）
+    private var order: [Superset.Step] {
+        Superset.order(groups: drafts.map(\.item.group), kinds: drafts.map { $0.sets.map(\.kind) })
+    }
+
+    private func step(of id: UUID) -> Superset.Step? {
+        order.first { drafts[$0.exercise].sets[$0.set].id == id }
     }
 
     private var activeExerciseId: String? {
@@ -186,8 +193,10 @@ struct WorkoutView: View {
                                              onComplete: { id in complete(set: id, in: i) },
                                              onScheme: { setScheme($0, at: i) },
                                              onToggleWarmup: { toggleWarmup(at: i) },
-                                             onSwap: { swap(at: i, to: $0) })
+                                             onSwap: { swap(at: i, to: $0) },
+                                             group: groupBadge(i))
                                     .id(drafts[i].id)
+                                linkButton(after: i)
                             }
                             if !drafts.isEmpty {
                                 sessionNoteField
@@ -390,13 +399,13 @@ struct WorkoutView: View {
 
     /// 這次休息要換的器材（下一組的重量改了會跟著變）
     private var changes: [RigChange] {
-        guard restEnd != nil, let i = restAfter, i < drafts.count else { return [] }
-        return restChanges(after: i)
+        guard restEnd != nil, let id = restAfter else { return [] }
+        return restChanges(after: id)
     }
 
     /// 休息後要做的那一組：(第幾個動作, 第幾組)
     private var restPosition: (Int, Int)? {
-        guard restEnd != nil, let i = restAfter, i < drafts.count, let found = nextSet(after: i),
+        guard restEnd != nil, let id = restAfter, let found = nextSet(after: id),
               let k = drafts[found.0].sets.firstIndex(where: { $0.id == found.1.id }) else { return nil }
         return (found.0, k)
     }
@@ -411,7 +420,7 @@ struct WorkoutView: View {
             tag = "第 \(n) 組"
             if n - 1 < d.last.count { last = d.last[n - 1] }
         }
-        return RestNext(exercise: d.item.exercise, tag: tag, ladder: d.ladder, last: last, newExercise: j != restAfter,
+        return RestNext(exercise: d.item.exercise, tag: tag, ladder: d.ladder, last: last, newExercise: j != restAfter.flatMap { step(of: $0) }?.exercise,
                         lastNote: d.note.isEmpty ? d.lastNote : d.note, trend: d.trend)
     }
 
@@ -475,8 +484,8 @@ struct WorkoutView: View {
 
     /// 休息結束：當作已經照休息頁換好重量。
     private func commitRest() {
-        if let i = restAfter, i < drafts.count {
-            for c in restChanges(after: i) { rigs[c.kit] = c.target }
+        if let id = restAfter {
+            for c in restChanges(after: id) { rigs[c.kit] = c.target }
         }
         restAfter = nil
     }
@@ -532,10 +541,32 @@ struct WorkoutView: View {
             if let l = loading(of: set, in: drafts[exerciseIndex]) {
                 rigs[l.kit] = RigState(use: l.use, plates: l.plates)
             }
-            let next = drafts[exerciseIndex].sets.first { !$0.done }?.kind
-            var rest = SetPlanner.rest(after: set.kind, next: next, normal: drafts[exerciseIndex].item.restSeconds)
-            let chores = restChanges(after: exerciseIndex)
+            let nextFound = nextSet(after: id)
+            let cur = step(of: id)
+            let nextStep = nextFound.flatMap { step(of: $0.1.id) }
+            let chores = restChanges(after: id)
             let change = chores.reduce(0) { $0 + $1.seconds }
+            if let cur, let nextStep, Superset.isTransition(cur, nextStep), let nextFound {
+                // 超級組輪內換動作：不休息；要換重量就給換的時間
+                let name = drafts[nextFound.0].item.exercise.name
+                if change > 0 {
+                    restAfter = id
+                    restReasons = ["超級組換動作：換重量約 \(change) 秒，換完直接做「\(name)」"]
+                    restMinimized = false
+                    let rest = change + Superset.transitionExtra
+                    restTotal = Double(rest)
+                    withAnimation(.spring(duration: 0.4)) {
+                        restEnd = Date().addingTimeInterval(TimeInterval(rest))
+                    }
+                } else {
+                    restEnd = nil
+                    restAfter = nil
+                    showToast("\(groupName(of: exerciseIndex))：接著做「\(name)」，不休息")
+                }
+                return
+            }
+            let normal = cur.map { Superset.restSeconds(after: $0, plan: drafts.map(\.item)) } ?? drafts[exerciseIndex].item.restSeconds
+            var rest = SetPlanner.rest(after: set.kind, next: nextFound?.1.kind, normal: normal)
             if rest > 0 {
                 var reasons: [String] = []
                 // 做到力竭（還剩 0 下）恢復比較慢
@@ -549,7 +580,10 @@ struct WorkoutView: View {
                     rest = needed
                     reasons.append("換重量約 \(change) 秒，換完再喘一下")
                 }
-                restAfter = exerciseIndex
+                if cur?.group != nil && nextStep?.group == cur?.group && nextStep?.exercise != cur?.exercise {
+                    reasons.append("\(groupName(of: exerciseIndex))這一輪做完了，現在才休息")
+                }
+                restAfter = id
                 restReasons = reasons
                 restMinimized = false
                 restTotal = Double(rest)
@@ -600,26 +634,45 @@ struct WorkoutView: View {
         return d.ladder.loading(set.weight, kit: set.kit)
     }
 
-    /// 下一組（這個動作還沒做的，或下一個動作的第一組）
-    private func nextSet(after i: Int) -> (Int, SetDraft)? {
-        if let s = drafts[i].sets.first(where: { !$0.done }) { return (i, s) }
-        for j in drafts.indices where j > i {
-            if let s = drafts[j].sets.first(where: { !$0.done }) { return (j, s) }
-        }
-        return nil
+    /// 做完 id 這組之後的下一組（照整場順序，超級組輪流；後面都做完了就從前面沒做的找）
+    private func nextSet(after id: UUID) -> (Int, SetDraft)? {
+        let ord = order
+        let pending = { (st: Superset.Step) in !drafts[st.exercise].sets[st.set].done }
+        let p = ord.firstIndex { drafts[$0.exercise].sets[$0.set].id == id }
+        let st = (p.flatMap { ord[($0 + 1)...].first(where: pending) }) ?? ord.first(where: pending)
+        return st.map { ($0.exercise, drafts[$0.exercise].sets[$0.set]) }
+    }
+
+    /// 這個動作所在的超級組／循環組名稱
+    private func groupName(of i: Int) -> String {
+        guard let g = drafts[i].item.group else { return "" }
+        return Superset.name(size: drafts.filter { $0.item.group == g }.count)
     }
 
     /// 這次休息要換的器材：換成下一組的重量；下一組是 Drop set 前的最後一組，就先用另一組啞鈴裝好；
     /// 下一組是用另一組啞鈴的熱身，順便把主要啞鈴裝成正式組重量。
     /// 不改 rigs，休息結束（或做下一組）時才當作換好了。
-    private func restChanges(after i: Int) -> [RigChange] {
-        guard let found = nextSet(after: i) else { return [] }
-        let (j, _) = found
+    /// 超級組一輪結束的休息：順便把同一組其他動作下一輪的重量裝好。
+    private func restChanges(after id: UUID) -> [RigChange] {
+        guard let found = nextSet(after: id) else { return [] }
+        let (j, nextDraft) = found
+        let cur = step(of: id)
+        let nextStep = step(of: nextDraft.id)
+        let i = cur?.exercise ?? j
         let upcoming = drafts[j].sets.filter { !$0.done }
             .map { SetPlanner.PlanStep(kind: $0.kind, kit: $0.kit, loading: loading(of: $0, in: drafts[j])) }
+        var also: [(name: String, loading: Loading)] = []
+        if let g = drafts[j].item.group, let cur, let nextStep, !Superset.isTransition(cur, nextStep) {
+            var got: Set<Int> = [j]
+            for st in order where st.group == g && !got.contains(st.exercise) && !drafts[st.exercise].sets[st.set].done {
+                got.insert(st.exercise)
+                let d = drafts[st.exercise]
+                if let l = loading(of: d.sets[st.set], in: d) { also.append((d.item.exercise.name, l)) }
+            }
+        }
         let steps = SetPlanner.rigSteps(upcoming: upcoming, sameExercise: j == i,
                                         exerciseName: drafts[j].item.exercise.name,
-                                        rigs: rigs, kits: WeightKits.load())
+                                        rigs: rigs, kits: WeightKits.load(), also: also)
         return steps.map {
             RigChange(label: $0.label, kit: $0.loading.kit, use: $0.loading.use, from: $0.from?.plates,
                       to: $0.loading.plates, seconds: $0.seconds, assemble: $0.assemble)
@@ -664,7 +717,7 @@ struct WorkoutView: View {
         let old = drafts[i]
         let it = item ?? old.item
         var d = makeDraft(it, firstInRegion: isFirstInRegion(it.exercise, before: i), scheme: scheme ?? old.chosen)
-        if item == nil { d.note = old.note }
+        if it.exercise.id == old.item.exercise.id { d.note = old.note }
         let doneWarm = old.sets.filter { $0.done && $0.kind == .warmup }
         if !doneWarm.isEmpty {
             d.sets = doneWarm + d.sets.filter { $0.kind != .warmup }
@@ -708,8 +761,9 @@ struct WorkoutView: View {
         guard !drafts[i].locked else { return }
         let old = drafts[i].item
         let range = ex.range ?? old.low...old.high
-        let item = PlannedExercise(exercise: ex, sets: old.sets, low: range.lowerBound, high: range.upperBound,
+        var item = PlannedExercise(exercise: ex, sets: old.sets, low: range.lowerBound, high: range.upperBound,
                                    restSeconds: old.restSeconds, essential: old.essential)
+        item.group = old.group
         rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
         showToast("換成「\(ex.name)」")
     }
@@ -723,7 +777,7 @@ struct WorkoutView: View {
                            avoidKit: String? = nil) -> ExerciseDraft {
         let phase = ProgramBuilder.phase(week: week)
         let last = Progression.lastSets(for: item.exercise.id, in: sessions)
-        let ladder = WeightLadder.make(item.exercise, gym: isGym, step: increment)
+        let ladder = WeightLadder.make(item, gym: isGym, step: increment)
         let chosen = chosenOverride ?? SchemeStore.scheme(for: item.exercise.id)
         let plateau = length == .minimal || phase != .normal ? nil : Plateau.check(exerciseId: item.exercise.id, sessions: sessions)
         let planned = SetPlanner.plannedSets(item: item, last: last, phase: phase, ladder: ladder, chosen: chosen,
@@ -786,10 +840,11 @@ struct WorkoutView: View {
             }
         }
         bests = b
-        let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length, limitBarbell: lessBarbell)
+        let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length, limitBarbell: lessBarbell,
+                                       gym: isGym)
         var seen = Set<String>()
         let planBarbellKit = isGym ? nil : SetPlanner.barbellKit(in: plan.map {
-            WeightLadder.make($0.exercise, gym: false, step: increment)
+            WeightLadder.make($0, gym: false, step: increment)
         })
         drafts = plan.map { item in
             let region = item.exercise.pattern.region
@@ -807,7 +862,10 @@ struct WorkoutView: View {
     }
 
     private func addNextExercise() {
-        guard let item = nextExtra else { return }
+        guard var item = nextExtra else { return }
+        item.group = nil
+        item.kit = nil
+        item.sharedKit = nil
         drafts.append(makeDraft(item, firstInRegion: isFirstInRegion(item.exercise, before: drafts.count)))
     }
 
@@ -863,16 +921,107 @@ struct WorkoutView: View {
         }
     }
 
-    /// 任務獎勵：熱身全部做完每個動作 +1（最多 3）；做完 Drop set 每次 +2（最多 4）。
+    // MARK: Superset
+
+    private func members(_ g: Int?) -> [Int] {
+        guard let g else { return [] }
+        return drafts.indices.filter { drafts[$0].item.group == g }
+    }
+
+    private func groupBadge(_ i: Int) -> GroupBadge? {
+        let item = drafts[i].item
+        guard let g = item.group else { return nil }
+        let m = members(g)
+        let letter = Superset.letters(drafts.map(\.item.group))[g] ?? "A"
+        let others = m.filter { $0 != i }.map { "「\(drafts[$0].item.exercise.name)」" }.joined(separator: "")
+        var note: String?
+        if let k = item.sharedKit {
+            note = "和同組動作都用\(k)，每輪要換重量"
+        } else if let k = item.kit {
+            note = "改用\(k)，同組動作輪流不用換重量"
+        }
+        return GroupBadge(title: "\(Superset.name(size: m.count)) \(letter)\((m.firstIndex(of: i) ?? 0) + 1)",
+                          detail: "和\(others)輪流做，一輪做完才休息", note: note)
+    }
+
+    /// 兩個動作中間的「連成超級組／拆開」：只有單關節動作、都還沒開始做才能改。
+    @ViewBuilder
+    private func linkButton(after i: Int) -> some View {
+        if i + 1 < drafts.count, length != .minimal,
+           Superset.eligible(drafts[i].item.exercise), Superset.eligible(drafts[i + 1].item.exercise),
+           !drafts[i].sets.contains(where: \.done), !drafts[i + 1].sets.contains(where: \.done) {
+            let a = drafts[i].item.group, b = drafts[i + 1].item.group
+            let linked = a != nil && a == b
+            let size = max(1, members(a).count) + max(1, members(b).count)
+            if linked || size <= Superset.maxSize {
+                Button {
+                    withAnimation(.spring(duration: 0.3)) { linked ? unlink(after: i) : link(after: i) }
+                } label: {
+                    Label(linked ? "拆開" : (size >= 3 ? "連成循環組" : "連成超級組"),
+                          systemImage: linked ? "scissors" : "link")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(linked ? Theme.muted : Theme.accentSoft)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(Theme.surface, in: Capsule())
+                        .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func link(after i: Int) {
+        var items = drafts.map(\.item)
+        let g = items[i].group ?? items[i + 1].group ?? ((items.compactMap(\.group).max() ?? 0) + 1)
+        let old = items[i + 1].group
+        items[i].group = g
+        for k in items.indices where k == i + 1 || (old != nil && items[k].group == old) { items[k].group = g }
+        Superset.separateKits(&items, gym: isGym, equipment: equipment, replaceable: items.map { _ in false })
+        apply(items)
+        showToast("\(Superset.name(size: items.filter { $0.group == g }.count))：輪流做，一輪做完才休息")
+    }
+
+    private func unlink(after i: Int) {
+        var items = drafts.map(\.item)
+        guard let g = items[i].group else { return }
+        let fresh = (items.compactMap(\.group).max() ?? 0) + 1
+        for k in items.indices where k > i && items[k].group == g { items[k].group = fresh }
+        Superset.dropSingles(&items)
+        for k in items.indices where items[k].group == nil { items[k].kit = nil }
+        Superset.separateKits(&items, gym: isGym, equipment: equipment, replaceable: items.map { _ in false })
+        apply(items)
+    }
+
+    /// 套用新的分組：器材或分組變了、還沒開始做的動作重新排組（Drop set、器材跟著變）。
+    private func apply(_ items: [PlannedExercise]) {
+        for k in items.indices {
+            let old = drafts[k].item
+            guard old.group != items[k].group || old.kit != items[k].kit || old.sharedKit != items[k].sharedKit else { continue }
+            if drafts[k].sets.contains(where: \.done) {
+                drafts[k].item.group = items[k].group
+                drafts[k].item.sharedKit = items[k].sharedKit
+            } else {
+                rebuild(k, item: items[k])
+            }
+        }
+    }
+
+    /// 任務獎勵：熱身全部做完每個動作 +1（最多 3）；做完 Drop set 每次 +2（最多 4）；
+    /// 超級組／循環組每組的正式組全部做完 +2（最多 4）。
     private var bonusShards: (total: Int, lines: [String]) {
         let warm = min(3, drafts.filter { d in
             d.hasWarmups && d.sets.filter { $0.kind == .warmup }.allSatisfy(\.done)
         }.count)
         let drops = min(2, drafts.filter { d in d.sets.contains { $0.kind == .drop && $0.done } }.count)
+        let groups = Set(drafts.compactMap(\.item.group)).filter { g in
+            drafts.filter { $0.item.group == g }.allSatisfy { d in d.sets.filter { $0.kind == .work }.allSatisfy(\.done) }
+        }
+        let supers = min(2, groups.count)
         var lines: [String] = []
         if warm > 0 { lines.append("熱身做完整 +\(warm)") }
         if drops > 0 { lines.append("完成 Drop set +\(drops * 2)") }
-        return (warm + drops * 2, lines)
+        if supers > 0 { lines.append("完成超級組 +\(supers * 2)") }
+        return (warm + drops * 2 + supers * 2, lines)
     }
 
     /// 這次訓練的備註（存檔時一起存）
@@ -899,6 +1048,13 @@ struct WorkoutView: View {
 
 // MARK: - Exercise card
 
+/// 卡片上的超級組標示
+struct GroupBadge {
+    let title: String
+    let detail: String
+    let note: String?
+}
+
 struct ExerciseCard: View {
     @Binding var draft: ExerciseDraft
     let number: Int
@@ -911,6 +1067,7 @@ struct ExerciseCard: View {
     var onScheme: (SetScheme) -> Void = { _ in }
     var onToggleWarmup: () -> Void = {}
     var onSwap: (Exercise) -> Void = { _ in }
+    var group: GroupBadge? = nil
 
     private var ex: Exercise { draft.item.exercise }
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
@@ -931,6 +1088,9 @@ struct ExerciseCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let group {
+                groupHeader(group)
+            }
             if hasActive {
                 demoStage
             }
@@ -1000,6 +1160,25 @@ struct ExerciseCard: View {
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous)
             .stroke(hasActive ? Theme.accentDim : Theme.line, lineWidth: 1))
         .opacity(finished && !hasActive ? 0.7 : 1)
+    }
+
+    private func groupHeader(_ g: GroupBadge) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Label(g.title, systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(Theme.accent)
+                InfoTip(item: .superset)
+            }
+            Text(g.detail)
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
+            if let n = g.note {
+                Text(n)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(n.contains("每輪要換") ? Theme.hotText : Theme.accentSoft)
+            }
+        }
     }
 
     private var target: String {

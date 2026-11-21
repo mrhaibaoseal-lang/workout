@@ -83,6 +83,7 @@ struct SettingsView: View {
     @AppStorage(Keys.autoWarmup) private var autoWarmup = true
     @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
+    @AppStorage(Keys.autoSuperset) private var autoSuperset = false
     @AppStorage(Keys.activeProgram) private var activeProgram = ""
     @AppStorage(Keys.customPrograms) private var programsRaw = ""
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
@@ -188,10 +189,13 @@ struct SettingsView: View {
                     Toggle(isOn: $limitBarbell) {
                         Label("槓鈴要組裝，在家少排槓鈴", systemImage: "wrench.adjustable")
                     }
+                    Toggle(isOn: $autoSuperset) {
+                        Label("單關節動作配成超級組（省時間）", systemImage: "arrow.triangle.2.circlepath")
+                    }
                 } header: {
                     SectionLabel("訓練")
                 } footer: {
-                    SectionLabel("依正式組的重量自動算熱身組（例如 50% × 10、75% × 5），每個部位的第一個動作才做完整熱身。熱身組不算進步和破紀錄。每個動作的「遞增／遞減／Drop set」在訓練畫面右上角的按鈕調整。開啟「少排槓鈴」時，在家只有下半身 B 的臀推用槓鈴，其他都用啞鈴。")
+                    SectionLabel("依正式組的重量自動算熱身組（例如 50% × 10、75% × 5），每個部位的第一個動作才做完整熱身。熱身組不算進步和破紀錄。每個動作的「遞增／遞減／Drop set」在訓練畫面右上角的按鈕調整。開啟「少排槓鈴」時，在家只有下半身 B 的臀推用槓鈴，其他都用啞鈴。超級組：內建課表裡相鄰的手臂、肩膀、小腿、核心動作兩兩輪流做，一輪做完才休息，兩個動作會分到不同器材。只是省時間，不會長得比較快。自訂課表在每個動作裡設定。")
                 }
 
                 Section {

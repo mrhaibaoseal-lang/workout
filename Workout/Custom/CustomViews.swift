@@ -349,8 +349,9 @@ struct DayEditor: View {
 
             Section {
                 ForEach($day.slots) { $slot in
+                    let n = day.slots.firstIndex { $0.id == slot.id } ?? 0
                     NavigationLink {
-                        SlotEditor(slot: $slot)
+                        SlotEditor(slot: $slot, previous: n > 0 ? day.slots[n - 1] : nil)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(SlotEditor.title(slot, raw: exercisesRaw))
@@ -376,7 +377,7 @@ struct DayEditor: View {
                     EditButton().font(.caption)
                 }
             } footer: {
-                SectionLabel("「自動挑」會依你現在的器材挑這類動作，每 6 週換一批；「指定動作」固定做同一個，在家器材不夠時會自動換成同類動作。大動作排前面。")
+                SectionLabel("「自動挑」會依你現在的器材挑這類動作，每 6 週換一批；「指定動作」固定做同一個，在家器材不夠時會自動換成同類動作。大動作排前面。單關節動作可以在動作裡設定「和上一個動作輪流做」（超級組）。")
             }
             .listRowBackground(Theme.surface)
         }
@@ -389,6 +390,8 @@ struct DayEditor: View {
 /// 一格：自動挑（動作類型）或指定動作，加上組數、次數、休息。
 struct SlotEditor: View {
     @Binding var slot: CustomSlot
+    /// 上一格（設定超級組用）
+    var previous: CustomSlot? = nil
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.customExercises) private var exercisesRaw = ""
 
@@ -401,6 +404,7 @@ struct SlotEditor: View {
     static func detail(_ slot: CustomSlot) -> String {
         var parts = ["\(slot.sets) 組 × \(slot.low)–\(slot.high)", "休息 \(slot.rest) 秒"]
         if slot.essential { parts.append("精簡版也做") }
+        if slot.linkPrev == true && slot.movement.region == nil { parts.append("和上一個輪流") }
         return parts.joined(separator: " · ")
     }
 
@@ -476,6 +480,24 @@ struct SlotEditor: View {
                 SectionLabel("次數範圍用來判斷加重：每組都做到「最多」就建議加重。棒式這類算秒數的動作會用動作自己的範圍。適應期和減量週會自動少 1 組。精簡版休息最多 60 秒。")
             }
             .listRowBackground(Theme.surface)
+
+            if let prev = previous {
+                let ok = slot.movement.region == nil && prev.movement.region == nil
+                Section {
+                    Toggle("和上一個動作輪流做", isOn: Binding(
+                        get: { ok && slot.linkPrev == true },
+                        set: { slot.linkPrev = $0 }
+                    ))
+                    .disabled(!ok)
+                } header: {
+                    SectionLabel("超級組")
+                } footer: {
+                    SectionLabel(ok
+                                 ? "和上一個動作（\(Self.title(prev, raw: exercisesRaw))）輪流做，一輪做完才休息；連續勾可以串成 3～4 個的循環組。休息用這組裡最長的。兩個動作會盡量分到不同器材。"
+                                 : "只有單關節動作（手臂、肩膀、小腿、核心、腿彎舉、腿伸展）能輪流做，深蹲、臥推、划船這類大動作不配。")
+                }
+                .listRowBackground(Theme.surface)
+            }
         }
         .themeForm()
         .navigationTitle(Self.title(slot, raw: exercisesRaw))

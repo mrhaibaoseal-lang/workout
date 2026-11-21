@@ -13,7 +13,7 @@ enum SettingsBackup {
         Keys.reminderMinutes, Keys.commuteSchool, Keys.commuteWork, Keys.earliestHour,
         Keys.preferredHour, Keys.latestHour, Keys.reminderLead, Keys.tiredHours,
         Keys.place, Keys.schemes, Keys.limitBarbell, Keys.kits, Keys.autoWarmup, Keys.height,
-        Keys.customExercises, Keys.customPrograms, Keys.activeProgram, Keys.customInAutoPick,
+        Keys.customExercises, Keys.customPrograms, Keys.activeProgram, Keys.customInAutoPick, Keys.autoSuperset,
         Keys.tempos, Keys.intervalSetups,
         ClassStore.key, EventStore.key,
     ]

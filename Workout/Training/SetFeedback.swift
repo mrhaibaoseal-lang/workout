@@ -242,7 +242,7 @@ struct Sparkline: View {
 // MARK: - 術語說明（ⓘ）
 
 enum Glossary: String, Identifiable {
-    case rir, grade, ghost, dropset, pyramid, readiness, record
+    case rir, grade, ghost, dropset, pyramid, readiness, record, superset
 
     var id: String { rawValue }
 
@@ -255,6 +255,7 @@ enum Glossary: String, Identifiable {
         case .pyramid: "遞增／遞減組"
         case .readiness: "訓練前狀態"
         case .record: "破紀錄"
+        case .superset: "超級組／循環組"
         }
     }
 
@@ -282,6 +283,10 @@ enum Glossary: String, Identifiable {
             + "分數高只提醒你可以多做 1 下，不會自動加重。"
         case .record:
             "這個動作做過最重的一次。第一次做不算，之後超過以前的最高重量就會跳「破紀錄」。你不用做任何事，App 會自己記。"
+        case .superset:
+            "2 個動作輪流做叫超級組，3～4 個叫循環組：A 做一組、馬上做 B 一組，一輪做完才休息。"
+            + "主要是省時間，肌肉不會長得比較快。只配手臂、肩膀、小腿、核心這類單關節動作。\n\n"
+            + "同一組的動作會盡量用不同器材（例如一個用快鎖啞鈴、一個用舊啞鈴或下拉架），輪流做才不用一直換重量。"
         }
     }
 }

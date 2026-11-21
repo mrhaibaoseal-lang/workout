@@ -107,6 +107,8 @@ struct CustomSlot: Codable, Identifiable, Equatable {
     var essential: Bool
     /// 從內建課表複製來的臀推位置：「少排槓鈴」時仍用槓鈴。畫面上不顯示。
     var keepBarbell: Bool
+    /// 和上一個動作連成超級組／循環組（舊資料沒有這欄 = nil）
+    var linkPrev: Bool? = nil
 
     static func blank(pattern: MovementPattern = .hPush) -> CustomSlot {
         CustomSlot(id: CustomPrograms.newId(), pattern: pattern.rawValue, exerciseId: nil,
@@ -192,7 +194,7 @@ enum CustomPrograms {
                     slots: day.slots.map {
                         Slot(pattern: $0.movement, sets: max(1, $0.sets), low: max(1, $0.low),
                              high: max($0.low, $0.high), essential: $0.essential, keepBarbell: $0.keepBarbell,
-                             exerciseId: $0.exerciseId, rest: $0.rest)
+                             exerciseId: $0.exerciseId, rest: $0.rest, linkPrev: $0.linkPrev ?? false)
                     })
     }
 
