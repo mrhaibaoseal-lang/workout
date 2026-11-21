@@ -143,7 +143,7 @@ enum Superset {
             }
             var members = [i]
             while i + members.count < kinds.count, groups[i + members.count] == g { members.append(i + members.count) }
-            let units: [[Int]] = members.map { m in
+            let units: [[[Int]]] = members.map { m in
                 var u: [[Int]] = []
                 for (k, kind) in kinds[m].enumerated() {
                     if kind == .drop, !u.isEmpty { u[u.count - 1].append(k) } else { u.append([k]) }
