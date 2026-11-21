@@ -6,7 +6,7 @@ options:
     iOS: "17.0"
 settings:
   base:
-    MARKETING_VERSION: "0.21.0"
+    MARKETING_VERSION: "0.22.0"
     CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
@@ -25,6 +25,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mrhaibaoseal.workout
+        # 教練講評用的 Apple Intelligence（iOS 26 起才有），弱連結讓 iOS 17–25 也能開
+        OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "FoundationModels"]
         ASSETCOMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: 練壯

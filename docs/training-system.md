@@ -161,3 +161,15 @@
   休息時順便把同組其他動作下一輪的重量裝好（`rigSteps(also:)`）。
 - 在超級組裡，排法「自動」不排 Drop set（另一組啞鈴可能被同組動作用）。
 - 任務獎勵：每個超級組／循環組的正式組全部做完 +2 碎片（最多 4）。
+
+## 教練講評（0.22.0，`Training/CoachReview.swift`）
+
+- 練完的成果畫面按「好」之後，多一頁「教練講評」：一句總評、做得好、下次。
+- **數字一律由程式算**：`WorkoutView.coachFacts` 整理每個動作的正式組、判定、和上次比、PR、停滯重爬、
+  下次預計（直接呼叫 `Progression.suggest`，拿這次的組當「上次」）、備註、練前狀態。
+- **有 Apple Intelligence**（iOS 26 以上、支援的機型、已開啟）：用 FoundationModels 寫成白話，`@Generable` 固定三個欄位。
+  寫出來的字會檢查：數字必須都出現在資料裡、不能有常見簡體字、總長 220 字以內；不合格重試一次，再不行改用自動整理。
+- **沒有 AI**：`Coach.basic` 用規則組出同樣三段，右上角標「自動整理」，並提示怎麼開啟 Apple Intelligence。
+- `CoachLoader` 在按下「完成訓練」時就開始產生，看成果動畫的幾秒剛好用來等模型。
+- 編譯：workflow 會選 Xcode 26 以上；`project.yml` 用 `-weak_framework FoundationModels`，
+  workflow 打包後用 `otool` 檢查是弱連結，避免 iOS 17–25 一開就閃退。

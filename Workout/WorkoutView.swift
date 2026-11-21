@@ -81,6 +81,9 @@ struct WorkoutView: View {
     @State private var prMoment: PRMoment?
     @State private var prCount: Set<String> = []
     @State private var summary: WorkoutSummary?
+    /// 練完的教練講評（成果畫面按「好」之後顯示）
+    @State private var coach: CoachLoader?
+    @State private var showCoach = false
     @State private var toast: String?
     /// 每組器材現在裝成什麼樣子，用來估換重量要多久
     @State private var rigs: [String: RigState] = [:]
@@ -286,8 +289,21 @@ struct WorkoutView: View {
                 }
             }
             .overlay {
-                if let s = summary {
+                if let s = summary, !showCoach {
                     WorkoutCompleteView(summary: s) {
+                        if coach != nil {
+                            withAnimation(.easeOut(duration: 0.25)) { showCoach = true }
+                        } else {
+                            onFinish()
+                            dismiss()
+                        }
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .overlay {
+                if showCoach, let c = coach {
+                    CoachReviewView(loader: c) {
                         onFinish()
                         dismiss()
                     }
@@ -897,6 +913,7 @@ struct WorkoutView: View {
             }
         }
         try? context.save()
+        coach = CoachLoader(facts: coachFacts(session: session))
         // 停滯後減重重新爬的動作：從這次之後重新算
         for d in drafts where d.plateauReset && d.sets.contains(where: { $0.done && $0.kind == .work }) {
             Plateau.markReset(d.item.exercise.id)
@@ -919,6 +936,39 @@ struct WorkoutView: View {
                 miss: doneWork.filter { $0.grade == .miss }.count,
                 bonuses: bonus.lines)
         }
+    }
+
+    /// 教練講評用的資料：這次做了什麼、和上次比、下次照規則會排多少。
+    private func coachFacts(session: WorkoutSession) -> CoachFacts {
+        let phase = ProgramBuilder.phase(week: week)
+        let notes = ExerciseNotes.decode(session.exerciseNotes)
+        let items: [CoachFacts.Item] = drafts.compactMap { d in
+            let ex = d.item.exercise
+            let work = d.sets.filter { $0.done && $0.kind == .work }
+            guard !work.isEmpty else { return nil }
+            // 只拿來算下次的建議，不會存進資料庫
+            let entries = work.enumerated().map { i, s in
+                SetEntry(exerciseId: ex.id, setIndex: i, weight: ex.loaded ? s.weight : 0, reps: s.reps, date: session.date)
+            }
+            let next = Progression.suggest(d.item, last: entries, phase: phase, ladder: d.ladder, scheme: d.scheme)
+            let lastTop: (weight: Double, reps: Int)? = d.last.isEmpty ? nil : {
+                let w = d.last.map(\.weight).max() ?? 0
+                return (w, d.last.filter { $0.weight >= w }.map(\.reps).max() ?? 0)
+            }()
+            return CoachFacts.Item(
+                name: ex.name, loaded: ex.loaded, unit: ex.unit.label,
+                sets: work.map { (weight: ex.loaded ? $0.weight : 0, reps: $0.reps, grade: $0.grade) },
+                lastTop: lastTop, isPR: prCount.contains(ex.id), plateauReset: d.plateauReset,
+                nextWeight: ex.loaded ? next.weight : 0, nextReps: next.reps,
+                note: notes[ex.id] ?? "")
+        }
+        let graded = drafts.flatMap { $0.sets.filter { $0.done && $0.kind == .work } }
+        return CoachFacts(dayName: day.name, lengthTitle: length.title, phaseTitle: phase.title,
+                          minutes: max(1, session.durationSeconds / 60), readiness: readiness,
+                          sessionNote: session.note, items: items,
+                          perfect: graded.filter { $0.grade == .perfect }.count,
+                          good: graded.filter { $0.grade == .good }.count,
+                          miss: graded.filter { $0.grade == .miss }.count)
     }
 
     // MARK: Superset

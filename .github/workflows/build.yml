@@ -13,6 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Xcode 26 or newer
+        run: |
+          # 教練講評要 FoundationModels，需要 Xcode 26 以上的 SDK
+          ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode_[0-9]*.app | grep -iv beta | sed -E 's#.*/Xcode_([0-9.]+)\.app#\1 &#' | sort -V | tail -1 | cut -d' ' -f2)
+          echo "Using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | head -1 | sed -E 's/Xcode ([0-9]+).*/\1/')
+          [ "$MAJOR" -ge 26 ] || { echo "::error::需要 Xcode 26 以上，目前是 $MAJOR"; exit 1; }
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -43,6 +54,11 @@ jobs:
           codesign -f -s - --entitlements WorkoutWidget/WorkoutWidget.entitlements Payload/Workout.app/PlugIns/WorkoutWidget.appex
           codesign -f -s - --entitlements Workout/Workout.entitlements Payload/Workout.app
           ls Payload/Workout.app/PlugIns
+          # FoundationModels 必須是弱連結，否則 iOS 26 以前的系統一開就閃退
+          otool -l Payload/Workout.app/Workout | grep -B1 -A3 FoundationModels || true
+          if otool -l Payload/Workout.app/Workout | grep -B2 FoundationModels | grep -q "cmd LC_LOAD_DYLIB"; then
+            echo "::error::FoundationModels 不是弱連結"; exit 1
+          fi
           zip -qry Workout.ipa Payload
 
       - name: Upload IPA
