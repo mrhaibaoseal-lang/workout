@@ -144,3 +144,20 @@
 - **匯出 CSV**（`CSVExport.swift`）：設定 →「資料」→ 匯出。每組紀錄、身體數據各一檔（有間歇紀錄多一檔），
   UTF-8 BOM＋CRLF，重量 kg。用系統分享選單。
 - kg／lb 切換沒做（見 roadmap「之後再說」）。
+
+## 超級組／循環組（0.21.0，`Training/Superset.swift`）
+
+- 2 個動作輪流做＝超級組，3–4 個＝循環組。**只配單關節**（`MovementPattern.region == nil`），複合動作不配。
+  主要是省時間，不會長得比較快（Glossary `.superset` 有寫）。
+- 來源：內建課表看設定「單關節動作配成超級組」（`Keys.autoSuperset`，預設關，相鄰的兩兩一組）；
+  自訂課表每格 `CustomSlot.linkPrev`（和上一格連，中間的格子沒排到就不連）；訓練中卡片之間按「連成／拆開」
+  （兩個都還沒做任何一組才能改）。分組存在 `PlannedExercise.group`，由 `ProgramBuilder.plan` 最後排。
+- 器材（`Superset.separateKits`，在家才做）：同組裡第二個用到同一組器材的動作，依序
+  ①改用另一組啞鈴（`PlannedExercise.kit`，`WeightLadder.make(item)` 只用那組；接成槓鈴的那組不用）
+  ②換成同類型、器材沒被占的動作，沒有就換徒手的（自訂課表指定的動作不換）
+  ③分不開就標 `sharedKit`，卡片和今天頁寫「每輪要換重量」。
+- 順序（`Superset.order`，訓練和預估時間共用）：A1 B1 A2 B2⋯⋯，Drop set 跟著它前面那組。
+  輪內換動作不休息（要換重量就給「換的秒數 + 10」）；一輪最後一個做完才休息，休息用同組最長的，
+  休息時順便把同組其他動作下一輪的重量裝好（`rigSteps(also:)`）。
+- 在超級組裡，排法「自動」不排 Drop set（另一組啞鈴可能被同組動作用）。
+- 任務獎勵：每個超級組／循環組的正式組全部做完 +2 碎片（最多 4）。
