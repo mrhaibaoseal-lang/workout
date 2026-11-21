@@ -568,8 +568,6 @@ struct TodayView: View {
 
     // MARK: Weekly summary
 
-    /// 上週總結的入口：每週一次，看過（按「好」）就收起來。
-    @ViewBuilder
     /// 減量時機（提早／延後）和升中階的卡片，一次最多一張；減量優先。
     @ViewBuilder
     private var coachCards: some View {
@@ -601,6 +599,8 @@ struct TodayView: View {
         }
     }
 
+    /// 上週總結的入口：每週一次，看過（按「好」）就收起來。
+    @ViewBuilder
     private var weeklySummaryCard: some View {
         let _ = (reviewsRaw, summarySeen)
         let start = Date(timeIntervalSince1970: startDate)
