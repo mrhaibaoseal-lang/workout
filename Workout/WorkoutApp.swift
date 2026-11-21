@@ -6,6 +6,7 @@ import WidgetKit
 struct WorkoutApp: App {
     init() {
         SettingsBackup.start()
+        ProgramBuilder.migrateV023()
         GoalStore.ensureSince()
     }
 

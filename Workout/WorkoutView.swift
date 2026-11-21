@@ -189,16 +189,7 @@ struct WorkoutView: View {
                                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.hotLine, lineWidth: 1))
                             }
                             ForEach(Array(drafts.indices), id: \.self) { i in
-                                ExerciseCard(draft: $drafts[i], number: i + 1, total: drafts.count,
-                                             activeSetId: activeSetId, increment: increment,
-                                             swapOptions: isGym ? swapOptions(for: i) : [],
-                                             onFocus: { focused = $0 },
-                                             onComplete: { id in complete(set: id, in: i) },
-                                             onScheme: { setScheme($0, at: i) },
-                                             onToggleWarmup: { toggleWarmup(at: i) },
-                                             onSwap: { swap(at: i, to: $0) },
-                                             group: groupBadge(i))
-                                    .id(drafts[i].id)
+                                exerciseCard(i)
                                 linkButton(after: i)
                             }
                             if !drafts.isEmpty {
@@ -774,13 +765,58 @@ struct WorkoutView: View {
         return ExerciseLibrary.candidates(for: ex.pattern, equipment: equipment).filter { !used.contains($0.id) }
     }
 
+    /// 一個動作的卡片。抽出來，避免 body 太長編譯器 type-check 逾時。
+    private func exerciseCard(_ i: Int) -> some View {
+        ExerciseCard(draft: $drafts[i], number: i + 1, total: drafts.count,
+                     activeSetId: activeSetId, increment: increment,
+                     swapOptions: isGym ? swapOptions(for: i) : [],
+                     onFocus: { focused = $0 },
+                     onComplete: { id in complete(set: id, in: i) },
+                     onScheme: { setScheme($0, at: i) },
+                     onToggleWarmup: { toggleWarmup(at: i) },
+                     onSwap: { swap(at: i, to: $0) },
+                     group: groupBadge(i),
+                     canReplace: replacement(for: i) != nil,
+                     onEasePain: { easePain(at: i) },
+                     onAvoid: { avoid(at: i, reason: $0) })
+            .id(drafts[i].id)
+    }
+
+    // MARK: 會痛／不喜歡
+
+    /// 還沒做任何一組（含熱身）才能換掉；換成同類型下一個沒被標記、今天還沒排到的動作。
+    private func replacement(for i: Int) -> Exercise? {
+        guard drafts.indices.contains(i), !drafts[i].sets.contains(where: \.done) else { return nil }
+        let current = drafts[i].item.exercise
+        let used = Set(drafts.map(\.id))
+        return ExerciseLibrary.candidates(for: current.pattern, equipment: equipment)
+            .first { !used.contains($0.id) && $0.id != current.id }
+    }
+
+    /// 「這次減輕 20% 試試」：這個動作還沒做的組，重量降到階梯上不超過 80% 的那一級，並記一筆痛的紀錄（不標記動作）。
+    private func easePain(at i: Int) {
+        guard drafts.indices.contains(i) else { return }
+        let ladder = drafts[i].ladder
+        for k in drafts[i].sets.indices where !drafts[i].sets[k].done && drafts[i].sets[k].weight > 0 {
+            drafts[i].sets[k].weight = ladder.snap(drafts[i].sets[k].weight * 0.8)
+        }
+        Avoid.logPain(drafts[i].item.exercise.id)
+        showToast("這個動作剩下的組減輕約兩成，不舒服就停下來")
+    }
+
+    /// 標記會痛／不喜歡，並換成同類型下一個候選（之後排課也不會再排它）。
+    private func avoid(at i: Int, reason: AvoidReason) {
+        guard drafts.indices.contains(i), let next = replacement(for: i) else { return }
+        let old = drafts[i].item.exercise
+        Avoid.mark(old.id, reason: reason)
+        if reason == .pain { Avoid.logPain(old.id) }
+        swap(at: i, to: next)
+        showToast("之後不排「\(old.name)」，換成「\(next.name)」")
+    }
+
     private func swap(at i: Int, to ex: Exercise) {
         guard !drafts[i].locked else { return }
-        let old = drafts[i].item
-        let range = ex.range ?? old.low...old.high
-        var item = PlannedExercise(exercise: ex, sets: old.sets, low: range.lowerBound, high: range.upperBound,
-                                   restSeconds: old.restSeconds, essential: old.essential)
-        item.group = old.group
+        let item = drafts[i].item.swapped(to: ex)
         rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
         showToast("換成「\(ex.name)」")
     }
@@ -914,6 +950,7 @@ struct WorkoutView: View {
             }
         }
         try? context.save()
+        recordJumpState(at: now)
         coach = CoachLoader(facts: coachFacts(session: session))
         // 停滯後減重重新爬的動作：從這次之後重新算
         for d in drafts where d.plateauReset && d.sets.contains(where: { $0.done && $0.kind == .work }) {
@@ -936,6 +973,21 @@ struct WorkoutView: View {
                 good: doneWork.filter { $0.grade == .good }.count,
                 miss: doneWork.filter { $0.grade == .miss }.count,
                 bonuses: bonus.lines)
+        }
+    }
+
+    /// 「重量跳太大」：依這次的成績更新次數上限、多 1 組、暫時次數範圍（`JumpGuard`）。
+    /// 要在算教練講評的「下次預計」之前做，下次預計才會反映新的狀態。
+    private func recordJumpState(at date: Date) {
+        let phase = ProgramBuilder.phase(week: week)
+        for d in drafts {
+            let ex = d.item.exercise
+            let work = d.sets.filter { $0.done && $0.kind == .work }
+            guard ex.loaded, !work.isEmpty else { continue }
+            let entries = work.enumerated().map { i, s in
+                SetEntry(exerciseId: ex.id, setIndex: i, weight: s.weight, reps: s.reps, date: date, rir: s.rir)
+            }
+            JumpGuard.record(item: d.item, last: entries, phase: phase, ladder: d.ladder, scheme: d.scheme)
         }
     }
 
@@ -1119,6 +1171,11 @@ struct ExerciseCard: View {
     var onToggleWarmup: () -> Void = {}
     var onSwap: (Exercise) -> Void = { _ in }
     var group: GroupBadge? = nil
+    /// 還沒做任何一組、而且有同類型的其他動作可以換
+    var canReplace = false
+    var onEasePain: () -> Void = {}
+    var onAvoid: (AvoidReason) -> Void = { _ in }
+    @State private var showPain = false
 
     private var ex: Exercise { draft.item.exercise }
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
@@ -1162,7 +1219,7 @@ struct ExerciseCard: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title2)
                         .foregroundStyle(Theme.accent)
-                } else if !draft.locked && (ex.loaded || !swapOptions.isEmpty) {
+                } else {
                     optionsMenu
                 }
             }
@@ -1176,9 +1233,7 @@ struct ExerciseCard: View {
                         InfoTip(item: draft.scheme == .dropset ? .dropset : .pyramid)
                     }
                 }
-                Text(draft.suggestion.note)
-                    .font(.footnote.weight(.bold))
-                    .foregroundStyle(draft.suggestion.note.contains("加重") ? Theme.hotText : Theme.accentSoft)
+                suggestionLine
                 Text(ex.tip)
                     .font(.footnote)
                     .foregroundStyle(Theme.muted)
@@ -1263,23 +1318,23 @@ struct ExerciseCard: View {
         }
     }
 
+    /// 加重建議。重量跳太大時旁邊有 ⓘ 說明。
+    private var suggestionLine: some View {
+        HStack(alignment: .top, spacing: 2) {
+            Text(draft.suggestion.note)
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(draft.suggestion.note.contains("加重") ? Theme.hotText : Theme.accentSoft)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let tip = draft.suggestion.tip {
+                InfoTip(item: tip)
+            }
+        }
+    }
+
     private var optionsMenu: some View {
         Menu {
-            if ex.loaded {
-                Picker("組數排法", selection: Binding(get: { draft.chosen }, set: { onScheme($0) })) {
-                    ForEach(SetScheme.allCases) { s in
-                        Text(s == .auto ? "自動（\(draft.chosen == .auto ? draft.scheme.short : "依課表")）" : s.title).tag(s)
-                    }
-                }
-                Button(draft.hasWarmups ? "移除熱身組" : "加熱身組", systemImage: "flame") { onToggleWarmup() }
-            }
-            if !swapOptions.isEmpty {
-                Menu("換動作（器材被佔用）") {
-                    ForEach(swapOptions) { e in
-                        Button(e.name) { onSwap(e) }
-                    }
-                }
-            }
+            if !draft.locked { adjustItems }
+            painItems
         } label: {
             Image(systemName: "slider.horizontal.3")
                 .font(.headline)
@@ -1287,7 +1342,58 @@ struct ExerciseCard: View {
                 .frame(width: 40, height: 40)
                 .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .accessibilityLabel("組數排法與熱身")
+        .accessibilityLabel("組數排法、熱身與換動作")
+        .confirmationDialog("這個動作會痛？", isPresented: $showPain, titleVisibility: .visible) {
+            painChoices
+        } message: {
+            Text(painMessage)
+        }
+    }
+
+    /// 組數排法、熱身、換動作（器材被佔用）：開始做正式組之前才能改。
+    @ViewBuilder
+    private var adjustItems: some View {
+        if ex.loaded {
+            Picker("組數排法", selection: Binding(get: { draft.chosen }, set: { onScheme($0) })) {
+                ForEach(SetScheme.allCases) { s in
+                    Text(s == .auto ? "自動（\(draft.chosen == .auto ? draft.scheme.short : "依課表")）" : s.title).tag(s)
+                }
+            }
+            Button(draft.hasWarmups ? "移除熱身組" : "加熱身組", systemImage: "flame") { onToggleWarmup() }
+        }
+        if !swapOptions.isEmpty {
+            Menu("換動作（器材被佔用）") {
+                ForEach(swapOptions) { e in
+                    Button(e.name) { onSwap(e) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var painItems: some View {
+        Button("會痛…", systemImage: "bandage") { showPain = true }
+        if canReplace {
+            Button("不喜歡，換掉", systemImage: "hand.thumbsdown") { onAvoid(.dislike) }
+        }
+    }
+
+    @ViewBuilder
+    private var painChoices: some View {
+        if ex.loaded {
+            Button("這次減輕 20% 試試") { onEasePain() }
+        }
+        if canReplace {
+            Button("換掉並記住，之後不排", role: .destructive) { onAvoid(.pain) }
+        }
+        Button("取消", role: .cancel) {}
+    }
+
+    private var painMessage: String {
+        var text = "肌肉痠是正常的；關節或尖銳的痛，請先停下來。"
+        if !canReplace { text += "已經做了幾組，只能減輕剩下組的重量。" }
+        if !ex.loaded { text += "這個動作沒有重量可以減輕。" }
+        return text
     }
 }
 

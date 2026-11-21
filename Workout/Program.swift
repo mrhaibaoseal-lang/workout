@@ -80,9 +80,11 @@ enum WorkoutLength: String, CaseIterable, Identifiable {
 
 struct PlannedExercise: Identifiable {
     let exercise: Exercise
-    let sets: Int
+    var sets: Int
     let low: Int
     let high: Int
+    /// 沒被「重量跳太大」調整過的原本次數範圍（`JumpGuard`）；nil = 沒調整，就是 low...high。
+    var base: ClosedRange<Int>? = nil
     let restSeconds: Int
     let essential: Bool
     /// 自訂課表指定的動作今天排不了（器材不夠或已刪除），改用這個動作時，記原本的名字。
@@ -95,6 +97,21 @@ struct PlannedExercise: Identifiable {
     var sharedKit: String? = nil
 
     var id: String { exercise.id }
+    var baseLow: Int { base?.lowerBound ?? low }
+    var baseHigh: Int { base?.upperBound ?? high }
+
+    /// 換成同類型的另一個動作：組數、休息照舊，次數範圍用原本的（再套這個新動作自己的「重量跳太大」狀態）。
+    func swapped(to ex: Exercise) -> PlannedExercise {
+        let range = ex.range ?? baseLow...baseHigh
+        let adj = JumpGuard.adjust(id: ex.id, low: range.lowerBound, high: range.upperBound)
+        var extra = 0
+        if JumpGuard.hasExtraSet(ex.id) { extra += 1 }
+        if JumpGuard.hasExtraSet(exercise.id) { extra -= 1 }
+        var item = PlannedExercise(exercise: ex, sets: max(1, sets + extra), low: adj.low, high: adj.high, base: range,
+                                   restSeconds: restSeconds, essential: essential)
+        item.group = group
+        return item
+    }
 }
 
 enum ProgramBuilder {
@@ -123,7 +140,7 @@ enum ProgramBuilder {
             Slot(pattern: .vPull, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .incline, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: false),
-            Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .lateral, sets: 4, low: 12, high: 20, essential: false),
             Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false),
             Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
         ]),
@@ -140,8 +157,8 @@ enum ProgramBuilder {
             Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hPush, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .vPull, sets: 3, low: 10, high: 12, essential: false),
-            Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
-            Slot(pattern: .rear, sets: 2, low: 12, high: 20, essential: false),
+            Slot(pattern: .lateral, sets: 4, low: 12, high: 20, essential: false),
+            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
             Slot(pattern: .biceps, sets: 3, low: 10, high: 15, essential: false),
             Slot(pattern: .triceps, sets: 3, low: 10, high: 15, essential: false),
         ]),
@@ -172,54 +189,134 @@ enum ProgramBuilder {
         (week - 1) / blockWeeks
     }
 
-    /// limitBarbell：槓鈴組裝麻煩時，除了 keepBarbell 的位置，其他都先用啞鈴等器材。
-    static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength,
-                     limitBarbell: Bool = false, gym: Bool = false) -> [PlannedExercise] {
+    /// 一天排好的動作（還沒分超級組）。slotOf = 每個動作來自課表的第幾格。
+    struct RawPlan {
+        var items: [PlannedExercise]
+        var slotOf: [Int]
+    }
+
+    /// 這一格自動挑動作時，候選的前兩個（有負重的優先；少排槓鈴時沒槓鈴的排前面）。
+    static func topChoices(slot: Slot, equipment: Set<Equipment>, limitBarbell: Bool,
+                           used: Set<String> = []) -> [Exercise] {
+        var options = ExerciseLibrary.candidates(for: slot.pattern, equipment: equipment)
+            .filter { !used.contains($0.id) }
+        if limitBarbell && !slot.keepBarbell {
+            let noBar = options.filter { !$0.requires.contains(.barbell) }
+            if !noBar.isEmpty { options = noBar + options.filter { $0.requires.contains(.barbell) } }
+        }
+        // 有負重的動作優先輪替（避免 B 日掉到徒手版）
+        let loaded = options.filter(\.loaded)
+        return Array((loaded.isEmpty ? options : loaded).prefix(2))
+    }
+
+    /// 同一類動作在另一天（同為上半身或下半身）也有，B 日才換第二個；一週只練一次的用首選。
+    /// 自訂課表：前面幾天也有同類型（自動挑）的，就往後換一個，各天才不會都一樣。
+    private static func variant(of slot: Slot, in day: DayTemplate, siblings: [DayTemplate]) -> Int {
+        if day.custom {
+            return siblings.prefix(while: { $0.id != day.id })
+                .filter { d in d.slots.contains { $0.pattern == slot.pattern && $0.exerciseId == nil } }.count
+        }
+        let half = day.id.prefix(5)
+        let shared = siblings.contains { d in
+            d.id != day.id && d.id.prefix(5) == half && d.slots.contains { $0.pattern == slot.pattern }
+        }
+        return shared ? day.variant : 0
+    }
+
+    /// 選第幾個候選。複合動作（有 region）不隨區塊輪替，新手要先練熟；單關節動作每 6 週換。
+    /// shift 是使用者按「換一個動作」累積的位移。
+    private static func pickIndex(slot: Slot, block: Int, variant: Int, shift: Int, count: Int) -> Int {
+        let rotate = slot.pattern.region != nil ? 0 : block
+        return (rotate + variant + shift) % max(1, count)
+    }
+
+    private static func siblingDays(for day: DayTemplate) -> [DayTemplate] {
+        day.custom ? days : builtInDays
+    }
+
+    /// 排出一天的動作（不含平衡、不含超級組）。
+    static func rawPlan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength,
+                        limitBarbell: Bool) -> RawPlan {
         let phase = phase(week: week)
         let block = block(week: week)
         var usedIds = Set<String>()
-        let siblings = days
+        let siblings = siblingDays(for: day)
 
         var slotOf: [Int] = []
-        var all: [PlannedExercise] = day.slots.enumerated().compactMap { n, slot -> PlannedExercise? in
+        let items: [PlannedExercise] = day.slots.enumerated().compactMap { n, slot -> PlannedExercise? in
             if length != .full && !slot.essential { return nil }
-            // 自訂課表指定的動作：器材夠、沒被刪掉就直接用
+            // 自訂課表指定的動作：器材夠、沒被刪掉、沒被標記「會痛／不喜歡」就直接用
             var replaced: String? = nil
             if let fid = slot.exerciseId, let fixed = ExerciseLibrary.byId(fid), !usedIds.contains(fid) {
-                if fixed.requires.isSubset(of: equipment) && !CustomExercises.isHidden(fid) {
+                if fixed.requires.isSubset(of: equipment) && !CustomExercises.isHidden(fid) && !Avoid.isAvoided(fid) {
                     usedIds.insert(fid)
                     slotOf.append(n)
                     return planned(fixed, slot: slot, day: day, phase: phase, length: length, replaced: nil)
                 }
                 replaced = fixed.name
             }
-            var options = ExerciseLibrary.candidates(for: slot.pattern, equipment: equipment)
-                .filter { !usedIds.contains($0.id) }
-            if limitBarbell && !slot.keepBarbell {
-                let noBar = options.filter { !$0.requires.contains(.barbell) }
-                if !noBar.isEmpty { options = noBar + options.filter { $0.requires.contains(.barbell) } }
-            }
-            guard !options.isEmpty else { return nil }
-            // 有負重的動作優先輪替（避免 B 日掉到徒手版）
-            let loaded = options.filter(\.loaded)
-            let top = Array((loaded.isEmpty ? options : loaded).prefix(2))
-            // 這類動作在另一天（同為上半身或下半身）也有，B 日才換第二個動作；一週只練一次的就用首選
-            let variant: Int
-            if day.custom {
-                // 自訂課表：前面幾天也有同類型（自動挑）的，就往後換一個，各天才不會都一樣
-                variant = siblings.prefix(while: { $0.id != day.id })
-                    .filter { d in d.slots.contains { $0.pattern == slot.pattern && $0.exerciseId == nil } }.count
+            let top = topChoices(slot: slot, equipment: equipment, limitBarbell: limitBarbell, used: usedIds)
+            guard !top.isEmpty else { return nil }
+            let exercise: Exercise
+            if slot.keepBarbell {
+                exercise = top[0]
             } else {
-                let half = day.id.prefix(5)
-                let shared = siblings.contains { d in
-                    d.id != day.id && d.id.prefix(5) == half && d.slots.contains { $0.pattern == slot.pattern }
-                }
-                variant = shared ? day.variant : 0
+                let i = pickIndex(slot: slot, block: block, variant: variant(of: slot, in: day, siblings: siblings),
+                                  shift: PatternShift.value(day: day.id, pattern: slot.pattern), count: top.count)
+                exercise = top[i]
             }
-            let exercise = slot.keepBarbell ? top[0] : top[(block + variant) % top.count]
             usedIds.insert(exercise.id)
             slotOf.append(n)
             return planned(exercise, slot: slot, day: day, phase: phase, length: length, replaced: replaced)
+        }
+        return RawPlan(items: items, slotOf: slotOf)
+    }
+
+    /// 內建課表完整版：4 天一起排，再用「每個部位每週組數」平衡（`VolumePlan`）。
+    /// 回傳每一天平衡後的動作；平衡只改組數，不增減動作。
+    static func balancedWeek(equipment: Set<Equipment>, week: Int, limitBarbell: Bool) -> [[PlannedExercise]] {
+        let templates = builtInDays
+        let phase = phase(week: week)
+        let raws = templates.map { rawPlan(day: $0, equipment: equipment, week: week, length: .full, limitBarbell: limitBarbell) }
+        let inputs: [VolumePlan.DayInput] = zip(templates, raws).map { day, raw in
+            let skipped = day.slots.indices.filter { !raw.slotOf.contains($0) }
+            return VolumePlan.DayInput(
+                patterns: raw.items.map { $0.exercise.pattern },
+                sets: raw.items.map(\.sets),
+                lost: skipped.map { i in
+                    (pattern: day.slots[i].pattern,
+                     sets: slotSets(day.slots[i], day: day, phase: phase, length: .full, extra: false))
+                })
+        }
+        let result = VolumePlan.balance(days: inputs, phase: phase)
+        return zip(raws, result).map { raw, counts in
+            var items = raw.items
+            for i in items.indices where i < counts.count { items[i].sets = counts[i] }
+            return items
+        }
+    }
+
+    /// 一週（每個課表日各一次）完整版排出來的動作，給「本週預計組數」用。
+    /// 內建課表有平衡；自訂課表照使用者填的。
+    static func weeklyPlans(equipment: Set<Equipment>, week: Int, limitBarbell: Bool, gym: Bool) -> [[PlannedExercise]] {
+        if CustomPrograms.active == nil {
+            return balancedWeek(equipment: equipment, week: week, limitBarbell: limitBarbell)
+        }
+        return days.map { plan(day: $0, equipment: equipment, week: week, length: .full,
+                               limitBarbell: limitBarbell, gym: gym) }
+    }
+
+    /// limitBarbell：槓鈴組裝麻煩時，除了 keepBarbell 的位置，其他都先用啞鈴等器材。
+    static func plan(day: DayTemplate, equipment: Set<Equipment>, week: Int, length: WorkoutLength,
+                     limitBarbell: Bool = false, gym: Bool = false) -> [PlannedExercise] {
+        let raw = rawPlan(day: day, equipment: equipment, week: week, length: length, limitBarbell: limitBarbell)
+        var all = raw.items
+        let slotOf = raw.slotOf
+        // 內建課表完整版：4 天一起看每個部位的每週組數，補不足、扣過多（只改組數）
+        if length == .full && !day.custom,
+           let idx = builtInDays.firstIndex(where: { $0.id == day.id }) {
+            let week4 = balancedWeek(equipment: equipment, week: week, limitBarbell: limitBarbell)
+            if idx < week4.count, week4[idx].count == all.count { all = week4[idx] }
         }
         if length == .minimal { return Array(all.prefix(1)) }
         // 超級組：自訂課表照每格的「和上一個連在一起」（中間的格子沒排到就不連）；內建課表看設定
@@ -237,11 +334,18 @@ enum ProgramBuilder {
         return all
     }
 
-    private static func planned(_ exercise: Exercise, slot: Slot, day: DayTemplate, phase: Phase,
-                                length: WorkoutLength, replaced: String?) -> PlannedExercise {
+    /// 這一格排出的正式組數：重點動作完整版 +1、「重量跳太大」多 1 組、適應期／減量週 −1。
+    static func slotSets(_ slot: Slot, day: DayTemplate, phase: Phase, length: WorkoutLength, extra: Bool) -> Int {
         var sets = slot.sets
         if length == .full && slot.essential && !day.custom { sets += 1 }
+        if extra { sets += 1 }
         if phase != .normal { sets = max(2, sets - 1) }
+        return sets
+    }
+
+    private static func planned(_ exercise: Exercise, slot: Slot, day: DayTemplate, phase: Phase,
+                                length: WorkoutLength, replaced: String?) -> PlannedExercise {
+        let sets = slotSets(slot, day: day, phase: phase, length: length, extra: JumpGuard.hasExtraSet(exercise.id))
 
         let rest: Int
         switch length {
@@ -251,15 +355,83 @@ enum ProgramBuilder {
         }
 
         let range = exercise.range ?? slot.low...slot.high
+        // 「重量跳太大」暫時拉長的次數上限、降低的次數範圍
+        let adj = JumpGuard.adjust(id: exercise.id, low: range.lowerBound, high: range.upperBound)
         return PlannedExercise(
             exercise: exercise,
             sets: length == .minimal ? 1 : sets,
-            low: range.lowerBound,
-            high: range.upperBound,
+            low: adj.low,
+            high: adj.high,
+            base: range,
             restSeconds: rest,
             essential: slot.essential,
             replaced: replaced
         )
+    }
+
+    // MARK: 升級遷移與「換一個動作」
+
+    /// 目前的設定（給不在 View 裡、要自己排課的地方用）。
+    private static func currentSetup() -> (equipment: Set<Equipment>, limitBarbell: Bool, gym: Bool, week: Int) {
+        let d = UserDefaults.standard
+        let place = TrainingPlace(rawValue: d.string(forKey: Keys.place) ?? "") ?? .home
+        let limit = (d.object(forKey: Keys.limitBarbell) as? Bool ?? true) && place == .home
+        let start = d.double(forKey: Keys.startDate)
+        let week = start > 0 ? Stats.week(since: Date(timeIntervalSince1970: start)) : 1
+        return (place.equipment(homeRaw: d.string(forKey: Keys.equipment) ?? ""), limit, place == .gym, week)
+    }
+
+    /// 0.23.0 升級遷移：複合動作不再每 6 週輪替。舊規則在第 2 個區塊以後會選另一個動作，
+    /// 為了讓使用者正在練的動作不變，把「舊規則和新規則的差」寫進 `PatternShift`。只做一次，要在第一次排課前呼叫。
+    static func migrateV023() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: Keys.pinnedV023) else { return }
+        defer { d.set(true, forKey: Keys.pinnedV023) }
+        // 還沒設定過的新使用者，直接用新規則
+        guard d.bool(forKey: Keys.onboarded), d.double(forKey: Keys.startDate) > 0 else { return }
+        let setup = currentSetup()
+        let block = block(week: setup.week)
+        guard block > 0 else { return }
+        let templates = builtInDays + CustomPrograms.visible.flatMap { CustomPrograms.templates($0) }
+        var shifts = PatternShift.store.load()
+        for t in templates {
+            for slot in t.slots where slot.pattern.region != nil && !slot.keepBarbell && slot.exerciseId == nil {
+                let n = topChoices(slot: slot, equipment: setup.equipment, limitBarbell: setup.limitBarbell).count
+                guard n > 1 else { continue }
+                // (舊: block + variant) % n = (新: variant + 位移) % n，所以位移 = block % n
+                let shift = block % n
+                if shift > 0 { shifts[PatternShift.key(day: t.id, pattern: slot.pattern)] = shift }
+            }
+        }
+        PatternShift.store.save(shifts)
+    }
+
+    /// 現在課表裡排到這個動作、而且能換成別的候選的課表格（key 是 "dayId|pattern"）。
+    /// 自訂課表指定動作的格子不算（那是使用者自己選的）。
+    static func shiftKeys(exerciseId: String) -> [String] {
+        let setup = currentSetup()
+        var keys: [String] = []
+        for day in days {
+            let raw = rawPlan(day: day, equipment: setup.equipment, week: setup.week, length: .full,
+                              limitBarbell: setup.limitBarbell)
+            for (k, item) in raw.items.enumerated() where item.exercise.id == exerciseId {
+                let slot = day.slots[raw.slotOf[k]]
+                guard slot.exerciseId == nil, !slot.keepBarbell else { continue }
+                // 排除這個動作之後還有別的候選，換才有意義
+                let others = topChoices(slot: slot, equipment: setup.equipment, limitBarbell: setup.limitBarbell)
+                    .filter { $0.id != exerciseId }
+                if !others.isEmpty { keys.append(PatternShift.key(day: day.id, pattern: slot.pattern)) }
+            }
+        }
+        return keys
+    }
+
+    /// 停滯時按「換一個動作」：這個動作所在的課表格，下次選動作往後換一個。
+    @discardableResult
+    static func shiftExercise(_ exerciseId: String) -> Bool {
+        let keys = shiftKeys(exerciseId: exerciseId)
+        for key in keys { PatternShift.bump(key) }
+        return !keys.isEmpty
     }
 
     /// 照實際排出來的組（含熱身）、換重量和組槓鈴的時間估算。
@@ -288,6 +460,8 @@ struct Suggestion {
     let weight: Double
     let reps: Int
     let note: String
+    /// 建議文字旁邊要不要放 ⓘ 說明（重量跳太大時）
+    var tip: Glossary? = nil
 }
 
 enum Progression {
@@ -327,6 +501,16 @@ enum Progression {
             return Suggestion(weight: lastWeight, reps: min(bestReps, item.high),
                               note: "適應期：用上次的重量，別拚到力竭")
         case .normal:
+            if ex.loaded, let t = JumpGuard.tempRange(ex.id) {
+                if lastWeight <= t.from + 0.01 {
+                    // 上次決定「加重但暫時降低次數」，這次換上新重量
+                    let next = ladder.up(lastWeight)
+                    if next > lastWeight + 0.01 { return tempJump(item, from: lastWeight, next: next, low: t.low) }
+                } else if allHitTop {
+                    return Suggestion(weight: lastWeight, reps: min(bestReps + 1, item.baseHigh),
+                                      note: JumpGuard.recoveredNote(item), tip: .bigJump)
+                }
+            }
             if allHitTop {
                 if ex.loaded {
                     let next = ladder.up(lastWeight)
@@ -334,9 +518,7 @@ enum Progression {
                         return Suggestion(weight: lastWeight, reps: bestReps + 1,
                                           note: "已經是你器材最重的了，改成多做 1 下，或下放放慢到 3 秒")
                     }
-                    var note = "上次全部達標 💪 加重 \(format(next - lastWeight)) kg"
-                    if let l = ladder.loading(next) { note += "（\(l.text)）" }
-                    return Suggestion(weight: next, reps: item.low, note: note)
+                    return loadedJump(item, lastWeight: lastWeight, top: top, next: next, ladder: ladder)
                 }
                 return Suggestion(weight: lastWeight, reps: item.high,
                                   note: "已經達標，下放放慢到 3 秒增加難度")
@@ -344,6 +526,44 @@ enum Progression {
             return Suggestion(weight: lastWeight, reps: min(bestReps + 1, item.high),
                               note: "目標：比上次多做 1 \(ex.unit.label)")
         }
+    }
+
+    /// 有負重、全部達標、下一級比較重：先估加重後能做幾下，跳太大就走「延長」（`JumpGuard`）。
+    private static func loadedJump(_ item: PlannedExercise, lastWeight: Double, top: [SetEntry], next: Double,
+                                   ladder: WeightLadder) -> Suggestion {
+        let bestReps = top.map(\.reps).max() ?? item.low
+        // 上次已經決定「先多做 1 組」：這次照排（組數已經 +1），全部做到上限才加重
+        if JumpGuard.hasExtraSet(item.exercise.id) {
+            return Suggestion(weight: lastWeight, reps: item.high,
+                              note: "重量跳太大，次數上限已到，這次多做 1 組（共 \(item.sets) 組），全部做到 \(item.high) \(item.exercise.unit.label)再加重",
+                              tip: .bigJump)
+        }
+        let unit = item.exercise.unit.label
+        switch JumpGuard.evaluate(item: item, lastWeight: lastWeight, top: top, next: next) {
+        case .heavy(let reps):
+            return Suggestion(weight: next, reps: reps, note: raiseNote(next, from: lastWeight, ladder: ladder))
+        case .extend(let ceiling, let pct):
+            return Suggestion(weight: lastWeight, reps: min(bestReps + 1, ceiling),
+                              note: "重量跳太大（+\(pct)%），先做到 \(ceiling) \(unit)再加重", tip: .bigJump)
+        case .extraSet(let pct):
+            return Suggestion(weight: lastWeight, reps: item.high,
+                              note: "重量跳太大（+\(pct)%），次數上限已到，下次多做 1 組再加重", tip: .bigJump)
+        case .heavyTemp(_, let low, _, _):
+            return tempJump(item, from: lastWeight, next: next, low: low)
+        }
+    }
+
+    /// 加重，但次數會掉很多：暫時用較低的次數範圍（`JumpGuard.tempRange`）爬回原本的範圍。
+    private static func tempJump(_ item: PlannedExercise, from last: Double, next: Double, low: Int) -> Suggestion {
+        let unit = item.exercise.unit.label
+        let note = "加重 \(format(next - last)) kg 後次數會掉到約 \(low) \(unit)，先用 \(low)–\(item.baseLow) \(unit)爬回原本範圍"
+        return Suggestion(weight: next, reps: low, note: note, tip: .bigJump)
+    }
+
+    private static func raiseNote(_ next: Double, from last: Double, ladder: WeightLadder) -> String {
+        var note = "上次全部達標 💪 加重 \(format(next - last)) kg"
+        if let l = ladder.loading(next) { note += "（\(l.text)）" }
+        return note
     }
 
     static func roundHalf(_ x: Double) -> Double {

@@ -5,7 +5,7 @@ extension Keys {
     static let repCeiling = "repCeiling"
     /// 這個動作暫時多 1 組，JSON [exerciseId: Bool]
     static let extraSet = "extraSet"
-    /// 加重後次數會掉很多，暫時降低的次數範圍，JSON [exerciseId: [low, high]]
+    /// 加重後次數會掉很多，暫時降低的次數範圍，JSON [exerciseId: [low, high, 決定加重時的重量]]
     static let tempRange = "tempRange"
 }
 
@@ -17,7 +17,7 @@ extension Keys {
 enum JumpGuard {
     static let ceilings = KeyedStore<Int>(key: Keys.repCeiling)
     static let extras = KeyedStore<Bool>(key: Keys.extraSet)
-    static let temps = KeyedStore<[Int]>(key: Keys.tempRange)
+    static let temps = KeyedStore<[Double]>(key: Keys.tempRange)
 
     /// 單關節動作次數上限最多拉到 25，複合動作 15。
     static func ceilingLimit(_ ex: Exercise) -> Int {
@@ -26,22 +26,17 @@ enum JumpGuard {
 
     static func ceiling(_ id: String) -> Int? { ceilings[id] }
     static func hasExtraSet(_ id: String) -> Bool { extras[id] ?? false }
-    static func tempRange(_ id: String) -> (low: Int, high: Int)? {
-        guard let t = temps[id], t.count == 2 else { return nil }
-        return (t[0], t[1])
+    /// from = 決定加重時用的（較輕）重量。最重那組還是這個重量以下，代表還沒換成新重量。
+    static func tempRange(_ id: String) -> (low: Int, high: Int, from: Double)? {
+        guard let t = temps[id], t.count == 3 else { return nil }
+        return (Int(t[0]), Int(t[1]), t[2])
     }
 
-    /// 排課時套用：暫時範圍取代原範圍；否則次數上限用延長後的；多 1 組。
-    static func adjust(id: String, low: Int, high: Int, sets: Int) -> (low: Int, high: Int, sets: Int) {
-        var out = (low: low, high: high, sets: sets)
-        if let t = tempRange(id) {
-            out.low = t.low
-            out.high = max(t.low, t.high)
-        } else if let c = ceiling(id), c > high {
-            out.high = c
-        }
-        if hasExtraSet(id) { out.sets += 1 }
-        return out
+    /// 排課時套用：暫時範圍取代原範圍；否則次數上限用延長後的。（多 1 組另外用 `hasExtraSet`。）
+    static func adjust(id: String, low: Int, high: Int) -> (low: Int, high: Int) {
+        if let t = tempRange(id) { return (t.low, max(t.low, t.high)) }
+        if let c = ceiling(id), c > high { return (low, c) }
+        return (low, high)
     }
 
     private static func clearLadder(_ id: String) {
@@ -102,9 +97,9 @@ enum JumpGuard {
         let w = last.map(\.weight).max() ?? 0
         guard w > 0 else { return }
         let top = last.filter { $0.weight >= w }
-        // 暫時範圍：某次全部組都做到原本的下限，就回到原本的範圍
-        if tempRange(id) != nil {
-            if top.allSatisfy({ $0.reps >= item.baseLow }) { temps[id] = nil }
+        // 暫時範圍：已經換成新重量後，某次全部組都做到原本的下限，就回到原本的範圍
+        if let t = tempRange(id) {
+            if w > t.from + 0.01, top.allSatisfy({ $0.reps >= item.baseLow }) { temps[id] = nil }
             return
         }
         let target = SetPlanner.targetReps(scheme: scheme, low: item.low, high: item.high)
@@ -120,7 +115,7 @@ enum JumpGuard {
             extras[id] = true
         case .heavyTemp(_, let lo, let hi, _):
             clearLadder(id)
-            temps[id] = [lo, hi]
+            temps[id] = [Double(lo), Double(hi), w]
         }
     }
 }

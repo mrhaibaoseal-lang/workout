@@ -105,10 +105,8 @@ enum Superset {
                     let free = options.first { kitOf($0).map { !taken.contains($0) } ?? false }
                     if let ex = free ?? options.first(where: { kitOf($0) == nil }) {
                         let old = plan[i]
-                        let range = ex.range ?? old.low...old.high
-                        var item = PlannedExercise(exercise: ex, sets: old.sets, low: range.lowerBound, high: range.upperBound,
-                                                   restSeconds: old.restSeconds, essential: old.essential, replaced: old.replaced)
-                        item.group = old.group
+                        var item = old.swapped(to: ex)
+                        item.replaced = old.replaced
                         plan[i] = item
                         if let k2 = kitOf(ex) { used.insert(k2) }
                         continue

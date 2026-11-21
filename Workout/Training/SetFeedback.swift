@@ -243,6 +243,7 @@ struct Sparkline: View {
 
 enum Glossary: String, Identifiable {
     case rir, grade, ghost, dropset, pyramid, readiness, record, superset
+    case weeklySets, bigJump, fixedCompound
 
     var id: String { rawValue }
 
@@ -256,6 +257,9 @@ enum Glossary: String, Identifiable {
         case .readiness: "訓練前狀態"
         case .record: "破紀錄"
         case .superset: "超級組／循環組"
+        case .weeklySets: "每週組數"
+        case .bigJump: "重量跳太大"
+        case .fixedCompound: "為什麼主要動作不常換"
         }
     }
 
@@ -287,6 +291,19 @@ enum Glossary: String, Identifiable {
             "2 個動作輪流做叫超級組，3～4 個叫循環組：A 做一組、馬上做 B 一組，一輪做完才休息。"
             + "主要是省時間，肌肉不會長得比較快。只配手臂、肩膀、小腿、核心這類單關節動作。\n\n"
             + "同一組的動作會盡量用不同器材（例如一個用快鎖啞鈴、一個用舊啞鈴或下拉架），輪流做才不用一直換重量。"
+        case .weeklySets:
+            "把這週課表裡，每個部位會練到的正式組加起來。主要動作練到的部位算 1 組，次要出力的部位算半組"
+            + "（例如臥推主要練胸，三頭和前肩各算 0.5 組）。\n\n"
+            + "增肌常見的建議是每個部位每週 10～16 組：太少長得慢，太多恢復不了。小腿、後肩、腹肌這類比較小的部位，至少 6 組就有感。"
+            + "顏色橘／黃 = 還不夠，綠 = 剛好，藍 = 偏多。這只是預估，實際以你練完的紀錄為準。"
+        case .bigJump:
+            "啞鈴最小只能加 2.5 kg，輕的動作（例如側平舉從 5 kg 加到 7.5 kg）一次就重 50%，加上去次數會掉到很少，也比較容易受傷。\n\n"
+            + "所以 App 先估一下加重後你大概能做幾下：夠多就直接加重；太少就先把次數上限拉長（側平舉最多到 25 下、大動作 15 下），"
+            + "做到了再多加 1 組，最後才加重，並暫時用比較少的次數慢慢爬回原本的範圍。"
+        case .fixedCompound:
+            "臥推、划船、深蹲這類大動作需要練很多次才會熟，新手進步最快的就是「同一個動作越練越重」。"
+            + "所以大動作不會每 6 週自動換，會一直練到卡住（停滯）、會痛、或你自己想換才換。\n\n"
+            + "手臂、肩膀這類單關節動作比較單純，還是每 6 週換一批，避免太無聊。"
         }
     }
 }

@@ -153,3 +153,20 @@ struct AvoidListView: View {
         }
     }
 }
+
+/// 「換一個動作」：同一個課表格選動作時，順位往後加這個數字（key 是 "dayId|pattern"）。
+enum PatternShift {
+    static let store = KeyedStore<Int>(key: Keys.patternShift)
+
+    static func key(day: String, pattern: MovementPattern) -> String {
+        "\(day)|\(pattern.rawValue)"
+    }
+
+    static func value(day: String, pattern: MovementPattern) -> Int {
+        max(0, store[key(day: day, pattern: pattern)] ?? 0)
+    }
+
+    static func bump(_ key: String) {
+        store[key] = max(0, store[key] ?? 0) + 1
+    }
+}

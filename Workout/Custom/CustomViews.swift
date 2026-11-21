@@ -326,9 +326,41 @@ struct ProgramEditor: View {
                 SectionLabel("練完一天，下次就排下一天，做完最後一天再從頭。哪幾天練由自動排程決定，首頁也可以「換一天」。")
             }
             .listRowBackground(Theme.surface)
+
+            volumeSection(p.wrappedValue)
         }
         .navigationTitle(p.wrappedValue.name.isEmpty ? "課表" : p.wrappedValue.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+extension ProgramEditor {
+    /// 每週組數：每一天各練一次，照每格填的組數和動作類型算（次要出力算半組）。只提醒，不會自動改。
+    fileprivate func volumeSection(_ program: CustomProgram) -> some View {
+        var slots: [(pattern: MovementPattern, sets: Int)] = []
+        for day in program.days {
+            for slot in day.slots { slots.append((pattern: slot.movement, sets: slot.sets)) }
+        }
+        let sets = VolumePlan.weekly(slots: slots)
+        let advice = VolumePlan.advice(sets, upper: 20)
+        return Section {
+            VolumeTable(sets: sets, upper: 20)
+            if advice.isEmpty {
+                Text("每個部位都在建議範圍內。").font(.caption).foregroundStyle(Theme.green)
+            } else {
+                ForEach(advice, id: \.self) { line in
+                    Text(line).font(.caption).foregroundStyle(Theme.hotText)
+                }
+            }
+        } header: {
+            HStack(spacing: 2) {
+                SectionLabel("每週組數（每天各練一次）")
+                InfoTip(item: .weeklySets)
+            }
+        } footer: {
+            SectionLabel("只是提醒，不會自動改你的課表。低於下限或超過 20 組的部位會標色。")
+        }
+        .listRowBackground(Theme.surface)
     }
 }
 

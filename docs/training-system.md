@@ -13,7 +13,7 @@
 
 - 每個動作類型從 `ExerciseLibrary` 依器材挑候選，健身房器材的排前面，在家沒有就自動跳過。
 - 有負重的候選優先。同一類動作在另一天也有（例如兩個上半身日都有水平推），B 日用第二順位；
-  一週只練一次的用首選。每 6 週（減量週後）互換，動作會輪替。
+  一週只練一次的用首選。0.23.0 起：**單關節動作**每 6 週（減量週後）互換；**複合動作不再輪替**（見「排課升級」）。
 - 「槓鈴要組裝，在家少排槓鈴」（`Keys.limitBarbell`，預設開）：在家時槓鈴動作排到最後，
   只有 `keepBarbell` 的位置（下半身 B 的臀推）仍用槓鈴。使用者的槓鈴是兩個啞鈴接起來的，組裝很麻煩。
 - 進步：雙重進步法，每組都做到次數上限才加重；只看「最重那幾組」的正式組。
@@ -173,3 +173,46 @@
 - `CoachLoader` 在按下「完成訓練」時就開始產生，看成果動畫的幾秒剛好用來等模型。
 - 編譯：workflow 會選 Xcode 26 以上；`project.yml` 用 `-weak_framework FoundationModels`，
   workflow 打包後用 `otool` 檢查是弱連結，避免 iOS 17–25 一開就閃退。
+
+## 排課升級（0.23.0）
+
+### ① 每個部位每週組數平衡（`Training/VolumePlan.swift`）
+
+- 部位怎麼算沿用 `MovementPattern.muscles`（主要 1 組、次要半組），和熱圖一致。
+  目標：胸、背闊、股四頭、大腿後側、臀、側三角肌、二頭、三頭 每週 10–16 組；後三角肌、小腿、腹肌、前三角肌、斜方肌 下限 6、上限 16；前臂、腹斜肌、下背不管。
+- 內建課表 slot 直接調：上半身 A、B 側平舉 3→4 組，上半身 B 後肩 2→3 組。平衡是保險。
+- `ProgramBuilder.plan` 在「內建課表 + 完整版」時，用 `rawPlan` 把 4 天都排一次（不遞迴進平衡）、跑 `VolumePlan.balance`、取出這一天
+  （`balancedWeek`），所以今天頁、訓練畫面、預估時間看到的組數一致。平衡只改組數，不增減動作。
+  1. 因器材沒有而跳過的格子：組數補到同一天、主要部位（係數 1）有重疊的動作（每個動作最多 4 組）。
+  2. 進步期：部位低於下限，就在它「主要出力的單關節動作」加組（每個動作最多 4 組、每天最多因平衡加 2 組，輪流加）。
+     適應期／減量週不做這一步（本來就刻意少練；`planned()` 的 −1 組規則照舊，平衡在它之後）。
+  3. 某天比平衡前多超過 3 組：從「最超過上限的部位」的動作扣，不低於 2 組。
+- UI：今天頁「本週預計組數」（點開才算，`WeeklyVolumeCard`，旁邊 ⓘ `Glossary.weeklySets`）；
+  自訂課表編輯頁「每週組數」（`VolumeTable`，低於下限或超過 20 組標色並提醒；**不自動改自訂課表**）。
+  `ProgramBuilder.weeklyPlans` 給 UI 用。
+
+### ② 跳重太大（`Training/JumpGuard.swift`）
+
+- `Progression.suggest`（進步期、有負重、全部達標、下一級比較重）：用上次最重組的重量 w、次數 r、RIR（沒填當 1）
+  Epley：e1RM = w × (1 + (r + rir) / 30)；下一級 next 做到力竭的次數 = 30 × (e1RM / next − 1)；預計次數 pred = floor(…) − 1。
+  - pred ≥ 原本下限：照常加重，建議次數 = min(max(pred, 下限), 原本上限)。
+  - pred < 下限：① 次數上限延長（單關節最多 25、複合 15；原上限已達就跳過）；② 已在延長上限：多 1 組（最多多 1）；
+    ③ 都做了還是 pred < 下限：加重，次數 = max(pred, 5)，暫時次數範圍 [N, 原下限]，直到某次全部組做到原下限才清掉。
+- 狀態存在三個 Keys：`Keys.repCeiling` [id: Int]、`Keys.extraSet` [id: Bool]、`Keys.tempRange` [id: [low, high, 決定加重時的重量]]。
+  `suggest` 只讀不寫；練完存檔（`WorkoutView.finish` → `JumpGuard.record`）才依這次成績更新，所以建議可重現。
+  `ProgramBuilder.planned()` 套用：次數上限用延長後的（「全部達標」也用它判斷）、組數 +1、暫時範圍取代原範圍。`PlannedExercise.base` 記原本的範圍。
+  成功加重（pred 夠）會清掉延長和多 1 組。tempRange 的第三個數字用來分辨「剛決定、還沒換新重量」和「已經在新重量上爬」。
+- 建議文字旁顯示 ⓘ（`Suggestion.tip`、`Glossary.bigJump`）。
+
+### ③ 會痛／不喜歡、複合動作不輪替（`Training/Avoid.swift`）
+
+- `Keys.avoidExercises`：JSON [id: {reason: pain/dislike, date}]。`ExerciseLibrary.candidates` 排除；`byId` 照找得到。
+  自訂課表指定的動作被標記 → 當成器材不夠，自動挑同類型，首頁顯示「代替」。設定 →「不排的動作」可取消。
+- 訓練畫面動作卡選單：「會痛…」→ 「這次減輕 20% 試試」（還沒做的組重量 `ladder.snap(w × 0.8)`，寫一筆 `Keys.painLog` JSON [{exerciseId, date}]，不標記）
+  或「換掉並記住」（標記 pain、換成同類型下一個候選）；「不喜歡，換掉」（標記 dislike）。只有這個動作還沒做任何一組才能換，做了就只給減輕。
+- 複合動作（`pattern.region != nil`）選動作的順位不加區塊數；單關節照舊。`Keys.patternShift` JSON ["dayId|pattern": Int] 是額外位移。
+  停滯卡有「換一個動作」（`ProgramBuilder.shiftExercise`，只有課表自動挑、且還有其他候選時出現）。
+- **升級遷移**（`ProgramBuilder.migrateV023`，App 啟動時、`Keys.pinnedV023` 沒設才做一次）：
+  已設定過的使用者，對內建課表和所有自訂課表每個「自動挑的複合動作格」，位移 = 目前區塊 % 候選數
+  （舊規則 (block + variant) % n、新規則 (variant + shift) % n，差值剛好是 block % n），讓正在練的動作不變。
+- 全部新 Keys（`avoidExercises`、`painLog`、`patternShift`、`pinnedV023`、`repCeiling`、`extraSet`、`tempRange`）都加進 `SettingsBackup.keys`。

@@ -55,6 +55,12 @@ struct TodayView: View {
     @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
     @AppStorage(Keys.autoSuperset) private var autoSuperset = false
     @AppStorage(Keys.kits) private var kitsRaw = ""
+    // 標記不排的動作、換動作、次數範圍調整後，今天的動作也要跟著重算
+    @AppStorage(Keys.avoidExercises) private var avoidRaw = ""
+    @AppStorage(Keys.patternShift) private var shiftRaw = ""
+    @AppStorage(Keys.repCeiling) private var ceilingRaw = ""
+    @AppStorage(Keys.extraSet) private var extraRaw = ""
+    @AppStorage(Keys.tempRange) private var tempRaw = ""
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -72,7 +78,7 @@ struct TodayView: View {
     }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
-        _ = (autoSuperset, kitsRaw)
+        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw)
         return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
                                    limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
                                    gym: placeRaw == TrainingPlace.gym.rawValue)
@@ -119,6 +125,7 @@ struct TodayView: View {
                               activeBet: ctx.bets.first(where: { $0.week == current.week }),
                               onSheet: { goalSheet = $0 })
                     exerciseList
+                    weekVolume
                     toolsRow
                     boxStrip
                 }
@@ -489,6 +496,18 @@ struct TodayView: View {
                 .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
             }
         }
+    }
+
+    // MARK: Weekly volume
+
+    /// 本週預計組數：照目前課表、器材排出一週的完整版，點開才算。
+    private var weekVolume: some View {
+        _ = (autoSuperset, kitsRaw, activeProgram, programsRaw, customExercisesRaw, customInAutoPick, avoidRaw, shiftRaw)
+        return WeeklyVolumeCard(plans: {
+            ProgramBuilder.weeklyPlans(equipment: equipment, week: week,
+                                       limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
+                                       gym: placeRaw == TrainingPlace.gym.rawValue)
+        })
     }
 
     // MARK: Tools

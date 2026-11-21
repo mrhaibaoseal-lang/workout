@@ -145,6 +145,7 @@ struct RecordsScreen: View {
                             Text("這次減量重新爬")
                         }
                         .buttonStyle(GhostButtonStyle())
+                        swapButton(info.exerciseId)
                     }
                     .padding(.horizontal, 14).padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -153,6 +154,24 @@ struct RecordsScreen: View {
             }
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        }
+    }
+
+    /// 停滯的動作如果是課表自動挑的、而且還有別的候選，可以直接換一個動作（新動作從頭記，這個動作的停滯也歸零）。
+    @ViewBuilder
+    private func swapButton(_ exerciseId: String) -> some View {
+        if !ProgramBuilder.shiftKeys(exerciseId: exerciseId).isEmpty {
+            HStack(spacing: 2) {
+                Button {
+                    ProgramBuilder.shiftExercise(exerciseId)
+                    Plateau.markReset(exerciseId)
+                    refresh += 1
+                } label: {
+                    Text("換一個動作")
+                }
+                .buttonStyle(GhostButtonStyle())
+                InfoTip(item: .fixedCompound)
+            }
         }
     }
 
