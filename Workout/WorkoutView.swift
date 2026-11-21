@@ -288,28 +288,7 @@ struct WorkoutView: View {
                     PRBurstView(pr: pr).id(pr.id)
                 }
             }
-            .overlay {
-                if let s = summary, !showCoach {
-                    WorkoutCompleteView(summary: s) {
-                        if coach != nil {
-                            withAnimation(.easeOut(duration: 0.25)) { showCoach = true }
-                        } else {
-                            onFinish()
-                            dismiss()
-                        }
-                    }
-                    .transition(.opacity)
-                }
-            }
-            .overlay {
-                if showCoach, let c = coach {
-                    CoachReviewView(loader: c) {
-                        onFinish()
-                        dismiss()
-                    }
-                    .transition(.opacity)
-                }
-            }
+            .overlay { finishOverlay }
             .overlay {
                 if readiness == nil {
                     ReadinessCheckView(onDone: { r in
@@ -935,6 +914,28 @@ struct WorkoutView: View {
                 good: doneWork.filter { $0.grade == .good }.count,
                 miss: doneWork.filter { $0.grade == .miss }.count,
                 bonuses: bonus.lines)
+        }
+    }
+
+    /// 練完：成果畫面 → 教練講評
+    @ViewBuilder
+    private var finishOverlay: some View {
+        if showCoach, let c = coach {
+            CoachReviewView(loader: c) {
+                onFinish()
+                dismiss()
+            }
+            .transition(.opacity)
+        } else if let s = summary {
+            WorkoutCompleteView(summary: s) {
+                if coach != nil {
+                    withAnimation(.easeOut(duration: 0.25)) { showCoach = true }
+                } else {
+                    onFinish()
+                    dismiss()
+                }
+            }
+            .transition(.opacity)
         }
     }
 
