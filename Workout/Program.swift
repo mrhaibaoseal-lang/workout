@@ -15,6 +15,8 @@ struct Slot {
     var rest: Int? = nil
     /// 自訂課表：和上一個動作連成超級組／循環組。
     var linkPrev = false
+    /// 全身日（併天）：這格來自哪一天，選動作時照那一天的順位，才會和原本那天排到同一個動作。
+    var source: String? = nil
 }
 
 struct DayTemplate: Identifiable {
@@ -129,12 +131,51 @@ enum ProgramBuilder {
     /// 自訂課表的名字；用內建課表時是 nil。
     static var customName: String? { CustomPrograms.active?.name }
 
-    /// 舊紀錄的 dayKey 找回那一天（內建或任何一份自訂課表）。
+    /// 舊紀錄的 dayKey 找回那一天（內建兩份、任何一份自訂課表、併成的全身日）。
     static func template(id: String) -> DayTemplate? {
-        builtInDays.first { $0.id == id } ?? CustomPrograms.day(templateId: id)
+        if id.hasPrefix(WeekFit.prefix) { return WeekFit.template(id: id) }
+        return (splitDays + fullBodyDays).first { $0.id == id } ?? CustomPrograms.day(templateId: id)
     }
 
-    static let builtInDays: [DayTemplate] = [
+    /// 內建課表：選了「3 天全身」就用全身，不然用 4 天上下分化。
+    static var builtInDays: [DayTemplate] {
+        BuiltInProgram.current == .fullBody3 ? fullBodyDays : splitDays
+    }
+
+    /// 內建 3 天全身（0.25.0）：每個部位一週練 3 次、每次組數少一點，每週總組數和分化差不多（再由 `VolumePlan` 平衡）。
+    /// 同一個動作類型出現在兩天時，後面那天用第二順位的動作（`variant(of:)`）。
+    static let fullBodyDays: [DayTemplate] = [
+        DayTemplate(id: "fullA", name: "全身 A", focus: "深蹲、臥推、划船", slots: [
+            Slot(pattern: .squat, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .hPush, sets: 3, low: 6, high: 10, essential: true),
+            Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .hamCurl, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .lateral, sets: 4, low: 12, high: 20, essential: false),
+            Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
+        ]),
+        DayTemplate(id: "fullB", name: "全身 B", focus: "硬舉、肩推、下拉", slots: [
+            Slot(pattern: .hinge, sets: 3, low: 6, high: 10, essential: true),
+            Slot(pattern: .vPush, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .vPull, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .lunge, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .lateral, sets: 4, low: 12, high: 20, essential: false),
+            Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
+        ]),
+        DayTemplate(id: "fullC", name: "全身 C", focus: "臀推、上斜推、划船", slots: [
+            Slot(pattern: .glute, sets: 3, low: 8, high: 12, essential: true, keepBarbell: true),
+            Slot(pattern: .incline, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .hPull, sets: 3, low: 10, high: 12, essential: true),
+            Slot(pattern: .squat, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .core, sets: 3, low: 10, high: 15, essential: false),
+        ]),
+    ]
+
+    static let splitDays: [DayTemplate] = [
         DayTemplate(id: "upperA", name: "上半身 A", focus: "胸、背為主", slots: [
             Slot(pattern: .hPush, sets: 3, low: 6, high: 10, essential: true),
             Slot(pattern: .vPull, sets: 3, low: 8, high: 12, essential: true),
@@ -179,6 +220,8 @@ enum ProgramBuilder {
 
     static func phase(week: Int) -> Phase {
         if Plateau.deloadActive { return .deload }
+        // 停 21 天以上回來的那一週當適應期（`Comeback`）
+        if Comeback.rampUpActive { return .rampUp }
         if week <= 2 { return .rampUp }
         if week % blockWeeks == 0 { return .deload }
         return .normal
@@ -212,7 +255,8 @@ enum ProgramBuilder {
     /// 同一類動作在另一天（同為上半身或下半身）也有，B 日才換第二個；一週只練一次的用首選。
     /// 自訂課表：前面幾天也有同類型（自動挑）的，就往後換一個，各天才不會都一樣。
     private static func variant(of slot: Slot, in day: DayTemplate, siblings: [DayTemplate]) -> Int {
-        if day.custom {
+        // 自訂課表、內建全身：前面幾天也有這個動作類型的，就往後換一個
+        if day.custom || day.id.hasPrefix("full") {
             return siblings.prefix(while: { $0.id != day.id })
                 .filter { d in d.slots.contains { $0.pattern == slot.pattern && $0.exerciseId == nil } }.count
         }
@@ -231,7 +275,8 @@ enum ProgramBuilder {
     }
 
     private static func siblingDays(for day: DayTemplate) -> [DayTemplate] {
-        day.custom ? days : builtInDays
+        if day.custom { return days }
+        return day.id.hasPrefix("full") ? fullBodyDays : splitDays
     }
 
     /// 排出一天的動作（不含平衡、不含超級組）。
@@ -240,7 +285,6 @@ enum ProgramBuilder {
         let phase = phase(week: week)
         let block = block(week: week)
         var usedIds = Set<String>()
-        let siblings = siblingDays(for: day)
 
         var slotOf: [Int] = []
         let items: [PlannedExercise] = day.slots.enumerated().compactMap { n, slot -> PlannedExercise? in
@@ -261,8 +305,11 @@ enum ProgramBuilder {
             if slot.keepBarbell {
                 exercise = top[0]
             } else {
-                let i = pickIndex(slot: slot, block: block, variant: variant(of: slot, in: day, siblings: siblings),
-                                  shift: PatternShift.value(day: day.id, pattern: slot.pattern), count: top.count)
+                // 全身日（併天）的格子照原本那一天選，才會和原本排到同一個動作
+                let src = slot.source.flatMap(template(id:)) ?? day
+                let i = pickIndex(slot: slot, block: block,
+                                  variant: variant(of: slot, in: src, siblings: siblingDays(for: src)),
+                                  shift: PatternShift.value(day: src.id, pattern: slot.pattern), count: top.count)
                 exercise = top[i]
             }
             usedIds.insert(exercise.id)
@@ -446,10 +493,15 @@ enum ProgramBuilder {
         return max(5, Int((Double(seconds) / 60).rounded()) + 5)
     }
 
+    /// 下一次練哪一天（0.25.0 起以週為單位）：這週答應併成的全身日 → 課表裡這週還沒練的第一天 →
+    /// 這週都練完了（多練）才照上次的下一天輪。所以一週沒練完，下週還是從第一天開始（少的那天用「併成全身日」補）。
     static func nextDay(after sessions: [WorkoutSession]) -> DayTemplate {
         let days = self.days
+        if let merged = WeekFit.acceptedDay(sessions: sessions) { return merged }
+        let done = WeekFit.doneThisWeek(sessions)
+        if let d = days.first(where: { !done.contains($0.id) }) { return d }
         guard let last = sessions.first,
-              let idx = days.firstIndex(where: { $0.id == last.dayKey }) else {
+              let idx = days.firstIndex(where: { $0.id == WeekFit.parts(last.dayKey).last }) else {
             return days[0]
         }
         return days[(idx + 1) % days.count]
@@ -480,10 +532,16 @@ enum Progression {
                         scheme: SetScheme = .straight) -> Suggestion {
         let ex = item.exercise
         guard !last.isEmpty else {
-            let note = ex.loaded
-                ? "第一次做：選一個能輕鬆做 \(item.high) \(ex.unit.label)的重量"
-                : "第一次做：先把動作做標準"
-            return Suggestion(weight: 0, reps: item.low, note: note)
+            guard ex.loaded else { return Suggestion(weight: 0, reps: item.low, note: "第一次做：先把動作做標準") }
+            if let est = StartWeight.estimate(item, ladder: ladder) {
+                let w = phase == .deload ? ladder.snap(est.weight * 0.8) : est.weight
+                return Suggestion(weight: w, reps: item.high,
+                                  note: "第一次做：參考「\(est.reference.name)」推估。第一組做完填還剩幾下，後面會自動校準",
+                                  tip: .startWeight)
+            }
+            return Suggestion(weight: 0, reps: item.high,
+                              note: "第一次做：選一個能輕鬆做 \(item.high) \(ex.unit.label)的重量，第一組做完填還剩幾下，後面會自動校準",
+                              tip: .startWeight)
         }
 
         let lastWeight = last.map(\.weight).max() ?? 0
@@ -492,6 +550,12 @@ enum Progression {
         let bestReps = top.map(\.reps).max() ?? item.low
         let target = SetPlanner.targetReps(scheme: scheme, low: item.low, high: item.high)
         let allHitTop = top.allSatisfy { $0.reps >= target }
+
+        // 停練 10 天以上回來：先減重；減重後全部達標就回到停練前的重量（減量週照減量週）
+        if phase != .deload,
+           let back = Comeback.suggest(item, lastWeight: lastWeight, bestReps: bestReps, allHit: allHitTop, ladder: ladder) {
+            return back
+        }
 
         switch phase {
         case .deload:

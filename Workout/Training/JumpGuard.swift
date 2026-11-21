@@ -104,6 +104,10 @@ enum JumpGuard {
         }
         let target = SetPlanner.targetReps(scheme: scheme, low: item.low, high: item.high)
         guard top.allSatisfy({ $0.reps >= target }) else { return }
+        // 停練回來減重後達標：下次直接回到停練前的重量（`Comeback`），不用走加重的流程
+        if Comeback.suggest(item, lastWeight: w, bestReps: top.map(\.reps).max() ?? 0, allHit: true, ladder: ladder) != nil {
+            return
+        }
         let next = ladder.up(w)
         guard next > w + 0.01 else { return }
         switch evaluate(item: item, lastWeight: w, top: top, next: next) {

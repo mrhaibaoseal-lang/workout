@@ -178,6 +178,8 @@ struct CustomExerciseEditor: View {
 struct ProgramListView: View {
     @AppStorage(Keys.customPrograms) private var raw = ""
     @AppStorage(Keys.activeProgram) private var activeId = ""
+    @AppStorage(Keys.builtInProgram) private var builtInRaw = ""
+    @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @State private var openId: String?
 
     private var programs: [CustomProgram] {
@@ -188,7 +190,9 @@ struct ProgramListView: View {
     var body: some View {
         Form {
             Section {
-                choice(title: "內建課表", detail: "上下半身分化 · 每週 4 天", id: "", usable: true)
+                ForEach(BuiltInProgram.allCases) { b in
+                    builtInChoice(b)
+                }
                 ForEach(programs) { p in
                     choice(title: p.name.isEmpty ? "未命名課表" : p.name,
                            detail: p.usable ? "\(p.days.filter { !$0.slots.isEmpty }.count) 天" : "還沒有動作，不能用",
@@ -197,7 +201,7 @@ struct ProgramListView: View {
             } header: {
                 SectionLabel("使用中")
             } footer: {
-                SectionLabel("換課表不會刪除紀錄。自訂課表一樣有適應期、減量週、熱身和加重建議，只是動作和組數照你排的。")
+                SectionLabel("換課表不會刪除紀錄。選內建課表會把每週目標改成那份的天數（現在每週 \(weeklyGoal) 次），排程和提醒跟著改，之後也可以在設定自己調。自訂課表一樣有適應期、減量週、熱身和加重建議，只是動作和組數照你排的。")
             }
             .listRowBackground(Theme.surface)
 
@@ -241,6 +245,24 @@ struct ProgramListView: View {
     /// 正在用的：選到的自訂課表被刪掉或還是空的，就是內建。
     private var current: String {
         programs.first { $0.id == activeId && $0.usable }?.id ?? ""
+    }
+
+    private func builtInChoice(_ b: BuiltInProgram) -> some View {
+        let on = current == "" && (BuiltInProgram(rawValue: builtInRaw) ?? .split4) == b
+        return Button {
+            b.activate()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(b.title).font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
+                    Text(b.detail).font(.caption).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                if on {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
+                }
+            }
+        }
     }
 
     private func choice(title: String, detail: String, id: String, usable: Bool) -> some View {

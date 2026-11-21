@@ -73,10 +73,16 @@ enum Planner {
                     let sa = a.option!.score, sb = b.option!.score
                     return sa != sb ? sa > sb : a.day < b.day
                 }
-            for c in candidates where remaining > 0 {
-                if threeInARow(c.day, with: trainedDays.union(selected)) { continue }
-                selected.insert(c.day)
-                remaining -= 1
+            // 內建 3 天全身：先挑前後一天都沒練的日子（全身每次都練到同樣的部位，中間要休一天），不夠再放寬
+            let spread = BuiltInProgram.current == .fullBody3 && CustomPrograms.active == nil
+            for strict in spread ? [true, false] : [false] {
+                for c in candidates where remaining > 0 && !selected.contains(c.day) {
+                    let taken = trainedDays.union(selected)
+                    if threeInARow(c.day, with: taken) { continue }
+                    if strict && nextToAny(c.day, in: taken) { continue }
+                    selected.insert(c.day)
+                    remaining -= 1
+                }
             }
         }
 
@@ -86,6 +92,12 @@ enum Planner {
             return DayPlan(day: e.day, busy: e.busy, option: e.option, picked: picked, done: done,
                            reason: reason(busy: e.busy, option: e.option, picked: picked, done: done, tired: e.tired))
         }
+    }
+
+    private static func nextToAny(_ day: Date, in set: Set<Date>) -> Bool {
+        let cal = Calendar.current
+        return set.contains(cal.date(byAdding: .day, value: -1, to: day)!)
+            || set.contains(cal.date(byAdding: .day, value: 1, to: day)!)
     }
 
     private static func threeInARow(_ day: Date, with set: Set<Date>) -> Bool {

@@ -244,6 +244,7 @@ struct Sparkline: View {
 enum Glossary: String, Identifiable {
     case rir, grade, ghost, dropset, pyramid, readiness, record, superset
     case weeklySets, bigJump, fixedCompound, personalSets, weeklySummary
+    case startWeight, comeback, mergeDay
 
     var id: String { rawValue }
 
@@ -262,6 +263,9 @@ enum Glossary: String, Identifiable {
         case .fixedCompound: "為什麼主要動作不常換"
         case .personalSets: "個人組數"
         case .weeklySummary: "每週總結"
+        case .startWeight: "第一次做的重量"
+        case .comeback: "停練回來"
+        case .mergeDay: "併成全身日"
         }
     }
 
@@ -317,6 +321,20 @@ enum Glossary: String, Identifiable {
             "每週一開始，總結上週練了幾次、每個部位實際練了幾組、破了哪些紀錄、哪些動作卡住。"
             + "區塊結束的那週，還會列出每個部位的組數調整和理由。\n\n"
             + "數字都是 App 算的；有 Apple Intelligence 時由 AI 寫成白話，沒有就自動整理。"
+        case .startWeight:
+            "第一次做的動作，App 會找你做過、練到同一個部位的動作（例如做過啞鈴臥推，就拿來推估上斜臥推），"
+            + "照兩個動作平常的重量比例換算，再打 9 折、取你的器材裝得出來的重量。\n\n"
+            + "第一組是試重組：做完一定要填「還剩幾下」，App 會用這組重新算，把後面的組調到還剩 2 下左右的重量，"
+            + "一次可以跳好幾級。找不到相近的動作時，就自己挑一個輕鬆的重量，一樣靠第一組校準。"
+        case .comeback:
+            "隔 10 天以上沒練，力量和耐受度會掉一點，直接用原本的重量容易受傷或痠很久。\n\n"
+            + "・停 10～20 天：每個動作回來第一次，重量減 10%\n"
+            + "・停 21 天以上：減 20%，而且回來那一週當適應期（少 1 組、不拚力竭）\n\n"
+            + "肌肉記憶回來得很快：減重後只要全部做到次數，下次就直接回到停練前的重量，不用一級一級爬。請假的日子也算在停練天數裡。"
+        case .mergeDay:
+            "這週剩下能練的天數，排不完課表剩下的天時，App 會建議把幾天併成一天全身日，每個部位至少練到一次。\n\n"
+            + "全身日挑每天的主要動作，同一個部位已經有動作練到就不重複，再補側平舉、手臂、後肩這類小部位，"
+            + "每個動作 2～3 組，比平常長一點。併了之後，剩下的天照原本的課表；下週從第一天重新開始。"
         }
     }
 }

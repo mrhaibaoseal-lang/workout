@@ -64,6 +64,9 @@ struct TodayView: View {
     @AppStorage(Keys.muscleSetAdjust) private var adjustRaw = ""
     @AppStorage(Keys.volumeReviews) private var reviewsRaw = ""
     @AppStorage(Keys.weeklySummarySeen) private var summarySeen = 0
+    @AppStorage(Keys.builtInProgram) private var builtInRaw = ""
+    @AppStorage(Keys.weekMerge) private var weekMergeRaw = ""
+    @AppStorage(Keys.weekMergeDismissed) private var weekMergeDismissed: Double = 0
     @State private var weeklyFacts: WeeklyFactsItem?
 
     private struct RankChange: Identifiable {
@@ -75,7 +78,8 @@ struct TodayView: View {
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
     private var phase: Phase { ProgramBuilder.phase(week: week) }
     private var day: DayTemplate {
-        _ = (activeProgram, programsRaw, customExercisesRaw, customInAutoPick)
+        _ = (activeProgram, programsRaw, customExercisesRaw, customInAutoPick, builtInRaw, weekMergeRaw, weekMergeDismissed)
+        TrainingHistory.sync(sessions)
         // 選過的那天用 id 重新找：換了課表或改了內容，才會拿到最新的
         if let id = pickedDay?.id, let d = ProgramBuilder.days.first(where: { $0.id == id }) { return d }
         return ProgramBuilder.nextDay(after: sessions)
@@ -87,6 +91,11 @@ struct TodayView: View {
                                    limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
                                    gym: placeRaw == TrainingPlace.gym.rawValue)
     }
+    private func mergeOffer(_ plans: [DayPlan]) -> WeekFit.Offer? {
+        _ = (weekMergeRaw, weekMergeDismissed, activeProgram, programsRaw, builtInRaw)
+        return WeekFit.offer(sessions: sessions, plans: plans)
+    }
+
     private var trainedToday: Bool {
         sessions.first.map { Calendar.current.isDateInToday($0.date) } ?? false
     }
@@ -116,6 +125,13 @@ struct TodayView: View {
                     }
                     weeklySummaryCard
                     let plans = self.plans
+                    if pickedDay == nil, onLeave == nil, let offer = mergeOffer(plans) {
+                        MergeDayCard(offer: offer, onAccept: {
+                            withAnimation { WeekFit.accept(offer) }
+                        }, onDismiss: {
+                            withAnimation { WeekFit.dismiss() }
+                        })
+                    }
                     let ctx = self.ctx
                     let dates = sessions.map(\.date)
                     let current = GoalEngine.current(dates: dates, goal: weeklyGoal, ctx: ctx)
@@ -337,6 +353,18 @@ struct TodayView: View {
                     Label(name, systemImage: "list.bullet.rectangle")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(Theme.muted)
+                }
+            }
+
+            if day.id.hasPrefix(WeekFit.prefix) && !trainedToday {
+                HStack(spacing: 8) {
+                    Text("這週天數不夠，課表併成一天")
+                        .font(.caption)
+                        .foregroundStyle(Theme.accentSoft.opacity(0.8))
+                    Spacer()
+                    Button("改回分開練") { withAnimation { WeekFit.dismiss() } }
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.accent)
                 }
             }
 

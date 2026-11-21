@@ -85,6 +85,7 @@ struct SettingsView: View {
     @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
     @AppStorage(Keys.autoSuperset) private var autoSuperset = false
     @AppStorage(Keys.activeProgram) private var activeProgram = ""
+    @AppStorage(Keys.builtInProgram) private var builtInRaw = ""
     @AppStorage(Keys.customPrograms) private var programsRaw = ""
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
@@ -116,8 +117,8 @@ struct SettingsView: View {
     }
 
     private var programStatus: String {
-        _ = (activeProgram, programsRaw)
-        return ProgramBuilder.customName.map { "使用中：\($0)" } ?? "使用中：內建課表"
+        _ = (activeProgram, programsRaw, builtInRaw)
+        return ProgramBuilder.customName.map { "使用中：\($0)" } ?? "使用中：\(BuiltInProgram.current.title)"
     }
 
     private var reminderSummary: String {

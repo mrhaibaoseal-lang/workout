@@ -39,6 +39,8 @@ struct ExerciseDraft: Identifiable {
     var lastNote: String? = nil
     /// 最近幾次的推估最大力量（休息頁小圖）
     var trend: [Double] = []
+    /// 第一次做的動作：第一個正式組是試重組，做完依「還剩幾下」校準後面的組（`StartWeight`）
+    var trial = false
     var id: String { item.id }
 
     /// 上次同一組（第 n 個正式組比第 n 個；上次組數比較少就比上次最後一組）
@@ -707,10 +709,17 @@ struct WorkoutView: View {
     /// 依「還剩幾下」自動調整這個動作接下來的正式組：還剩 4 下以上就加重，力竭又沒做到下限就減重。
     private func autoAdjust(_ i: Int, after s: Int) {
         let set = drafts[i].sets[s]
+        // 試重組只有第一個正式組；做完（不管有沒有填）就不再是試重
+        let isTrial = drafts[i].trial
+        drafts[i].trial = false
         guard drafts[i].item.exercise.loaded, set.weight > 0, set.rir >= 0 else { return }
         let later = drafts[i].sets.indices.filter { $0 > s && !drafts[i].sets[$0].done && drafts[i].sets[$0].kind == .work }
         guard !later.isEmpty else { return }
         let ladder = drafts[i].ladder
+        if isTrial {
+            calibrate(i, from: set, later: later, ladder: ladder)
+            return
+        }
         let up: Bool
         if set.rir >= 4 { up = true }
         else if set.rir == 0 && set.reps < drafts[i].item.low { up = false }
@@ -721,6 +730,21 @@ struct WorkoutView: View {
         }
         let next = drafts[i].sets[later[0]].weight
         showToast(up ? "還很有力氣，接下來改 \(Progression.format(next)) kg" : "太吃力了，接下來改 \(Progression.format(next)) kg")
+    }
+
+    /// 試重組做完：用這組的推估最大力量，把後面每組調到「做到目標次數還剩 2 下」的重量（可以一次跳好幾級）。
+    private func calibrate(_ i: Int, from set: SetDraft, later: [Int], ladder: WeightLadder) {
+        var changed = false
+        for j in later {
+            let target = drafts[i].sets[j].target > 0 ? drafts[i].sets[j].target : drafts[i].item.high
+            let w = StartWeight.calibrated(weight: set.weight, reps: set.reps, rir: set.rir, target: target, ladder: ladder)
+            if w > 0 && abs(w - drafts[i].sets[j].weight) > 0.01 {
+                drafts[i].sets[j].weight = w
+                changed = true
+            }
+        }
+        let next = drafts[i].sets[later[0]].weight
+        showToast(changed ? "試重完成：接下來用 \(Progression.format(next)) kg" : "試重完成：這個重量剛好")
     }
 
     private func showToast(_ text: String) {
@@ -845,6 +869,7 @@ struct WorkoutView: View {
 
     private func makeDraft(_ item: PlannedExercise, firstInRegion: Bool, scheme chosenOverride: SetScheme? = nil,
                            avoidKit: String? = nil) -> ExerciseDraft {
+        TrainingHistory.sync(sessions)
         let phase = ProgramBuilder.phase(week: week)
         let last = Progression.lastSets(for: item.exercise.id, in: sessions)
         let ladder = WeightLadder.make(item, gym: isGym, step: increment)
@@ -869,6 +894,7 @@ struct WorkoutView: View {
                                   last: last.map { LastSet(weight: $0.weight, reps: $0.reps) },
                                   chosen: chosen, scheme: planned.scheme, ladder: ladder)
         draft.plateauReset = plateau != nil
+        draft.trial = last.isEmpty && item.exercise.loaded && length != .minimal
         draft.lastNote = ExerciseNotes.last(for: item.exercise.id, in: sessions)?.note
         draft.trend = ExerciseTrend.points(for: item.exercise.id, loaded: item.exercise.loaded, in: sessions)
         return draft
@@ -1000,6 +1026,8 @@ struct WorkoutView: View {
     /// 要在算教練講評的「下次預計」之前做，下次預計才會反映新的狀態。
     private func recordJumpState(at date: Date) {
         let phase = ProgramBuilder.phase(week: week)
+        TrainingHistory.noteFinished(drafts.filter { $0.sets.contains { $0.done && $0.kind == .work } }.map(\.item.exercise.id),
+                                     at: date)
         for d in drafts {
             let ex = d.item.exercise
             let work = d.sets.filter { $0.done && $0.kind == .work }
