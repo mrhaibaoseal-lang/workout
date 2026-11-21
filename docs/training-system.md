@@ -216,3 +216,35 @@
   已設定過的使用者，對內建課表和所有自訂課表每個「自動挑的複合動作格」，位移 = 目前區塊 % 候選數
   （舊規則 (block + variant) % n、新規則 (variant + shift) % n，差值剛好是 block % n），讓正在練的動作不變。
 - 全部新 Keys（`avoidExercises`、`painLog`、`patternShift`、`pinnedV023`、`repCeiling`、`extraSet`、`tempRange`）都加進 `SettingsBackup.keys`。
+
+## 個人組數與每週總結（0.24.0）
+
+### 練完問恢復（`Training/PersonalVolume.swift` 的 `MuscleCheckView`）
+
+- 成果畫面按「好」之後、教練講評之前多一頁。問今天**主要練到**（係數 1、有目標範圍）而且 **10 天內練過**的部位，
+  正式組多的在前、最多 4 個：上次練完的痠痛退了沒（早就不痠／剛好退／還在痠）、「關節不舒服」開關。可跳過，沒答的不存。
+- 存 `Keys.muscleFeedback` JSON [MuscleFeedback]（muscle、date、recovery −1 = 沒答、joint），最多留 400 筆。
+
+### 區塊檢討（`PersonalVolume.reviewIfNeeded`，今天頁 onAppear）
+
+- 進到新區塊（`ProgramBuilder.block` 變大，`Keys.volumeReviewedBlock` 記做到哪）時，檢討上一個區塊：
+  第 max(3, 區塊第 1 週) 週到第 5 週（不含適應期、減量週）。每個區塊只做一次；跳過好幾個區塊只檢討最近的。
+- **進步**（`gain`）：每個主要練這個部位的動作，每次訓練取最好的正式組 e1RM = w × (1 + (次數 + RIR) / 30)（RIR 沒填當 1；
+  徒手用次數），至少 3 次的動作才算，比「前 2 次平均」和「最後 2 次平均」，依次數加權平均。不到 **2.5%** = 進步慢；沒有可算的動作 = 紀錄太少。
+- **恢復**：區間內的回報。會痛 = 減輕重量的「會痛」紀錄（`painLog`）或標記「會痛」1 次以上、或關節不舒服 2 次以上。
+  差 = 會痛，或答題 ≥ 2 次且「還在痠」占一半以上；好 = 答題 ≥ 2 次且不差；其他 = 不知道。
+- 決定：進步慢＋恢復好 → +1；進步慢＋恢復差 → −1；進步慢＋不知道、進步正常、紀錄太少 → 0。
+  +1 = 每次練這個部位多 1 組 = **每週 ±2 組**（`step`），累積在 `Keys.muscleSetAdjust`，範圍 −4～+6；到上下限就不再動並註明。
+  結果存 `Keys.volumeReviews` JSON [BlockReview]（最多 12 筆）。
+- **套用**：`VolumePlan.balance` 第 4 步（只在進步期、只有內建課表完整版）：在 1–3 步之後，對每個部位加減 |offset| 組，
+  輪流分到不同天；加組優先單關節、組數少的（每個動作最多 5 組），減組優先單關節、組數多的（不低於 2 組）。
+  自訂課表不自動改，每週總結會寫「要自己調整」。
+- 目標範圍：`PersonalVolume.range` = 一般範圍 + offset；「本週預計組數」內建課表用它，部位旁標「你 +2」。
+
+### 每週總結（`Training/WeeklySummary.swift`）
+
+- 今天頁最上面的卡片「第 N 週總結」：上一週有練、或上一週結束了一個區塊，而且 `Keys.weeklySummarySeen` < N 才出現；按「好」才記成看過。
+- `WeeklySummary.facts` 算：次數／目標、正式組、分鐘、各部位實際組數（係數同熱圖）和個人目標、不夠／偏多、破紀錄（這週最好 > 以前最好，以前沒做過不算）、
+  停滯動作（`Plateau.stalled`，最多 3 個）、練前狀態平均、回報還在痠／關節不舒服的部位、會痛的動作、區塊檢討結果。
+- 寫法同教練講評：有 Apple Intelligence 就用 `WeeklyReplyAI`（總評、這週、下週重點），數字檢查用 `Coach.isValid(_:source:maxLength: 260)`；
+  沒有就 `WeeklySummary.basic`。組數調整的清單和「這週實際組數」表是程式直接畫的，不經過 AI。

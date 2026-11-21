@@ -25,8 +25,8 @@ enum VolumePlan {
     static var targeted: [Muscle] { Muscle.ordered.filter { range(for: $0) != nil } }
 
     /// 低於下限用 `MuscleStats` 的「太少／快達標」，範圍內「剛好」，超過 upper「偏多」。
-    static func status(_ m: Muscle, sets: Double, upper: Double? = nil) -> MuscleStatus {
-        guard let r = range(for: m) else { return MuscleStats.status(sets) }
+    static func status(_ m: Muscle, sets: Double, upper: Double? = nil, range custom: ClosedRange<Double>? = nil) -> MuscleStatus {
+        guard let r = custom ?? range(for: m) else { return MuscleStats.status(sets) }
         if sets <= 0 { return .none }
         if sets < r.lowerBound { return sets < 6 ? .low : .building }
         if sets > (upper ?? r.upperBound) { return .high }
@@ -63,7 +63,7 @@ enum VolumePlan {
         return out
     }
 
-    private static func primaryMuscles(_ p: MovementPattern) -> Set<Muscle> {
+    static func primaryMuscles(_ p: MovementPattern) -> Set<Muscle> {
         Set(p.muscles.filter { $0.1 >= 1 }.map { $0.0 })
     }
 
@@ -82,7 +82,8 @@ enum VolumePlan {
     /// 2. 進步期：部位一週組數低於下限，就在它「主要出力的單關節動作」加組（每個動作最多 4 組、每天最多加 2 組），輪流加到達標或加不了。
     ///    適應期／減量週本來就刻意少練，不補。
     /// 3. 某天比平衡前多超過 3 組，從「最超過上限的部位」的動作扣（不扣到低於 2 組）。
-    static func balance(days: [DayInput], phase: Phase) -> [[Int]] {
+    /// 4. 進步期：個人組數（`PersonalVolume`，區塊檢討的結果），每週對這個部位加減幾組。
+    static func balance(days: [DayInput], phase: Phase, personal: [Muscle: Int] = [:]) -> [[Int]] {
         let patterns = days.map(\.patterns)
         var sets = days.map(\.sets)
         let before = sets.map { $0.reduce(0, +) }
@@ -128,7 +129,35 @@ enum VolumePlan {
                 extra -= 1
             }
         }
+
+        // 4. 個人組數
+        if phase == .normal {
+            for m in targeted {
+                guard let delta = personal[m], delta != 0 else { continue }
+                applyPersonal(m, delta: delta, patterns: patterns, sets: &sets)
+            }
+        }
         return sets
+    }
+
+    /// 對部位 m 加（減）|delta| 組：輪流分到不同天；加組優先單關節、組數少的，減組優先單關節、組數多的。
+    private static func applyPersonal(_ m: Muscle, delta: Int, patterns: [[MovementPattern]], sets: inout [[Int]]) {
+        var perDay = Array(repeating: 0, count: patterns.count)
+        for _ in 0..<abs(delta) {
+            var best: (d: Int, i: Int)?
+            var bestKey = (Int.max, Int.max, Int.max)
+            for d in patterns.indices {
+                for i in patterns[d].indices where primaryMuscles(patterns[d][i]).contains(m) {
+                    let n = sets[d][i]
+                    if (delta > 0 && n >= PersonalVolume.maxSetsPerExercise) || (delta < 0 && n <= 2) { continue }
+                    let key = (perDay[d], patterns[d][i].region == nil ? 0 : 1, delta > 0 ? n : -n)
+                    if key < bestKey { bestKey = key; best = (d, i) }
+                }
+            }
+            guard let b = best else { return }
+            sets[b.d][b.i] += delta > 0 ? 1 : -1
+            perDay[b.d] += 1
+        }
     }
 
     /// 這個動作主要出力的部位，最超過上限多少組（沒有目標的部位不算）。
@@ -187,6 +216,8 @@ struct VolumeTable: View {
     let sets: [Muscle: Double]
     /// 超過這個數字標成「偏多」；nil = 用部位自己的上限（16）。
     var upper: Double? = nil
+    /// 目標用個人組數（`PersonalVolume`）：內建課表用
+    var personal = false
 
     var body: some View {
         let muscles = VolumePlan.targeted
@@ -200,12 +231,18 @@ struct VolumeTable: View {
 
     private func row(_ m: Muscle) -> some View {
         let value = sets[m] ?? 0
-        let status = VolumePlan.status(m, sets: value, upper: upper)
-        let range = VolumePlan.range(for: m)
+        let range = personal ? PersonalVolume.range(for: m) : VolumePlan.range(for: m)
+        let status = VolumePlan.status(m, sets: value, upper: personal ? nil : upper, range: range)
         let target = range.map { "目標 \(Int($0.lowerBound))–\(Int($0.upperBound))" } ?? ""
+        let offset = personal ? PersonalVolume.offset(m) : 0
         return HStack(spacing: 10) {
             Circle().fill(status.color).frame(width: 9, height: 9)
             Text(m.name).font(.subheadline).foregroundStyle(Theme.fg)
+            if offset != 0 {
+                Text(offset > 0 ? "你 +\(offset)" : "你 \(offset)")
+                    .font(.caption2.weight(.heavy))
+                    .foregroundStyle(offset > 0 ? Theme.green : Theme.hotText)
+            }
             Spacer()
             Text(target).font(.caption).foregroundStyle(Theme.muted)
             Text(Progression.format(value))
@@ -220,6 +257,8 @@ struct VolumeTable: View {
 /// 今天頁的「本週預計組數」：點開才算。
 struct WeeklyVolumeCard: View {
     let plans: () -> [[PlannedExercise]]
+    /// 內建課表：目標用個人組數
+    var personal = false
     @State private var open = false
 
     var body: some View {
@@ -242,7 +281,7 @@ struct WeeklyVolumeCard: View {
                 InfoTip(item: .weeklySets)
             }
             if open {
-                VolumeTable(sets: VolumePlan.weekly(plans: plans()))
+                VolumeTable(sets: VolumePlan.weekly(plans: plans()), personal: personal)
             }
         }
         .padding(14)

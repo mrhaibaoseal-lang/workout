@@ -243,7 +243,7 @@ struct Sparkline: View {
 
 enum Glossary: String, Identifiable {
     case rir, grade, ghost, dropset, pyramid, readiness, record, superset
-    case weeklySets, bigJump, fixedCompound
+    case weeklySets, bigJump, fixedCompound, personalSets, weeklySummary
 
     var id: String { rawValue }
 
@@ -260,6 +260,8 @@ enum Glossary: String, Identifiable {
         case .weeklySets: "每週組數"
         case .bigJump: "重量跳太大"
         case .fixedCompound: "為什麼主要動作不常換"
+        case .personalSets: "個人組數"
+        case .weeklySummary: "每週總結"
         }
     }
 
@@ -304,6 +306,17 @@ enum Glossary: String, Identifiable {
             "臥推、划船、深蹲這類大動作需要練很多次才會熟，新手進步最快的就是「同一個動作越練越重」。"
             + "所以大動作不會每 6 週自動換，會一直練到卡住（停滯）、會痛、或你自己想換才換。\n\n"
             + "手臂、肩膀這類單關節動作比較單純，還是每 6 週換一批，避免太無聊。"
+        case .personalSets:
+            "每個人適合的組數不一樣。練完 App 會問今天練到的部位：上次的痠痛退了沒、關節舒不舒服，點一下就好。\n\n"
+            + "每 6 週（一個區塊）結束時，App 看每個部位相關動作的推估最大力量進步多少，再配合你的回報：\n"
+            + "・進步慢、恢復得好 → 每次多練 1 組\n"
+            + "・進步慢、常常還在痠或會痛 → 每次少練 1 組\n"
+            + "・進步正常 → 不變\n\n"
+            + "調整會記住，下個區塊從這裡開始。內建課表會自動照著排；自訂課表不會自動改，只在每週總結裡建議。"
+        case .weeklySummary:
+            "每週一開始，總結上週練了幾次、每個部位實際練了幾組、破了哪些紀錄、哪些動作卡住。"
+            + "區塊結束的那週，還會列出每個部位的組數調整和理由。\n\n"
+            + "數字都是 App 算的；有 Apple Intelligence 時由 AI 寫成白話，沒有就自動整理。"
         }
     }
 }

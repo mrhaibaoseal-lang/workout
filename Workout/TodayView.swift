@@ -61,6 +61,10 @@ struct TodayView: View {
     @AppStorage(Keys.repCeiling) private var ceilingRaw = ""
     @AppStorage(Keys.extraSet) private var extraRaw = ""
     @AppStorage(Keys.tempRange) private var tempRaw = ""
+    @AppStorage(Keys.muscleSetAdjust) private var adjustRaw = ""
+    @AppStorage(Keys.volumeReviews) private var reviewsRaw = ""
+    @AppStorage(Keys.weeklySummarySeen) private var summarySeen = 0
+    @State private var weeklyFacts: WeeklyFactsItem?
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -78,7 +82,7 @@ struct TodayView: View {
     }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
-        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw)
+        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw, adjustRaw)
         return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
                                    limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
                                    gym: placeRaw == TrainingPlace.gym.rawValue)
@@ -110,6 +114,7 @@ struct TodayView: View {
                             active = ActiveWorkout(day: day, length: .minimal)
                         }, onLeave: { goalSheet = .leave })
                     }
+                    weeklySummaryCard
                     let plans = self.plans
                     let ctx = self.ctx
                     let dates = sessions.map(\.date)
@@ -145,7 +150,16 @@ struct TodayView: View {
                     checkRank()
                 }
             }
-            .onAppear { checkRank() }
+            .onAppear {
+                checkRank()
+                PersonalVolume.reviewIfNeeded(sessions: sessions)
+            }
+            .sheet(item: $weeklyFacts) { item in
+                WeeklySummaryView(facts: item.facts) {
+                    summarySeen = max(summarySeen, item.facts.week)
+                    weeklyFacts = nil
+                }
+            }
             // 練完時訓練畫面還蓋著，等它收起來（onDismiss）再播，才看得到動畫
             .onChange(of: sessions.count) { if active == nil { checkRank() } }
             .sheet(item: $goalSheet) { g in
@@ -502,12 +516,27 @@ struct TodayView: View {
 
     /// 本週預計組數：照目前課表、器材排出一週的完整版，點開才算。
     private var weekVolume: some View {
-        _ = (autoSuperset, kitsRaw, activeProgram, programsRaw, customExercisesRaw, customInAutoPick, avoidRaw, shiftRaw)
+        _ = (autoSuperset, kitsRaw, activeProgram, programsRaw, customExercisesRaw, customInAutoPick, avoidRaw, shiftRaw, adjustRaw)
         return WeeklyVolumeCard(plans: {
             ProgramBuilder.weeklyPlans(equipment: equipment, week: week,
                                        limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
                                        gym: placeRaw == TrainingPlace.gym.rawValue)
-        })
+        }, personal: CustomPrograms.active == nil)
+    }
+
+    // MARK: Weekly summary
+
+    /// 上週總結的入口：每週一次，看過（按「好」）就收起來。
+    @ViewBuilder
+    private var weeklySummaryCard: some View {
+        let _ = (reviewsRaw, summarySeen)
+        let start = Date(timeIntervalSince1970: startDate)
+        if let w = WeeklySummary.pendingWeek(start: start, seen: summarySeen, sessions: sessions) {
+            WeeklySummaryCard(week: w, hasReview: PersonalVolume.review(endingWeek: w) != nil) {
+                weeklyFacts = WeeklyFactsItem(facts: WeeklySummary.facts(week: w, start: start, sessions: sessions,
+                                                                         goal: weeklyGoal))
+            }
+        }
     }
 
     // MARK: Tools
@@ -699,4 +728,10 @@ struct DayDot: View {
             shape.fill(Color(gearHex: "#1F2732"))
         }
     }
+}
+
+/// sheet(item:) 用
+struct WeeklyFactsItem: Identifiable {
+    let facts: WeeklyFacts
+    var id: Int { facts.week }
 }

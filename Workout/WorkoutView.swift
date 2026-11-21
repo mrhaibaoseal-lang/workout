@@ -84,6 +84,9 @@ struct WorkoutView: View {
     /// 練完的教練講評（成果畫面按「好」之後顯示）
     @State private var coach: CoachLoader?
     @State private var showCoach = false
+    /// 練完問的部位（上次的痠痛退了沒、關節）；空的就不問
+    @State private var askMuscles: [Muscle] = []
+    @State private var showMuscleCheck = false
     @State private var toast: String?
     /// 每組器材現在裝成什麼樣子，用來估換重量要多久
     @State private var rigs: [String: RigState] = [:]
@@ -294,25 +297,39 @@ struct WorkoutView: View {
         .preferredColorScheme(.dark)
     }
 
-    /// 練完：先看成果畫面，按「好」再看教練講評。抽出來是為了讓 body 的型別檢查不要太久。
+    /// 練完：先看成果畫面，按「好」再問部位恢復，最後看教練講評。抽出來是為了讓 body 的型別檢查不要太久。
     @ViewBuilder
     private var finishOverlay: some View {
-        if let s = summary, !showCoach {
-            WorkoutCompleteView(summary: s) {
-                if coach != nil {
-                    withAnimation(.easeOut(duration: 0.25)) { showCoach = true }
-                } else {
-                    onFinish()
-                    dismiss()
-                }
-            }
-            .transition(.opacity)
-        } else if showCoach, let c = coach {
+        if showCoach, let c = coach {
             CoachReviewView(loader: c) {
                 onFinish()
                 dismiss()
             }
             .transition(.opacity)
+        } else if showMuscleCheck {
+            MuscleCheckView(muscles: askMuscles) { answers in
+                PersonalVolume.record(answers)
+                toCoach()
+            }
+            .transition(.opacity)
+        } else if let s = summary {
+            WorkoutCompleteView(summary: s) {
+                if askMuscles.isEmpty {
+                    toCoach()
+                } else {
+                    withAnimation(.easeOut(duration: 0.25)) { showMuscleCheck = true }
+                }
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private func toCoach() {
+        if coach != nil {
+            withAnimation(.easeOut(duration: 0.25)) { showCoach = true }
+        } else {
+            onFinish()
+            dismiss()
         }
     }
 
@@ -952,6 +969,9 @@ struct WorkoutView: View {
         try? context.save()
         recordJumpState(at: now)
         coach = CoachLoader(facts: coachFacts(session: session))
+        askMuscles = PersonalVolume.musclesToAsk(
+            done: drafts.map { d in (exercise: d.item.exercise, sets: d.sets.filter { $0.done && $0.kind == .work }.count) },
+            history: sessions.filter { $0 !== session }, now: now)
         // 停滯後減重重新爬的動作：從這次之後重新算
         for d in drafts where d.plateauReset && d.sets.contains(where: { $0.done && $0.kind == .work }) {
             Plateau.markReset(d.item.exercise.id)

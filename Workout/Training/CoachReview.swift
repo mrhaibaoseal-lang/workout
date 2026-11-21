@@ -137,10 +137,15 @@ enum Coach {
 
     /// 模型寫的內容只能用資料裡出現過的數字，也不能有簡體字。
     static func isValid(_ r: CoachReply, facts: CoachFacts) -> Bool {
+        isValid(r, source: facts.prompt)
+    }
+
+    /// source = 交給模型的資料；寫出來的數字都要在裡面出現過。
+    static func isValid(_ r: CoachReply, source: String, maxLength: Int = 220) -> Bool {
         let text = r.headline + r.highlight + r.nextTime
-        guard !r.headline.isEmpty, !r.nextTime.isEmpty, text.count <= 220 else { return false }
+        guard !r.headline.isEmpty, !r.nextTime.isEmpty, text.count <= maxLength else { return false }
         if text.contains(where: { simplified.contains($0) }) { return false }
-        let allowed = Set(numbers(in: facts.prompt))
+        let allowed = Set(numbers(in: source))
         return numbers(in: text).allSatisfy { allowed.contains($0) }
     }
 

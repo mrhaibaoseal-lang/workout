@@ -288,7 +288,7 @@ enum ProgramBuilder {
                      sets: slotSets(day.slots[i], day: day, phase: phase, length: .full, extra: false))
                 })
         }
-        let result = VolumePlan.balance(days: inputs, phase: phase)
+        let result = VolumePlan.balance(days: inputs, phase: phase, personal: PersonalVolume.offsets)
         return zip(raws, result).map { raw, counts in
             var items = raw.items
             for i in items.indices where i < counts.count { items[i].sets = counts[i] }
