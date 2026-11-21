@@ -634,6 +634,7 @@ struct WorkoutView: View {
         let old = drafts[i]
         let it = item ?? old.item
         var d = makeDraft(it, firstInRegion: isFirstInRegion(it.exercise, before: i), scheme: scheme ?? old.chosen)
+        if item == nil { d.note = old.note }
         let doneWarm = old.sets.filter { $0.done && $0.kind == .warmup }
         if !doneWarm.isEmpty {
             d.sets = doneWarm + d.sets.filter { $0.kind != .warmup }
