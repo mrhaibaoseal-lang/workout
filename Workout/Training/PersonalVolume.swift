@@ -283,9 +283,10 @@ enum PersonalVolume {
         d.set(block, forKey: Keys.volumeReviewedBlock)
 
         let prev = block - 1
-        let bw = ProgramBuilder.blockWeeks
-        let from = weekStart(max(3, prev * bw + 1), start: start)
-        let to = weekStart(prev * bw + bw, start: start)   // 減量週之前
+        // 上一個區塊：從它的第一週（第一個區塊跳過適應期）到減量週之前（`BlockClock`，區塊長度會變）
+        let prevLoc = BlockClock.locate(week: BlockClock.locate(week: Stats.week(since: start)).start - 1)
+        let from = weekStart(max(3, prevLoc.start), start: start)
+        let to = weekStart(prevLoc.deload, start: start)
         var saved = store.load()
         var decisions: [MuscleDecision] = []
         for m in VolumePlan.targeted {
@@ -305,9 +306,9 @@ enum PersonalVolume {
 
     /// 這一週結束時做的檢討（第 n 週是某個區塊的最後一週）。
     static func review(endingWeek n: Int) -> BlockReview? {
-        guard n % ProgramBuilder.blockWeeks == 0 else { return nil }
-        let block = n / ProgramBuilder.blockWeeks - 1
-        return reviews().last { $0.block == block }
+        let loc = BlockClock.locate(week: n)
+        guard loc.deload == n else { return nil }
+        return reviews().last { $0.block == loc.block }
     }
 
     static func reset() {

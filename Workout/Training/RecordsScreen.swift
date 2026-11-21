@@ -36,8 +36,12 @@ struct RecordsScreen: View {
         let rows = book.values
             .filter { !$0.history.isEmpty }
             .sorted { ($0.lastDate ?? .distantPast) > ($1.lastDate ?? .distantPast) }
-        let deloadActive = Plateau.deloadActive
-        let suggestDeload = !deloadActive && Plateau.shouldSuggestDeload(sessions: sessions)
+        let deloadEnd = Plateau.currentDeloadEnd
+        // 0.26.0：停滯建議減量併進疲勞判斷（`Fatigue`）
+        let suggestDeload: Bool = {
+            guard deloadEnd == nil, case .early = Fatigue.offer(week: Plateau.currentWeek, sessions: sessions) else { return false }
+            return true
+        }()
 
         return ScrollView {
             VStack(spacing: 12) {
@@ -53,7 +57,7 @@ struct RecordsScreen: View {
                         summaryTile("\(stalled.count)", "停滯中的動作", color: stalled.isEmpty ? Theme.fg : Theme.gold)
                     }
 
-                    if deloadActive, let end = Plateau.deloadEnd {
+                    if let end = deloadEnd {
                         deloadActiveCard(end)
                     } else if suggestDeload {
                         deloadSuggestCard
@@ -108,7 +112,7 @@ struct RecordsScreen: View {
                 Text("建議這週改成減量週")
                     .font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
             }
-            Text("好幾個動作都卡住了，整體疲勞可能累積。這週減量休息，下週再重新衝。")
+            Text("好幾個動作卡住、疲勞在累積。這週減量休息，下週換一批動作再重新衝。")
                 .font(.caption).foregroundStyle(Theme.muted)
             Button {
                 Plateau.startDeload(sessions: sessions)

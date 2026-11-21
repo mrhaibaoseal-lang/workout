@@ -68,6 +68,12 @@ struct TodayView: View {
     @AppStorage(Keys.weekMerge) private var weekMergeRaw = ""
     @AppStorage(Keys.weekMergeDismissed) private var weekMergeDismissed: Double = 0
     @State private var weeklyFacts: WeeklyFactsItem?
+    // 減量時機、升中階（0.26.0）
+    @AppStorage(Keys.deloadOverrides) private var deloadRaw = ""
+    @AppStorage(Keys.deloadAskedWeek) private var deloadAskedWeek = 0
+    @AppStorage(Keys.trainingLevel) private var levelRaw = ""
+    @AppStorage(Keys.graduationSnooze) private var graduationSnooze: Double = 0
+    @State private var showGraduation = false
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -76,7 +82,10 @@ struct TodayView: View {
     }
 
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
-    private var phase: Phase { ProgramBuilder.phase(week: week) }
+    private var phase: Phase {
+        _ = deloadRaw
+        return ProgramBuilder.phase(week: week)
+    }
     private var day: DayTemplate {
         _ = (activeProgram, programsRaw, customExercisesRaw, customInAutoPick, builtInRaw, weekMergeRaw, weekMergeDismissed)
         TrainingHistory.sync(sessions)
@@ -86,7 +95,7 @@ struct TodayView: View {
     }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
-        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw, adjustRaw)
+        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw, adjustRaw, deloadRaw, levelRaw)
         return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
                                    limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
                                    gym: placeRaw == TrainingPlace.gym.rawValue)
@@ -124,6 +133,7 @@ struct TodayView: View {
                         }, onLeave: { goalSheet = .leave })
                     }
                     weeklySummaryCard
+                    coachCards
                     let plans = self.plans
                     if pickedDay == nil, onLeave == nil, let offer = mergeOffer(plans) {
                         MergeDayCard(offer: offer, onAccept: {
@@ -169,6 +179,9 @@ struct TodayView: View {
             .onAppear {
                 checkRank()
                 PersonalVolume.reviewIfNeeded(sessions: sessions)
+            }
+            .fullScreenCover(isPresented: $showGraduation) {
+                GraduationCelebration { showGraduation = false }
             }
             .sheet(item: $weeklyFacts) { item in
                 WeeklySummaryView(facts: item.facts) {
@@ -502,7 +515,8 @@ struct TodayView: View {
                                 Text(r.item.exercise.name)
                                     .font(.subheadline.weight(.bold))
                                     .foregroundStyle(Theme.fg)
-                                Text("\(r.item.sets) 組 × \(r.item.low)–\(r.item.high) \(r.item.exercise.unit.label)")
+                                Text("\(r.item.sets) 組 × \(r.item.low)–\(r.item.high) \(r.item.exercise.unit.label)"
+                                     + (r.item.intensity?.tag.map { " · \($0)日" } ?? ""))
                                     .font(.caption)
                                     .foregroundStyle(Theme.muted)
                                 if let g = r.item.group {
@@ -556,6 +570,37 @@ struct TodayView: View {
 
     /// 上週總結的入口：每週一次，看過（按「好」）就收起來。
     @ViewBuilder
+    /// 減量時機（提早／延後）和升中階的卡片，一次最多一張；減量優先。
+    @ViewBuilder
+    private var coachCards: some View {
+        let _ = (deloadRaw, deloadAskedWeek, levelRaw, graduationSnooze)
+        let w = week
+        if trainedToday || pickedDay != nil {
+            EmptyView()
+        } else if let offer = Fatigue.offer(week: w, sessions: sessions) {
+            DeloadOfferCard(offer: offer, onAccept: {
+                let early: Bool
+                switch offer {
+                case .early: early = true
+                case .postpone: early = false
+                }
+                withAnimation {
+                    if early { Plateau.startDeload(sessions: sessions) }
+                    else { _ = BlockClock.postpone(week: w) }
+                }
+            }, onDecline: {
+                withAnimation { BlockClock.markAsked(week: w) }
+            })
+        } else if let g = Graduation.offer(week: w, sessions: sessions) {
+            GraduationCard(offer: g, onAccept: {
+                Graduation.setLevel(.intermediate)
+                showGraduation = true
+            }, onSnooze: {
+                withAnimation { Graduation.snooze() }
+            })
+        }
+    }
+
     private var weeklySummaryCard: some View {
         let _ = (reviewsRaw, summarySeen)
         let start = Date(timeIntervalSince1970: startDate)

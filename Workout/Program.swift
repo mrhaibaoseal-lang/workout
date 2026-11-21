@@ -97,6 +97,8 @@ struct PlannedExercise: Identifiable {
     var kit: String? = nil
     /// 超級組裡和別的動作共用這組器材（分不開），每輪要換重量。
     var sharedKit: String? = nil
+    /// 中階排法：這天的主要動作練重還是輕（`Graduation`）；新手、自訂課表是 nil。
+    var intensity: Intensity? = nil
 
     var id: String { exercise.id }
     var baseLow: Int { base?.lowerBound ?? low }
@@ -112,12 +114,12 @@ struct PlannedExercise: Identifiable {
         var item = PlannedExercise(exercise: ex, sets: max(1, sets + extra), low: adj.low, high: adj.high, base: range,
                                    restSeconds: restSeconds, essential: essential)
         item.group = group
+        item.intensity = intensity
         return item
     }
 }
 
 enum ProgramBuilder {
-    static let blockWeeks = 6
 
     /// 新手增肌的上下半身分化（每週 4 天，每個部位一週練 2 次）。
     /// 每個肌群一週大約 9–12 個正式組：新手這個量就會一直長，不用練到爆。
@@ -224,13 +226,14 @@ enum ProgramBuilder {
         // 停 21 天以上回來的那一週當適應期（`Comeback`）
         if Comeback.rampUpActive { return .rampUp }
         if week <= 2 { return .rampUp }
-        if week % blockWeeks == 0 { return .deload }
+        // 減量週照區塊時鐘：預設每 6 週，疲勞高可以提早、狀態好可以延後（`BlockClock`、`Fatigue`）
+        if BlockClock.locate(week: week).deload == week { return .deload }
         return .normal
     }
 
     /// Exercise variants rotate after every deload week.
     static func block(week: Int) -> Int {
-        (week - 1) / blockWeeks
+        BlockClock.locate(week: week).block
     }
 
     /// 一天排好的動作（還沒分超級組）。slotOf = 每個動作來自課表的第幾格。
@@ -336,7 +339,8 @@ enum ProgramBuilder {
                      sets: slotSets(day.slots[i], day: day, phase: phase, length: .full, extra: false))
                 })
         }
-        let result = VolumePlan.balance(days: inputs, phase: phase, personal: PersonalVolume.offsets)
+        // 個人組數＋中階的區塊加組（`Graduation.offsets`）
+        let result = VolumePlan.balance(days: inputs, phase: phase, personal: Graduation.offsets(week: week))
         return zip(raws, result).map { raw, counts in
             var items = raw.items
             for i in items.indices where i < counts.count { items[i].sets = counts[i] }
@@ -395,14 +399,23 @@ enum ProgramBuilder {
                                 length: WorkoutLength, replaced: String?) -> PlannedExercise {
         let sets = slotSets(slot, day: day, phase: phase, length: length, extra: JumpGuard.hasExtraSet(exercise.id))
 
-        let rest: Int
+        // 中階：內建課表的主要動作一天重（6–8 下）、一天輕（12–15 下）；全身日照原本那一天
+        var intensity: Intensity? = nil
+        if Graduation.intermediateActive, !day.custom, slot.essential, slot.pattern.region != nil,
+           exercise.range == nil, exercise.loaded {
+            intensity = Graduation.intensity(dayId: slot.source ?? day.id)
+        }
+
+        var rest: Int
         switch length {
         case .full: rest = slot.rest ?? (slot.essential ? 120 : 60)
         case .short: rest = min(slot.rest ?? 60, 60)
         case .minimal: rest = 90
         }
+        if length == .full, intensity == .heavy { rest = max(rest, 150) }
+        if length == .full, intensity == .light { rest = min(rest, 90) }
 
-        let range = exercise.range ?? slot.low...slot.high
+        let range = exercise.range ?? intensity?.range ?? slot.low...slot.high
         // 「重量跳太大」暫時拉長的次數上限、降低的次數範圍
         let adj = JumpGuard.adjust(id: exercise.id, low: range.lowerBound, high: range.upperBound)
         return PlannedExercise(
@@ -413,7 +426,8 @@ enum ProgramBuilder {
             base: range,
             restSeconds: rest,
             essential: slot.essential,
-            replaced: replaced
+            replaced: replaced,
+            intensity: intensity
         )
     }
 
@@ -566,6 +580,10 @@ enum Progression {
             return Suggestion(weight: lastWeight, reps: min(bestReps, item.high),
                               note: "適應期：用上次的重量，別拚到力竭")
         case .normal:
+            // 中階：次數範圍換成重日／輕日，上次的重量差太多時用推估最大力量換算
+            if let sw = Graduation.rangeSwitch(item, top: top, lastWeight: lastWeight, ladder: ladder) {
+                return sw
+            }
             if ex.loaded, let t = JumpGuard.tempRange(ex.id) {
                 if lastWeight <= t.from + 0.01 {
                     // 上次決定「加重但暫時降低次數」，這次換上新重量
@@ -580,6 +598,10 @@ enum Progression {
                 if ex.loaded {
                     let next = ladder.up(lastWeight)
                     if next <= lastWeight + 0.01 {
+                        if item.intensity == .heavy {
+                            return Suggestion(weight: lastWeight, reps: item.high,
+                                              note: "器材最重了：重日改慢速（下放 3 秒、最低點停 1 秒）做 \(item.low)–\(item.high) 下，或按「換一個動作」換單側版本")
+                        }
                         return Suggestion(weight: lastWeight, reps: bestReps + 1,
                                           note: "已經是你器材最重的了，改成多做 1 下，或下放放慢到 3 秒")
                     }

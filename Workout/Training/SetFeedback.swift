@@ -244,7 +244,7 @@ struct Sparkline: View {
 enum Glossary: String, Identifiable {
     case rir, grade, ghost, dropset, pyramid, readiness, record, superset
     case weeklySets, bigJump, fixedCompound, personalSets, weeklySummary
-    case startWeight, comeback, mergeDay
+    case startWeight, comeback, mergeDay, fatigue, graduation
 
     var id: String { rawValue }
 
@@ -266,6 +266,8 @@ enum Glossary: String, Identifiable {
         case .startWeight: "第一次做的重量"
         case .comeback: "停練回來"
         case .mergeDay: "併成全身日"
+        case .fatigue: "疲勞決定減量時機"
+        case .graduation: "新手畢業到中階"
         }
     }
 
@@ -335,6 +337,22 @@ enum Glossary: String, Identifiable {
             "這週剩下能練的天數，排不完課表剩下的天時，App 會建議把幾天併成一天全身日，每個部位至少練到一次。\n\n"
             + "全身日挑每天的主要動作，同一個部位已經有動作練到就不重複，再補側平舉、手臂、後肩這類小部位，"
             + "每個動作 2～3 組，比平常長一點。併了之後，剩下的天照原本的課表；下週從第一天重新開始。"
+        case .fatigue:
+            "減量週本來固定每 6 週一次。現在 App 會看最近 2 週的疲勞，決定提早還是延後：\n\n"
+            + "・訓練前狀態比你平常低 2 分以上\n"
+            + "・同一個重量，能做的下數（次數＋還剩幾下）少了 2 下以上\n"
+            + "・做到力竭（還剩 0 下）的組變多\n"
+            + "・練完回報「還在痠」變多\n"
+            + "・好幾個動作連續沒進步\n\n"
+            + "有 2 項以上就建議提早減量（至少練滿 3 個進步週）。到了減量週，如果狀態好、主要動作還在進步，"
+            + "可以延後 1 週，最多延 2 次。都會先問你。"
+        case .graduation:
+            "新手每次做到次數上限就加重，進步很快。練了一段時間後，主要動作會加不上去，這時換中階排法：\n\n"
+            + "・主要動作一天練重（6–8 下、休息久一點）、一天練輕（12–15 下）\n"
+            + "・區塊裡每 2 週，每個部位每次多練 1 組\n"
+            + "・啞鈴到頂的重日，改慢速或單側版本\n\n"
+            + "條件：至少練滿 12 週（一週 2 次以上）、減量後主要動作六成以上還是 3 週沒進步。"
+            + "剛換範圍時，App 會用推估最大力量換算第一次的重量。設定裡可以切回新手。"
         }
     }
 }

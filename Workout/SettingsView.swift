@@ -90,6 +90,7 @@ struct SettingsView: View {
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
+    @AppStorage(Keys.trainingLevel) private var levelRaw = TrainingLevel.beginner.rawValue
     @AppStorage(Keys.reminderOn) private var reminderOn = true
     @AppStorage(Keys.reminderLead) private var reminderLead = 0
     @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
@@ -309,13 +310,20 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("目前", value: "第 \(Stats.week(since: Date(timeIntervalSince1970: startDate))) 週")
+                    Picker("排法", selection: $levelRaw) {
+                        ForEach(TrainingLevel.allCases) { l in
+                            Text(l.title).tag(l.rawValue)
+                        }
+                    }
+                    .frame(minHeight: 44)
                     Button("從第 1 週重新開始") { confirmRestart = true }
                         .foregroundStyle(Theme.hotText)
                         .frame(minHeight: 44)
                 } header: {
                     SectionLabel("週期")
                 } footer: {
-                    SectionLabel("第 1-2 週是適應期，之後每 6 週有一次減量週，減量週後換一批動作。重新開始不會刪除紀錄。")
+                    SectionLabel("第 1-2 週是適應期，之後大約每 6 週有一次減量週（疲勞高會提早、狀態好可以延後，都會先問你），減量週後換一批動作。"
+                                 + "\(TrainingLevel(rawValue: levelRaw)?.detail ?? TrainingLevel.beginner.detail)中階只套用在內建課表。重新開始不會刪除紀錄。")
                 }
                 .listRowBackground(Theme.surface)
 

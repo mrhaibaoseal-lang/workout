@@ -24,7 +24,6 @@ struct PlateauInfo: Identifiable {
 enum Plateau {
     static let minSessions = 4
     static let stallSessions = 3
-    static let deloadCooldownDays = 21
 
     // MARK: Reset store
 
@@ -137,30 +136,10 @@ enum Plateau {
         return t > 0 && Date.now.timeIntervalSince1970 < t
     }
 
-    static func shouldSuggestDeload(sessions: [WorkoutSession]) -> Bool {
-        if deloadActive { return false }
-        let last = defaults.double(forKey: Keys.lastDeloadStart)
-        if last > 0 {
-            let days = Date.now.timeIntervalSince1970 - last
-            if days < Double(deloadCooldownDays) * 86_400 { return false }
-        }
-        let all = perfs(sessions: sessions, resets: resets())
-        let infos = all.compactMap { analyze(id: $0.key, list: $0.value) }
-        guard !infos.isEmpty else { return false }
-        let cutoff = Date.now.addingTimeInterval(-14 * 86_400)
-        let recentTrained = all.values.filter { ($0.first?.date ?? .distantPast) >= cutoff }.count
-        let stalledRecent = infos.filter { $0.lastDate >= cutoff }.count
-        if stalledRecent >= 3 { return true }
-        return stalledRecent >= 2 && recentTrained > 0
-            && Double(stalledRecent) / Double(recentTrained) >= 0.4
-    }
-
-    /// 這週改成減量週（到本週結束），並讓目前停滯的動作重新計算。
+    /// 這週改成減量週（0.26.0 起改區塊時鐘：目前區塊提早在這週減量），並讓目前停滯的動作重新計算。
     /// sessions 用來找出停滯的動作；不傳就只開減量週。
     static func startDeload(sessions: [WorkoutSession] = []) {
-        let end = SharedStore.calendar.date(byAdding: .day, value: 7, to: SharedStore.weekStart(.now))
-            ?? Date.now.addingTimeInterval(7 * 86_400)
-        defaults.set(end.timeIntervalSince1970, forKey: Keys.deloadUntil)
+        BlockClock.deloadNow(week: currentWeek)
         defaults.set(Date.now.timeIntervalSince1970, forKey: Keys.lastDeloadStart)
         if !sessions.isEmpty {
             var dict = resets()
@@ -168,6 +147,20 @@ enum Plateau {
             for info in stalled(sessions: sessions) { dict[info.exerciseId] = now }
             saveResets(dict)
         }
+    }
+
+    static var currentWeek: Int {
+        let start = defaults.double(forKey: Keys.startDate)
+        return start > 0 ? Stats.week(since: Date(timeIntervalSince1970: start)) : 1
+    }
+
+    /// 這週是不是減量週（舊版的減量週或區塊時鐘排到的），是的話回傳結束時間。
+    static var currentDeloadEnd: Date? {
+        if deloadActive { return deloadEnd }
+        let week = currentWeek
+        guard week > 2, BlockClock.locate(week: week).deload == week else { return nil }
+        let start = Date(timeIntervalSince1970: defaults.double(forKey: Keys.startDate))
+        return PersonalVolume.weekStart(week + 1, start: start)
     }
 
     // MARK: Suggestion tweak
