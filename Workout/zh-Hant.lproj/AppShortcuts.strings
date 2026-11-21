@@ -1,0 +1,5 @@
+/* 捷徑／Siri 的語句（繁體中文） */
+"${applicationName}開始今天的訓練" = "${applicationName}開始今天的訓練";
+"用${applicationName}開始訓練" = "用${applicationName}開始訓練";
+"${applicationName}完成一組" = "${applicationName}完成一組";
+"在${applicationName}完成這一組" = "在${applicationName}完成這一組";

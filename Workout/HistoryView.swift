@@ -4,15 +4,17 @@ import SwiftData
 struct HistoryView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
+    @Query(sort: \IntervalLog.date, order: .reverse) private var intervals: [IntervalLog]
 
     var body: some View {
         NavigationStack {
             Group {
-                if sessions.isEmpty {
+                if sessions.isEmpty && intervals.isEmpty {
                     ContentUnavailableView("還沒有紀錄", systemImage: "list.bullet.rectangle",
                                            description: Text("完成的訓練會出現在這裡。"))
                 } else {
                     List {
+                        Section {
                         ForEach(sessions) { s in
                             NavigationLink {
                                 SessionDetailView(session: s)
@@ -40,6 +42,15 @@ struct HistoryView: View {
                         }
                         .onDelete { offsets in
                             for i in offsets { context.delete(sessions[i]) }
+                        }
+                        }
+                        if !intervals.isEmpty {
+                            Section("間歇計時（不算牌位）") {
+                                ForEach(intervals) { IntervalLogRow(log: $0) }
+                                    .onDelete { offsets in
+                                        for i in offsets { context.delete(intervals[i]) }
+                                    }
+                            }
                         }
                     }
                 }

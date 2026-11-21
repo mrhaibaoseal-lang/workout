@@ -33,6 +33,8 @@ struct TodayView: View {
     @State private var length: WorkoutLength = .full
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
+    @State private var showIntervals = false
+    @ObservedObject private var commands = AppCommands.shared
     @AppStorage(Keys.lastRankIndex) private var lastRankIndex = -1
     @AppStorage(Keys.lastRankPoints) private var lastRankPoints = -1
     @AppStorage(Keys.lastRankCheck) private var lastRankCheck: Double = 0
@@ -113,6 +115,7 @@ struct TodayView: View {
                               activeBet: ctx.bets.first(where: { $0.week == current.week }),
                               onSheet: { goalSheet = $0 })
                     exerciseList
+                    toolsRow
                     boxStrip
                 }
                 .padding(.horizontal, 16)
@@ -146,6 +149,18 @@ struct TodayView: View {
             }
             .fullScreenCover(item: $settlement, onDismiss: { checkRank() }) { s in
                 WeeklySettlementView(settlement: s)
+            }
+            .fullScreenCover(isPresented: $showIntervals) {
+                IntervalScreen()
+            }
+            // 捷徑「開始今天的訓練」（冷啟動時訂閱當下就會收到）
+            .onReceive(commands.$pendingStart) { pending in
+                guard pending else { return }
+                commands.pendingStart = false
+                guard active == nil else { return }
+                showIntervals = false
+                let planned = plans.first.flatMap { $0.done ? nil : $0.length }
+                active = ActiveWorkout(day: day, length: planned ?? length)
             }
             .fullScreenCover(item: $active, onDismiss: { checkRank() }) { a in
                 WorkoutView(day: a.day, length: a.length, week: week) {
@@ -460,6 +475,38 @@ struct TodayView: View {
                 .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
             }
         }
+    }
+
+    // MARK: Tools
+
+    private var toolsRow: some View {
+        Button {
+            showIntervals = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "timer")
+                    .font(.title3)
+                    .foregroundStyle(Theme.hotText)
+                    .frame(width: 46, height: 46)
+                    .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("間歇計時")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.fg)
+                    Text("Tabata、EMOM、AMRAP，練完加練用")
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Theme.muted)
+            }
+            .padding(14)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Supply box

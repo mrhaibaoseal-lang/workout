@@ -13,7 +13,7 @@ struct WorkoutApp: App {
         WindowGroup {
             RootView()
         }
-        .modelContainer(for: [WorkoutSession.self, SetEntry.self, BodyLog.self])
+        .modelContainer(for: [WorkoutSession.self, SetEntry.self, BodyLog.self, IntervalLog.self])
     }
 }
 
@@ -21,6 +21,8 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @StateObject private var inventory = InventoryStore()
+    @ObservedObject private var commands = AppCommands.shared
+    @State private var tab = 0
     @AppStorage(Keys.onboarded) private var onboarded = false
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.reminderOn) private var reminderOn = true
@@ -43,18 +45,23 @@ struct RootView: View {
     var body: some View {
         Group {
             if onboarded {
-                TabView {
+                TabView(selection: $tab) {
                     TodayView()
                         .tabItem { Label("今天", systemImage: "figure.strengthtraining.traditional") }
+                        .tag(0)
                     CharacterScreen()
                         .tabItem { Label("角色", systemImage: "figure.strengthtraining.functional") }
+                        .tag(1)
                         .badge(inventory.boxesAvailable(sessionCount: GoalEngine.boxTotal(sessions: sessions, goal: weeklyGoal)))
                     ProgressScreen()
                         .tabItem { Label("進步", systemImage: "chart.line.uptrend.xyaxis") }
+                        .tag(2)
                     AgendaView()
                         .tabItem { Label("行程", systemImage: "calendar") }
+                        .tag(3)
                     SettingsView()
                         .tabItem { Label("設定", systemImage: "gearshape") }
+                        .tag(4)
                 }
             } else {
                 OnboardingView()
@@ -64,6 +71,8 @@ struct RootView: View {
         .preferredColorScheme(.dark)
         .tint(Theme.accent)
         .onChange(of: syncKey) { sync() }
+        // 捷徑「開始今天的訓練」：先切到今天頁，今天頁會打開訓練畫面
+        .onReceive(commands.$pendingStart) { if $0 { tab = 0 } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { sync() }
         }

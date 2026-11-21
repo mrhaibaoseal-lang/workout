@@ -142,6 +142,10 @@ enum Keys {
     static let activeProgram = "activeProgram"
     /// 自動挑動作時也排自訂動作（預設關）
     static let customInAutoPick = "customInAutoPick"
+    /// 每個動作上次用的節奏，JSON [exerciseId: "3-1-1"]
+    static let tempos = "tempos"
+    /// 間歇計時上次的設定，JSON [IntervalKind: IntervalSetup]
+    static let intervalSetups = "intervalSetups"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60

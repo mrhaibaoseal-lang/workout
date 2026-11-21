@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// Muted section header / footer text for dark Forms.
 struct SectionLabel: View {
@@ -98,6 +99,9 @@ struct SettingsView: View {
     @AppStorage(Keys.readPhoneCalendar) private var readPhoneCalendar = false
     @State private var confirmRestart = false
     @State private var shiftInfo = ShiftReader.load()
+    @Environment(\.modelContext) private var context
+    @State private var exportFiles: ExportFiles?
+    @State private var exportError: String?
 
     private func hourLabel(_ h: Int) -> String {
         h >= 24 ? "凌晨 \(h - 24):00" : "\(h):00"
@@ -304,10 +308,32 @@ struct SettingsView: View {
                     SectionLabel("第 1-2 週是適應期，之後每 6 週有一次減量週，減量週後換一批動作。重新開始不會刪除紀錄。")
                 }
                 .listRowBackground(Theme.surface)
+
+                Section {
+                    Button {
+                        export()
+                    } label: {
+                        Label("匯出 CSV", systemImage: "square.and.arrow.up")
+                    }
+                    .frame(minHeight: 44)
+                } header: {
+                    SectionLabel("資料")
+                } footer: {
+                    SectionLabel("「每組紀錄」和「身體數據」各一個檔（有間歇紀錄會多一個），可以用 Excel、Numbers 打開。重量一律是 kg。用分享選單存到「檔案」。")
+                }
+                .listRowBackground(Theme.surface)
             }
             .themeForm()
             .toolbar(.hidden, for: .navigationBar)
             .onAppear { shiftInfo = ShiftReader.load() }
+            .sheet(item: $exportFiles) { f in
+                ShareSheet(items: f.urls)
+            }
+            .alert("匯出失敗", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+                Button("好") {}
+            } message: {
+                Text(exportError ?? "")
+            }
             .confirmationDialog("從第 1 週重新開始？", isPresented: $confirmRestart, titleVisibility: .visible) {
                 Button("重新開始") { startDate = Date().timeIntervalSince1970 }
             } message: {
@@ -389,5 +415,23 @@ struct WeekdayPicker: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct ExportFiles: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+}
+
+private extension SettingsView {
+    func export() {
+        do {
+            let sessions = try context.fetch(FetchDescriptor<WorkoutSession>())
+            let bodies = try context.fetch(FetchDescriptor<BodyLog>())
+            let intervals = try context.fetch(FetchDescriptor<IntervalLog>())
+            exportFiles = ExportFiles(urls: try CSVExport.files(sessions: sessions, bodies: bodies, intervals: intervals))
+        } catch {
+            exportError = error.localizedDescription
+        }
     }
 }

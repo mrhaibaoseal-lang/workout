@@ -119,3 +119,28 @@
 - **任務獎勵**：熱身全部做完每個動作 +1 碎片（最多 3）；做完 Drop set 每個動作 +2（最多 4）。成果畫面顯示 PERFECT／GOOD／MISS 次數。
 - **術語說明**：使用者是新手，畫面用白話（「還能再做幾下？」「推估最大力量」「個人紀錄」），術語旁邊放 `InfoTip`（ⓘ），
   說明文字在 `Glossary`。新增術語時一起加說明。
+
+## 工具（0.20.0，`Tools/`）
+
+- **提示音／震動**（`Cue.swift`）：程式產生的正弦波 WAV，音訊用 `.playback` + `.mixWithOthers`
+  （靜音開關也聽得到、不打斷音樂）。tick（輕）、count（3-2-1）、go（開始）、rest（低音）、done（三連音）。
+  背景提醒用 `ToolAlerts`（本機通知，id 前綴區分）。
+- **間歇計時**（`IntervalTimer.swift`、`IntervalScreen.swift`）：今天頁「間歇計時」進入。
+  Tabata（20/10 × 8，可改回合）、EMOM（每輪秒數 × 輪數）、AMRAP（限時，按「+1 輪」）、自訂（做／休／回合）。
+  先倒數 10 秒準備。用開始時間＋暫停累計算目前階段，切背景回來直接跳到正確位置（`resync` 不補播聲音）；
+  開始時把每段的開始時間排成通知（上限 50 則）。每種類型的設定記在 `Keys.intervalSetups`。
+  做了 10 秒以上才存 `IntervalLog`（SwiftData，**和 WorkoutSession 分開**，所以不算牌位、週任務、連續天數）；
+  歷史頁另一區顯示，可刪。
+- **等長計時**（`HoldTimer.swift`）：以秒計的動作（`unit == .seconds`）在「這一組」裡有「開始計時」：
+  倒數 3、2、1 → 往上數（每 10 秒輕滴、目標前 3 秒倒數）→ 到目標 done 音＋震動，可以繼續撐 →
+  「放下」把秒數填進這組（還是要按「完成這一組」）。鎖屏時到目標會有通知。
+- **節拍器**（`Metronome.swift`，`TempoBar`）：以次數計的動作在「這一組」裡，預設關，按 ▶︎ 開始。
+  節奏「放-停-起」秒數，例如 3-1-1；先倒數 3 秒，之後循環：慢慢放（低音）、停住（輕滴）、用力（高音），
+  放和停的每一秒輕滴，顯示第幾下。每個動作記住上次的節奏（`Keys.tempos`），預設 3-1-1。這組做完（編輯器消失）自動停。
+- **捷徑／Siri**（`WorkoutIntents.swift`）：`StartTodayWorkoutIntent`（開 App → 切到今天頁 → 開今天的訓練，
+  長度用今天排程的，沒排就用目前選的）、`CompleteSetIntent`（不開 App；訓練畫面開著時用目前這組預定的重量／次數
+  完成，直接排休息通知和 Live Activity，Siri 回「啞鈴臥推 12.5 公斤 10 下，完成。休息 90 秒」）。
+  橋接用 `AppCommands.shared`。語句在 `zh-Hant.lproj/AppShortcuts.strings`；專案開發語言設成 zh-Hant。
+- **匯出 CSV**（`CSVExport.swift`）：設定 →「資料」→ 匯出。每組紀錄、身體數據各一檔（有間歇紀錄多一檔），
+  UTF-8 BOM＋CRLF，重量 kg。用系統分享選單。
+- kg／lb 切換沒做（見 roadmap「之後再說」）。

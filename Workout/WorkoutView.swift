@@ -235,8 +235,12 @@ struct WorkoutView: View {
             .onAppear {
                 buildDrafts()
                 RestAlerts.requestAuthorization()
+                AppCommands.shared.completeSet = { completeFromShortcut() }
             }
-            .onDisappear { RestAlerts.stop() }
+            .onDisappear {
+                RestAlerts.stop()
+                AppCommands.shared.completeSet = nil
+            }
             .onChange(of: restActivity) { _, state in
                 if let state {
                     RestAlerts.start(day: day.name, state: state)
@@ -563,6 +567,32 @@ struct WorkoutView: View {
             restEnd = nil
             restAfter = nil
         }
+    }
+
+    /// 捷徑／Siri「完成一組」：用目前這組預定的重量和次數記錄（App 在背景也會跑）。
+    private func completeFromShortcut() -> String {
+        guard readiness != nil else { return "先回到練壯回答訓練前狀態，再開始第一組。" }
+        guard summary == nil else { return "這次訓練已經結束了。" }
+        guard let id = activeSetId,
+              let i = drafts.firstIndex(where: { $0.sets.contains { $0.id == id } }),
+              let set = drafts[i].sets.first(where: { $0.id == id }) else {
+            return "全部都做完了，回到練壯按「完成」。"
+        }
+        let ex = drafts[i].item.exercise
+        let what = ex.loaded && set.weight > 0
+            ? "\(Progression.format(set.weight)) 公斤 \(set.reps) 下" : "\(set.reps) \(ex.unit == .seconds ? "秒" : "下")"
+        complete(set: id, in: i)
+        // App 在背景時畫面不一定會更新，onChange 可能不觸發，這裡直接排休息提醒
+        if let state = restActivity { RestAlerts.start(day: day.name, state: state) }
+        var text = "\(ex.name) \(what)，完成"
+        if let end = restEnd {
+            text += "。休息 \(Int(end.timeIntervalSinceNow.rounded())) 秒"
+        } else if askMore {
+            text += "。回到練壯看看要不要再多做一點"
+        } else if allDone {
+            text += "。全部做完了，回到練壯按「完成」"
+        }
+        return text
     }
 
     private func loading(of set: SetDraft, in d: ExerciseDraft) -> Loading? {
@@ -1091,6 +1121,7 @@ struct ActiveSetEditor: View {
     /// 這個動作的次數下限（判定 MISS 用）
     var low: Int = 0
     let onDone: () -> Void
+    @State private var holding = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1145,10 +1176,27 @@ struct ActiveSetEditor: View {
                 rirPicker
                 gradePreview
             }
+            if exercise.unit == .seconds {
+                Button {
+                    holding = true
+                } label: {
+                    Label("開始計時（倒數 3 秒）", systemImage: "timer")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(GhostButtonStyle(stroke: Theme.accentDim))
+            } else {
+                TempoBar(exerciseId: exercise.id)
+            }
             Button(action: onDone) {
                 Text("完成這一組")
             }
             .buttonStyle(HotButtonStyle(height: 52))
+        }
+        .fullScreenCover(isPresented: $holding) {
+            HoldTimerView(name: exercise.name, target: max(set.target, set.reps), onDone: { secs in
+                set.reps = secs
+                holding = false
+            }, onCancel: { holding = false })
         }
         .padding(14)
         .background(Color(gearHex: "#1E2633"), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
