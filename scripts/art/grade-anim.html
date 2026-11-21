@@ -1,0 +1,120 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>每組判定動畫預覽</title>
+<!-- 每組判定（PERFECT／GOOD／MISS）的預覽。公式和 Workout/WorkoutFX.swift 的 GradeBurstView 一一對應，改一邊要改另一邊。
+     ?t=0.3 固定時間點；沒給就一直重播。 -->
+<style>
+  body { background:#0E1218; color:#E9EDF2; font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; margin:0; padding:12px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  canvas { background:#19202A; border-radius:16px; }
+  h3 { margin:4px 0 8px; font-size:13px; color:#9AA5B1; }
+</style>
+<h3 id="cap"></h3>
+<div class="row" id="row"></div>
+<script>
+const W = 300, H = 330, DUR = 1.1;
+const C = { gold:'#F2C14E', hot:'#FF8757', green:'#5BD69A', muted:'#9AA5B1', fg:'#E9EDF2', white:'#FFFFFF' };
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const fract = (x) => x - Math.floor(x);
+const rnd = (i, salt = 0) => fract(Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453);
+const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+const easeOutBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+function dot(ctx, x, y, r, col, a) {
+  if (a <= 0.01) return;
+  const op = ctx.globalCompositeOperation; ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = a; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, Math.max(0.1, r), 0, TAU); ctx.fill();
+  ctx.globalAlpha = a * 0.25; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = op;
+}
+function glow(ctx, cx, cy, r, col, a) {
+  if (a <= 0.01) return;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, hexA(col, a)); g.addColorStop(1, hexA(col, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+}
+function rays(ctx, cx, cy, R, n, ang, col, a) {
+  if (a <= 0.01) return;
+  for (let i = 0; i < n; i++) {
+    const a0 = ang + i * TAU / n, h = TAU / n * 0.28;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, hexA(col, a)); g.addColorStop(1, hexA(col, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(a0 - h), cy + R * Math.sin(a0 - h)); ctx.lineTo(cx + R * Math.cos(a0 + h), cy + R * Math.sin(a0 + h));
+    ctx.closePath(); ctx.fill();
+  }
+}
+function ring(ctx, cx, cy, q, maxR, col, width = 16) {
+  if (q <= 0 || q >= 1) return;
+  ctx.globalAlpha = 1 - q; ctx.strokeStyle = col; ctx.lineWidth = width * (1 - q) + 1;
+  ctx.beginPath(); ctx.arc(cx, cy, easeOutCubic(q) * maxR, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+}
+function sparkBurst(ctx, cx, cy, tau, n, speed, cols) {
+  if (tau <= 0 || tau >= 1.6) return;
+  for (let j = 0; j < n; j++) {
+    const an = rnd(j, 81) * TAU, v = speed * (0.5 + rnd(j, 82));
+    const d = v * (1 - Math.exp(-3 * tau)) / 3;
+    dot(ctx, cx + d * Math.cos(an), cy + d * Math.sin(an) + 40 * tau * tau, 2 + rnd(j, 83) * 2.5, cols[j % cols.length], clamp(1.4 - tau));
+  }
+}
+const TITLE = { perfect:'PERFECT', good:'GOOD', miss:'MISS' };
+const SUB = { perfect:'完美控制！', good:'穩穩的', miss:'下一組調整一下' };
+const COL = { perfect:C.gold, good:C.green, miss:C.muted };
+function draw(ctx, g, t, reduce) {
+  ctx.clearRect(0, 0, W, H);
+  // 背景：假的休息頁
+  ctx.fillStyle = '#0E1218'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#2A3340'; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(W / 2, 230, 70, 0, TAU); ctx.stroke();
+  const fade = 1 - seg(t, DUR - 0.3, DUR);
+  const cx = W / 2, cy = H * 0.30;
+  ctx.save(); ctx.globalAlpha = 1;
+  if (!reduce) {
+    if (g === 'perfect') {
+      glow(ctx, cx, cy, 170, C.gold, 0.5 * fade * seg(t, 0, 0.15));
+      rays(ctx, cx, cy, 260, 12, t * 0.9, C.gold, 0.32 * fade * seg(t, 0.05, 0.25));
+      ring(ctx, cx, cy, seg(t, 0.12, 0.7), 200, C.gold);
+      ring(ctx, cx, cy, seg(t, 0.25, 0.85), 150, C.white, 8);
+      sparkBurst(ctx, cx, cy, t - 0.12, 28, 440, [C.gold, C.white, C.hot]);
+    } else if (g === 'good') {
+      glow(ctx, cx, cy, 120, C.green, 0.35 * fade * seg(t, 0, 0.15));
+      ring(ctx, cx, cy, seg(t, 0.08, 0.6), 150, C.green);
+      sparkBurst(ctx, cx, cy, t - 0.08, 14, 300, [C.green, C.white]);
+    }
+  }
+  // 文字
+  const size = g === 'perfect' ? 56 : (g === 'good' ? 46 : 38);
+  let scale = 1, dx = 0, dy = 0;
+  if (g === 'perfect') scale = 1 + 1.4 * (1 - easeOutBack(seg(t, 0, 0.28)));
+  else if (g === 'good') scale = 0.5 + 0.5 * easeOutBack(seg(t, 0, 0.25));
+  else { dy = -30 * (1 - easeOutCubic(seg(t, 0, 0.25))); dx = 6 * Math.sin(t * 40) * Math.exp(-(t - 0.25) * 8) * (t > 0.25 ? 1 : 0); }
+  if (reduce) { scale = 1; dx = 0; dy = 0; }
+  const a = (reduce ? 1 : seg(t, 0, 0.12)) * fade;
+  ctx.globalAlpha = a;
+  ctx.translate(cx + dx, cy + dy); ctx.scale(scale, scale);
+  ctx.font = `900 ${size}px -apple-system, "Arial Rounded MT Bold", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const gr = ctx.createLinearGradient(0, -size / 2, 0, size / 2);
+  gr.addColorStop(0, g === 'miss' ? C.fg : '#FFFFFF'); gr.addColorStop(1, COL[g]);
+  ctx.shadowColor = g === 'perfect' ? hexA(C.hot, 0.8) : 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 12;
+  ctx.fillStyle = gr; ctx.fillText(TITLE[g], 0, -10);
+  ctx.globalAlpha = a * (reduce ? 1 : seg(t, 0.3, 0.45));
+  ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 6;
+  ctx.font = '800 15px -apple-system, "PingFang TC", "Noto Sans TC", sans-serif'; ctx.fillStyle = COL[g];
+  ctx.fillText(SUB[g], 0, size / 2 + 2);
+  ctx.restore();
+}
+const q = new URLSearchParams(location.search);
+const fixed = q.has('t') ? parseFloat(q.get('t')) : null;
+const reduce = q.has('reduce');
+document.getElementById('cap').textContent = fixed === null ? '重播中' : `t = ${fixed}s` + (reduce ? '（減少動態效果）' : '');
+const ctxs = ['perfect', 'good', 'miss'].map(g => {
+  const c = document.createElement('canvas'); c.width = W; c.height = H; document.getElementById('row').appendChild(c);
+  return [g, c.getContext('2d')];
+});
+const t0 = performance.now();
+function frame(now) {
+  const t = fixed !== null ? fixed : ((now - t0) / 1000) % (DUR + 0.4);
+  for (const [g, ctx] of ctxs) draw(ctx, g, t, reduce);
+  if (fixed === null) requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

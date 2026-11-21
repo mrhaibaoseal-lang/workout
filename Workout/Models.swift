@@ -8,6 +8,12 @@ final class WorkoutSession {
     var isShort: Bool
     var durationSeconds: Int
     var mode: String = "full"
+    /// 這次訓練的備註
+    var note: String = ""
+    /// 每個動作的備註，JSON [exerciseId: 備註]（ExerciseNotes）
+    var exerciseNotes: String = ""
+    /// 訓練前狀態「睡眠,痠痛,精神」各 1–5，空的 = 舊紀錄沒有
+    var readiness: String = ""
     @Relationship(deleteRule: .cascade, inverse: \SetEntry.session)
     var entries: [SetEntry] = []
 

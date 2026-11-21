@@ -11,6 +11,10 @@ struct SetDraft: Identifiable {
     /// 還剩幾下力氣（RIR），-1 = 沒填
     var rir: Int = -1
     var done = false
+    /// 這組的目標次數（排課表時的次數；判定 PERFECT 用）
+    var target: Int = 0
+    /// 做完後的判定（只有正式組）
+    var grade: SetGrade? = nil
 }
 
 struct ExerciseDraft: Identifiable {
@@ -29,7 +33,20 @@ struct ExerciseDraft: Identifiable {
     var ladder = WeightLadder(loadings: [], step: 2.5)
     /// 這次因為停滯先減重（做完就從這次重新算停滯）
     var plateauReset = false
+    /// 這次寫的動作備註
+    var note: String = ""
+    /// 上次寫的動作備註
+    var lastNote: String? = nil
+    /// 最近幾次的推估最大力量（休息頁小圖）
+    var trend: [Double] = []
     var id: String { item.id }
+
+    /// 上次同一組（第 n 個正式組比第 n 個；上次組數比較少就比上次最後一組）
+    func lastFor(_ set: SetDraft) -> LastSet? {
+        guard set.kind == .work, !last.isEmpty, let i = sets.firstIndex(where: { $0.id == set.id }) else { return nil }
+        let n = sets[...i].filter { $0.kind == .work }.count
+        return last[min(n, last.count) - 1]
+    }
 
     /// 已經開始做正式組，就不能再改排法或換動作。
     var locked: Bool { sets.contains { $0.done && $0.kind != .warmup } }
@@ -79,6 +96,12 @@ struct WorkoutView: View {
     @State private var onTimeRests = 0
     @State private var scoredRests = 0
     @State private var comboMoment: ComboMoment?
+    /// 訓練前狀態（強制回答，回答前不排課表）
+    @State private var readiness: Readiness?
+    @State private var gradeMoment: GradeMoment?
+    /// 剛做完那一組的判定和幽靈比較（休息頁顯示）
+    @State private var lastResult: SetResult?
+    @State private var sessionNote = ""
     @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
@@ -134,6 +157,18 @@ struct WorkoutView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 12) {
+                            if let r = readiness, let text = r.banner {
+                                HStack(alignment: .top, spacing: 4) {
+                                    Label(text, systemImage: r.level == .high ? "bolt.heart.fill" : "bed.double.fill")
+                                        .font(.footnote.weight(.bold))
+                                        .foregroundStyle(r.level == .high ? Theme.green : Theme.accentSoft)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    InfoTip(item: .readiness)
+                                }
+                                .padding(14)
+                                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.line, lineWidth: 1))
+                            }
                             if let prep = barbellPrep {
                                 Label(prep, systemImage: "wrench.adjustable.fill")
                                     .font(.footnote.weight(.bold))
@@ -153,6 +188,9 @@ struct WorkoutView: View {
                                              onToggleWarmup: { toggleWarmup(at: i) },
                                              onSwap: { swap(at: i, to: $0) })
                                     .id(drafts[i].id)
+                            }
+                            if !drafts.isEmpty {
+                                sessionNoteField
                             }
                         }
                         .padding(16)
@@ -208,6 +246,11 @@ struct WorkoutView: View {
             }
             .overlay { restScreen }
             .overlay {
+                if let g = gradeMoment {
+                    GradeBurstView(moment: g).id(g.id)
+                }
+            }
+            .overlay {
                 if let m = comboMoment {
                     ComboBurstView(moment: m).id(m.id)
                 }
@@ -235,6 +278,16 @@ struct WorkoutView: View {
                         onFinish()
                         dismiss()
                     }
+                    .transition(.opacity)
+                }
+            }
+            .overlay {
+                if readiness == nil {
+                    ReadinessCheckView(onDone: { r in
+                        readiness = r
+                        drafts = []
+                        buildDrafts()
+                    }, onQuit: { dismiss() })
                     .transition(.opacity)
                 }
             }
@@ -324,7 +377,7 @@ struct WorkoutView: View {
             RestScreen(end: end, total: restTotal,
                        next: pos.map { restNext(j: $0.0, k: $0.1) },
                        nextSet: pos.map { $drafts[$0.0].sets[$0.1] } ?? .constant(SetDraft(weight: 0, reps: 0)),
-                       changes: changes, reasons: restReasons, combo: combo,
+                       changes: changes, reasons: restReasons, combo: combo, result: lastResult,
                        onAdd: addRest, onSkip: endRest,
                        onMinimize: { withAnimation(.spring(duration: 0.35)) { restMinimized = true } })
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -354,7 +407,8 @@ struct WorkoutView: View {
             tag = "第 \(n) 組"
             if n - 1 < d.last.count { last = d.last[n - 1] }
         }
-        return RestNext(exercise: d.item.exercise, tag: tag, ladder: d.ladder, last: last, newExercise: j != restAfter)
+        return RestNext(exercise: d.item.exercise, tag: tag, ladder: d.ladder, last: last, newExercise: j != restAfter,
+                        lastNote: d.note.isEmpty ? d.lastNote : d.note, trend: d.trend)
     }
 
     /// 鎖定畫面／通知要顯示的內容；nil = 沒在休息
@@ -434,17 +488,38 @@ struct WorkoutView: View {
         }
         if drafts[exerciseIndex].sets[s].done {
             drafts[exerciseIndex].sets[s].done = false
+            drafts[exerciseIndex].sets[s].grade = nil
             focused = id
             return
         }
         drafts[exerciseIndex].sets[s].done = true
         focused = nil
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        let set = drafts[exerciseIndex].sets[s]
-        if set.kind == .work {
-            checkRecord(drafts[exerciseIndex], set: set)
+        lastResult = nil
+        if drafts[exerciseIndex].sets[s].kind == .work {
+            let d = drafts[exerciseIndex]
+            let done = d.sets[s]
+            let g = SetGrade.judge(reps: done.reps, rir: done.rir, target: done.target, low: d.item.low)
+            drafts[exerciseIndex].sets[s].grade = g
+            let ex = d.item.exercise
+            let ghost = d.lastFor(done).map {
+                GhostDelta.compare(weight: done.weight, reps: done.reps, last: $0, loaded: ex.loaded, unit: ex.unit.label)
+            }
+            lastResult = SetResult(exerciseName: ex.name, grade: g,
+                                   reason: SetGrade.reason(g, reps: done.reps, rir: done.rir, target: done.target),
+                                   ghost: ghost)
+            // 破紀錄的特效比較大，有破紀錄就不跳判定
+            if !checkRecord(d, set: done) {
+                let m = GradeMoment(grade: g)
+                gradeMoment = m
+                DispatchQueue.main.asyncAfter(deadline: .now() + GradeMoment.duration + 0.1) {
+                    if gradeMoment?.id == m.id { gradeMoment = nil }
+                }
+            }
             autoAdjust(exerciseIndex, after: s)
+        } else {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
+        let set = drafts[exerciseIndex].sets[s]
         if length == .minimal && allDone {
             restEnd = nil
             restAfter = nil
@@ -625,7 +700,8 @@ struct WorkoutView: View {
                                              firstInRegion: firstInRegion, avoidKit: avoidKit ?? barbellKit,
                                              plateau: plateau)
         let s = planned.suggestion
-        let sets = planned.sets.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit) }
+        var sets = planned.sets.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit, target: $0.reps) }
+        adjustForReadiness(&sets, ladder: ladder, loaded: item.exercise.loaded)
         var lastText = ""
         if !last.isEmpty {
             let reps = last.map { String($0.reps) }.joined(separator: "、")
@@ -638,13 +714,27 @@ struct WorkoutView: View {
                                   last: last.map { LastSet(weight: $0.weight, reps: $0.reps) },
                                   chosen: chosen, scheme: planned.scheme, ladder: ladder)
         draft.plateauReset = plateau != nil
+        draft.lastNote = ExerciseNotes.last(for: item.exercise.id, in: sessions)?.note
+        draft.trend = ExerciseTrend.points(for: item.exercise.id, loaded: item.exercise.loaded, in: sessions)
         return draft
     }
 
+    /// 狀態偏低：每個動作少 1 個正式組（至少留 1 組）；很低再把正式組和遞減組的重量降一級。
+    private func adjustForReadiness(_ sets: inout [SetDraft], ladder: WeightLadder, loaded: Bool) {
+        guard let level = readiness?.level, level == .low || level == .veryLow else { return }
+        let work = sets.indices.filter { sets[$0].kind == .work }
+        if work.count >= 2, let lastWork = work.last { sets.remove(at: lastWork) }
+        guard level == .veryLow, loaded else { return }
+        for k in sets.indices where sets[k].kind != .warmup && sets[k].weight > 0 {
+            sets[k].weight = ladder.down(sets[k].weight)
+        }
+    }
+
     /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
-    private func checkRecord(_ d: ExerciseDraft, set: SetDraft) {
+    @discardableResult
+    private func checkRecord(_ d: ExerciseDraft, set: SetDraft) -> Bool {
         let ex = d.item.exercise
-        guard ex.loaded, set.weight > 0, let old = bests[ex.id], set.weight > old else { return }
+        guard ex.loaded, set.weight > 0, let old = bests[ex.id], set.weight > old else { return false }
         bests[ex.id] = set.weight
         prCount.insert(ex.id)
         let m = PRMoment(name: ex.name, weight: set.weight, old: old)
@@ -653,10 +743,11 @@ struct WorkoutView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + PRMoment.duration + 0.1) {
             if prMoment?.id == m.id { prMoment = nil }
         }
+        return true
     }
 
     private func buildDrafts() {
-        guard drafts.isEmpty else { return }
+        guard drafts.isEmpty, readiness != nil else { return }
         var b: [String: Double] = [:]
         for s in sessions {
             for e in s.entries where e.weight > 0 {
@@ -680,7 +771,7 @@ struct WorkoutView: View {
     private func addSet() {
         guard var lastDraft = drafts.last,
               let lastSet = lastDraft.sets.last(where: { $0.kind == .work }) ?? lastDraft.sets.last else { return }
-        lastDraft.sets.append(SetDraft(weight: lastSet.weight, reps: lastSet.reps))
+        lastDraft.sets.append(SetDraft(weight: lastSet.weight, reps: lastSet.reps, target: lastSet.target))
         drafts[drafts.count - 1] = lastDraft
     }
 
@@ -697,10 +788,15 @@ struct WorkoutView: View {
         restEnd = nil
         restAfter = nil
         let shards = comboShards
-        if shards > 0 { inventory.state.shards += shards }
+        let bonus = bonusShards
+        if shards + bonus.total > 0 { inventory.state.shards += shards + bonus.total }
+        let doneWork = drafts.flatMap { $0.sets.filter { $0.done && $0.kind == .work } }
         let now = Date()
         let session = WorkoutSession(date: now, dayKey: day.id, length: length,
                                      durationSeconds: Int(now.timeIntervalSince(startedAt)))
+        session.note = sessionNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        session.exerciseNotes = ExerciseNotes.encode(Dictionary(drafts.map { ($0.item.exercise.id, $0.note) }, uniquingKeysWith: { a, _ in a }))
+        session.readiness = readiness?.encoded ?? ""
         context.insert(session)
         for d in drafts {
             for (i, set) in d.sets.enumerated() where set.done {
@@ -728,8 +824,41 @@ struct WorkoutView: View {
                 weekGoal: GoalEngine.current(dates: dates + [now], goal: weeklyGoal, ctx: .load()).goal,
                 streakBefore: GoalEngine.streak(dates: dates),
                 streakAfter: GoalEngine.streak(dates: dates + [now]),
-                bestCombo: bestCombo, onTime: onTimeRests, rests: scoredRests, comboShards: shards)
+                bestCombo: bestCombo, onTime: onTimeRests, rests: scoredRests, comboShards: shards,
+                perfect: doneWork.filter { $0.grade == .perfect }.count,
+                good: doneWork.filter { $0.grade == .good }.count,
+                miss: doneWork.filter { $0.grade == .miss }.count,
+                bonuses: bonus.lines)
         }
+    }
+
+    /// 任務獎勵：熱身全部做完每個動作 +1（最多 3）；做完 Drop set 每次 +2（最多 4）。
+    private var bonusShards: (total: Int, lines: [String]) {
+        let warm = min(3, drafts.filter { d in
+            d.hasWarmups && d.sets.filter { $0.kind == .warmup }.allSatisfy(\.done)
+        }.count)
+        let drops = min(2, drafts.filter { d in d.sets.contains { $0.kind == .drop && $0.done } }.count)
+        var lines: [String] = []
+        if warm > 0 { lines.append("熱身做完整 +\(warm)") }
+        if drops > 0 { lines.append("完成 Drop set +\(drops * 2)") }
+        return (warm + drops * 2, lines)
+    }
+
+    /// 這次訓練的備註（存檔時一起存）
+    private var sessionNoteField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("這次訓練的備註", systemImage: "square.and.pencil")
+                .font(.caption.weight(.heavy))
+                .foregroundStyle(Theme.muted)
+            TextField("例如：今天左肩怪怪的", text: $sessionNote, axis: .vertical)
+                .lineLimit(1...4)
+                .font(.subheadline)
+                .foregroundStyle(Theme.fg)
+                .padding(12)
+                .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(16)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private func hideKeyboard() {
@@ -798,9 +927,12 @@ struct ExerciseCard: View {
 
             if hasActive {
                 if draft.scheme != .straight {
-                    Label(draft.scheme.explain, systemImage: "chart.bar.fill")
-                        .font(.caption)
-                        .foregroundStyle(Theme.accentSoft)
+                    HStack(alignment: .top, spacing: 2) {
+                        Label(draft.scheme.explain, systemImage: "chart.bar.fill")
+                            .font(.caption)
+                            .foregroundStyle(Theme.accentSoft)
+                        InfoTip(item: draft.scheme == .dropset ? .dropset : .pyramid)
+                    }
                 }
                 Text(draft.suggestion.note)
                     .font(.footnote.weight(.bold))
@@ -808,13 +940,19 @@ struct ExerciseCard: View {
                 Text(ex.tip)
                     .font(.footnote)
                     .foregroundStyle(Theme.muted)
+                noteEditor
+            } else if !draft.note.isEmpty {
+                Label(draft.note, systemImage: "note.text")
+                    .font(.caption)
+                    .foregroundStyle(Theme.accentSoft)
             }
 
             VStack(spacing: 8) {
                 ForEach($draft.sets) { $set in
                     let tag = label(for: set)
                     if set.id == activeSetId {
-                        ActiveSetEditor(set: $set, tag: tag, exercise: ex, ladder: draft.ladder) {
+                        ActiveSetEditor(set: $set, tag: tag, exercise: ex, ladder: draft.ladder,
+                                        last: draft.lastFor(set), low: draft.item.low) {
                             onComplete(set.id)
                         }
                     } else {
@@ -834,7 +972,8 @@ struct ExerciseCard: View {
     }
 
     private var target: String {
-        var base = "目標 \(draft.item.sets) 組 × \(draft.item.low)–\(draft.item.high) \(ex.unit.label)"
+        let work = draft.sets.filter { $0.kind == .work }.count
+        var base = "目標 \(work) 組 × \(draft.item.low)–\(draft.item.high) \(ex.unit.label)"
         if draft.scheme != .straight { base += " · " + draft.scheme.short }
         return draft.lastText.isEmpty ? base : base + " · " + draft.lastText
     }
@@ -844,6 +983,23 @@ struct ExerciseCard: View {
         if let b = set.kind.badge { return b }
         guard let i = draft.sets.firstIndex(where: { $0.id == set.id }) else { return "" }
         return "\(draft.sets[...i].filter { $0.kind == .work }.count)"
+    }
+
+    /// 動作備註：上次寫的放上面，這次的可以改（例如「椅子調第 3 格」）
+    private var noteEditor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let lastNote = draft.lastNote {
+                Label("上次備註：\(lastNote)", systemImage: "note.text")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.gold)
+            }
+            TextField(draft.lastNote == nil ? "動作備註（例如：椅子調第 3 格）" : "這次的備註", text: $draft.note, axis: .vertical)
+                .lineLimit(1...3)
+                .font(.caption)
+                .foregroundStyle(Theme.fg)
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
     }
 
     private var optionsMenu: some View {
@@ -891,6 +1047,13 @@ struct CompactSetRow: View {
                     .font(Theme.number(17))
                     .foregroundStyle(set.done ? Theme.fg : Theme.muted)
                 Spacer()
+                if let g = set.grade {
+                    Text(g.title)
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .foregroundStyle(g == .miss ? Theme.muted : Theme.bg)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(g == .miss ? Theme.raised : g.color, in: Capsule())
+                }
                 ZStack {
                     if set.done {
                         Circle().fill(Theme.accent)
@@ -922,6 +1085,10 @@ struct ActiveSetEditor: View {
     let tag: String
     let exercise: Exercise
     let ladder: WeightLadder
+    /// 上次同一組（幽靈模式）
+    var last: LastSet? = nil
+    /// 這個動作的次數下限（判定 MISS 用）
+    var low: Int = 0
     let onDone: () -> Void
 
     var body: some View {
@@ -970,8 +1137,12 @@ struct ActiveSetEditor: View {
                         .foregroundStyle(Theme.hotText)
                 }
             }
+            if set.kind == .work, let last {
+                ghostRow(last)
+            }
             if set.kind == .work {
                 rirPicker
+                gradePreview
             }
             Button(action: onDone) {
                 Text("完成這一組")
@@ -985,12 +1156,54 @@ struct ActiveSetEditor: View {
 
     private var repStep: Int { exercise.unit == .seconds ? 5 : 1 }
 
-    /// 做完還剩幾下力氣（選填）：用來自動調整下一組。
-    private var rirPicker: some View {
-        HStack(spacing: 6) {
-            Text("還剩幾下力氣？")
+    /// 幽靈模式：和上次同一組比，輸入時即時更新
+    private func ghostRow(_ last: LastSet) -> some View {
+        let g = GhostDelta.compare(weight: set.weight, reps: set.reps, last: last, loaded: exercise.loaded,
+                                   unit: exercise.unit.label)
+        let lastText = exercise.loaded && last.weight > 0
+            ? "\(Progression.format(last.weight)) kg × \(last.reps)" : "\(last.reps) \(exercise.unit.label)"
+        return HStack(spacing: 6) {
+            Image(systemName: "person.fill.questionmark")
+                .font(.caption)
+                .foregroundStyle(Theme.muted.opacity(0.7))
+            Text("上次 \(lastText)")
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
+            Spacer(minLength: 0)
+            Label(g.text, systemImage: g.icon)
+                .font(.caption.weight(.heavy))
+                .foregroundStyle(g.color)
+            InfoTip(item: .ghost)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .background(Theme.sunken.opacity(0.6), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    /// 填好「還剩幾下」後先預告會拿到什麼
+    @ViewBuilder
+    private var gradePreview: some View {
+        let g = SetGrade.judge(reps: set.reps, rir: set.rir, target: set.target, low: low)
+        HStack(spacing: 6) {
+            Text("目標 \(set.target) \(exercise.unit.label) · 還剩 1～2 下 = PERFECT")
+                .font(.caption2)
+                .foregroundStyle(Theme.muted)
+            Spacer(minLength: 0)
+            if set.rir >= 0 {
+                Text(g.title)
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .foregroundStyle(g.color)
+            }
+            InfoTip(item: .grade)
+        }
+    }
+
+    /// 做完還剩幾下力氣：用來自動調整下一組，也用來判定 PERFECT。
+    private var rirPicker: some View {
+        HStack(spacing: 6) {
+            Text("還能再做幾下？")
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
+            InfoTip(item: .rir)
             Spacer(minLength: 0)
             ForEach(0..<5, id: \.self) { v in
                 let on = set.rir == v

@@ -166,7 +166,7 @@ struct ExerciseRecords {
                     points.append(HistoryPoint(date: day, value: v))
                     if let old = bestE {
                         if v > old.value + 0.001 {
-                            emit(topE.date, "估算 1RM", "\(ExerciseRecords.fmt(Progression.roundHalf(v))) kg",
+                            emit(topE.date, "推估最大力量", "\(ExerciseRecords.fmt(Progression.roundHalf(v))) kg",
                                  "\(ExerciseRecords.fmt(Progression.roundHalf(old.value))) kg")
                             bestE = E1RMMark(value: v, weight: topE.weight, reps: topE.reps, date: topE.date)
                         }

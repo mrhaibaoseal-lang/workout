@@ -71,7 +71,7 @@ struct RecordsScreen: View {
             .padding(.bottom, 24)
         }
         .themeScreen()
-        .navigationTitle("個人紀錄 PR")
+        .navigationTitle("個人紀錄")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
@@ -193,7 +193,7 @@ struct RecordsScreen: View {
                             .font(Theme.number(14)).foregroundStyle(Theme.fg)
                     }
                     if let e = r.bestE1RM {
-                        Text("1RM \(Progression.format(Progression.roundHalf(e.value))) kg")
+                        Text("最大力量 \(Progression.format(Progression.roundHalf(e.value))) kg")
                             .font(.caption).foregroundStyle(Theme.muted)
                     }
                 } else if let m = r.maxReps {
@@ -262,7 +262,7 @@ struct ExerciseRecordsView: View {
                     .font(Theme.number(40)).foregroundStyle(Theme.fg)
                 Text(unit).font(.subheadline).foregroundStyle(Theme.muted)
             }
-            Text(ex.loaded ? "估算最大力量（1RM）" : "單組最多\(ex.unit.label)數")
+            Text(ex.loaded ? "推估最大力量" : "單組最多\(ex.unit.label)數")
                 .font(.caption).foregroundStyle(Theme.muted)
 
             Chart(pts) { p in
@@ -312,7 +312,7 @@ struct ExerciseRecordsView: View {
                                       sub: "× \(m.reps) · \(shortDateText(m.date))"))
             }
             if let e = rec.bestE1RM {
-                items.append(TileItem(title: "估算 1RM", value: "\(Progression.format(Progression.roundHalf(e.value))) kg",
+                items.append(TileItem(title: "推估最大力量", value: "\(Progression.format(Progression.roundHalf(e.value))) kg",
                                       sub: "\(Progression.format(e.weight)) × \(e.reps) · \(shortDateText(e.date))"))
             }
             if let v = rec.bestSetVolume {
@@ -441,7 +441,7 @@ struct RecordsLinkCard: View {
         if let e = events.first {
             return "最近破紀錄：\(exerciseName(e.exerciseId)) \(shortDateText(e.date))"
         }
-        return book.isEmpty ? "每個動作的最大重量、估算 1RM、破紀錄時間軸" : "還沒破過紀錄，下次超越自己就會出現"
+        return book.isEmpty ? "每個動作的最大重量、推估最大力量、破紀錄時間軸" : "還沒破過紀錄，下次超越自己就會出現"
     }
 
     var body: some View {
@@ -452,7 +452,7 @@ struct RecordsLinkCard: View {
                 .frame(width: 40, height: 40)
                 .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text("個人紀錄 PR").font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
+                Text("個人紀錄").font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
                 Text(subtitle).font(.caption).foregroundStyle(Theme.muted)
             }
             Spacer()

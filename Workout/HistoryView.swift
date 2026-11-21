@@ -29,6 +29,12 @@ struct HistoryView: View {
                                     Text("\(s.date.formatted(date: .abbreviated, time: .shortened)) · \(s.durationSeconds / 60) 分鐘 · \(s.entries.filter(\.isWork).count) 組")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    if !s.note.isEmpty {
+                                        Label(s.note, systemImage: "note.text")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
                                 }
                             }
                         }
@@ -62,10 +68,32 @@ struct SessionDetailView: View {
         return order.map { ExerciseGroup(id: $0, name: ExerciseLibrary.byId($0)?.name ?? $0, sets: map[$0] ?? []) }
     }
 
+    private var notes: [String: String] { ExerciseNotes.decode(session.exerciseNotes) }
+
     var body: some View {
         List {
+            if let r = Readiness.decode(session.readiness) {
+                Section("訓練前狀態") {
+                    HStack {
+                        Text("睡眠 \(r.sleep) · 痠痛 \(r.soreness) · 精神 \(r.energy)")
+                        Spacer()
+                        Text("\(r.total)/15").bold()
+                    }
+                    .monospacedDigit()
+                }
+            }
+            if !session.note.isEmpty {
+                Section("備註") {
+                    Text(session.note)
+                }
+            }
             ForEach(groups) { g in
-                Section(g.name) {
+                Section {
+                    if let n = notes[g.id] {
+                        Label(n, systemImage: "note.text")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach(g.sets) { e in
                         let ex = ExerciseLibrary.byId(e.exerciseId)
                         HStack {
@@ -78,6 +106,8 @@ struct SessionDetailView: View {
                         }
                         .monospacedDigit()
                     }
+                } header: {
+                    Text(g.name)
                 }
             }
         }

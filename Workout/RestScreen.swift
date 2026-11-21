@@ -9,7 +9,8 @@ struct LastSet {
 
 /// 休息時要換的一組器材：從現在裝的樣子換成下一組要的樣子。
 struct RigChange: Identifiable {
-    let id = UUID()
+    /// 固定的 id（同一組器材、同一個步驟），休息頁打勾的狀態才不會每次重畫就消失
+    var id: String { "\(kit)|\(label)|\(to.map(Progression.format).joined(separator: ","))" }
     /// 「換重量」「下一個動作（啞鈴肩推）」「順便裝好 Drop set」
     let label: String
     let kit: String
@@ -68,6 +69,10 @@ struct RestNext {
     let last: LastSet?
     /// 下一組是不是換到下一個動作
     let newExercise: Bool
+    /// 這個動作的備註（這次寫的，沒有就上次的）
+    var lastNote: String? = nil
+    /// 最近幾次的推估最大力量（徒手動作是最多次數），舊的在前
+    var trend: [Double] = []
 }
 
 /// 每個動作的重點：動作本身的提示＋同一類動作通用的 1–2 句。
@@ -110,6 +115,8 @@ struct RestScreen: View {
     let reasons: [String]
     /// 目前連擊（休息結束後準時開始下一組的次數）
     var combo: Int = 0
+    /// 剛做完那一組的判定和幽靈比較
+    var result: SetResult? = nil
     let onAdd: () -> Void
     let onSkip: () -> Void
     let onMinimize: () -> Void
@@ -138,6 +145,9 @@ struct RestScreen: View {
                         }
                     }
                     .frame(minHeight: 290)
+                    if let result {
+                        resultCard(result)
+                    }
                     if !reasons.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(reasons, id: \.self) { r in
@@ -152,6 +162,9 @@ struct RestScreen: View {
                     }
                     if let next {
                         nextCard(next)
+                    }
+                    if let next, next.trend.count >= 2 {
+                        trendCard(next)
                     }
                     if let next {
                         cuesCard(next.exercise)
@@ -377,6 +390,11 @@ struct RestScreen: View {
             if let last = n.last, n.exercise.loaded, nextSet.weight > 0 {
                 compare(last)
             }
+            if let note = n.lastNote, !note.isEmpty {
+                Label(note, systemImage: "note.text")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.gold)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -427,6 +445,57 @@ struct RestScreen: View {
         .accessibilityLabel(label)
     }
 
+    // MARK: 剛做完的那一組
+
+    private func resultCard(_ r: SetResult) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(r.grade.title)
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .foregroundStyle(r.grade == .miss ? Theme.fg : Theme.bg)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(r.grade == .miss ? Theme.raised : r.grade.color, in: Capsule())
+                Text("剛剛這組").font(.caption.weight(.heavy)).foregroundStyle(Theme.muted)
+                Spacer(minLength: 0)
+                if let g = r.ghost {
+                    Label(g.text, systemImage: g.icon)
+                        .font(.caption.weight(.heavy))
+                        .foregroundStyle(g.color)
+                }
+            }
+            Text(r.reason).font(.caption).foregroundStyle(Theme.muted)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(r.grade == .perfect ? Theme.gold.opacity(0.6) : Theme.line, lineWidth: 1))
+    }
+
+    // MARK: 歷史小圖
+
+    private func trendCard(_ n: RestNext) -> some View {
+        let first = n.trend.first ?? 0, last = n.trend.last ?? 0
+        let d = last - first
+        let unit = n.exercise.loaded ? "kg" : n.exercise.unit.label
+        let fmt = { (x: Double) in Progression.format(n.exercise.loaded ? Progression.roundHalf(x) : x.rounded()) }
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(n.exercise.loaded ? "\(n.exercise.name) · 推估最大力量" : "\(n.exercise.name) · 單組最多\(unit)數")
+                    .font(.caption.weight(.heavy)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text("\(fmt(last)) \(unit)").font(Theme.number(15)).foregroundStyle(Theme.fg)
+            }
+            Sparkline(values: n.trend)
+                .frame(height: 54)
+            Text("最近 \(n.trend.count) 次" + (abs(d) < 0.25 ? "，持平" : (d > 0 ? "，進步 \(fmt(d)) \(unit)" : "，少了 \(fmt(-d)) \(unit)")))
+                .font(.caption2).foregroundStyle(d > 0.25 ? Theme.green : Theme.muted)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
     // MARK: 動作要點
 
     private func cuesCard(_ ex: Exercise) -> some View {
@@ -455,6 +524,8 @@ struct RestScreen: View {
 /// 一組器材的換法：上排是現在每邊裝的槓片（要拆的打叉），下排是換好的樣子（新加的發亮）。
 struct PlateChangeCard: View {
     let change: RigChange
+    /// 換重量的步驟打勾到第幾個
+    @State private var checked: Set<Int> = []
 
     var body: some View {
         let removed = change.removed
@@ -478,7 +549,7 @@ struct PlateChangeCard: View {
             Image(systemName: "arrow.down").font(.caption.weight(.heavy)).foregroundStyle(Theme.muted)
                 .frame(maxWidth: .infinity)
             row(title: "換成", plates: change.to, marked: added, mode: .add)
-            summary(removed: removed, added: added)
+            checklist(removed: removed, added: added)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -516,21 +587,57 @@ struct PlateChangeCard: View {
         .frame(minHeight: 110)
     }
 
-    private func summary(removed: [Double], added: [Double]) -> some View {
-        func group(_ list: [Double]) -> String {
-            var counts: [(Double, Int)] = []
-            for p in list.sorted(by: >) {
-                if let i = counts.firstIndex(where: { abs($0.0 - p) < 0.01 }) { counts[i].1 += 1 } else { counts.append((p, 1)) }
-            }
-            return counts.map { "\(Progression.format($0.0)) kg ×\($0.1)" }.joined(separator: "、")
+    /// 換重量的步驟，一步一勾：先組裝／拆開，再拆外面的槓片，最後裝上新的。
+    private func steps(removed: [Double], added: [Double]) -> [String] {
+        let per = change.use == .cable ? "" : (change.use == .pair ? "（每支兩邊）" : "（兩邊）")
+        var out: [String] = []
+        if change.assemble {
+            out.append(change.use == .barbell ? "把兩支把手接成槓鈴" : "把槓鈴拆回兩支把手")
         }
-        let per = change.use == .cable ? "" : (change.use == .pair ? "（每支每邊）" : "（每邊）")
-        var parts: [String] = []
-        if !removed.isEmpty { parts.append("拆 " + group(removed)) }
-        if !added.isEmpty { parts.append("加 " + group(added)) }
-        return Text(parts.isEmpty ? "槓片不用動" : parts.joined(separator: "，") + per)
-            .font(.footnote.weight(.bold))
-            .foregroundStyle(Theme.fg)
+        // 外面的先拆（輕的在外）
+        for p in removed.sorted(by: <) { out.append("拆下 \(Progression.format(p)) kg" + per) }
+        // 重的先裝（靠把手）
+        for p in added.sorted(by: >) { out.append((change.use == .cable ? "掛上 " : "裝上 ") + "\(Progression.format(p)) kg" + per) }
+        return out
+    }
+
+    @ViewBuilder
+    private func checklist(removed: [Double], added: [Double]) -> some View {
+        let list = steps(removed: removed, added: added)
+        if list.isEmpty {
+            Text("槓片不用動").font(.footnote.weight(.bold)).foregroundStyle(Theme.fg)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(list.enumerated()), id: \.offset) { i, step in
+                    let on = checked.contains(i)
+                    Button {
+                        if on { checked.remove(i) } else {
+                            checked.insert(i)
+                            UIImpactFeedbackGenerator(style: checked.count == list.count ? .heavy : .light).impactOccurred()
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .foregroundStyle(on ? Theme.green : Theme.muted)
+                            Text(step)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(on ? Theme.muted : Theme.fg)
+                                .strikethrough(on, color: Theme.muted)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(minHeight: 40)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                if checked.count == list.count {
+                    Label("換好了！", systemImage: "checkmark.seal.fill")
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(Theme.green)
+                }
+            }
+        }
     }
 }
 

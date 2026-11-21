@@ -75,6 +75,12 @@ struct WorkoutSummary: Identifiable {
     var onTime = 0
     var rests = 0
     var comboShards = 0
+    /// 每組判定的次數
+    var perfect = 0
+    var good = 0
+    var miss = 0
+    /// 任務獎勵（「熱身做完整 +2」）
+    var bonuses: [String] = []
 }
 
 private struct CheckShape: Shape {
@@ -96,7 +102,8 @@ struct WorkoutCompleteView: View {
     @State private var skip: Double = 0
     @State private var haptics = HapticScript()
 
-    private let end = 3.4
+    private var end: Double { hasGrades ? 3.8 : 3.4 }
+    private var hasGrades: Bool { summary.perfect + summary.good + summary.miss > 0 || !summary.bonuses.isEmpty }
     private var goalHit: Bool { summary.weekDone == summary.weekGoal }
     private var streakUp: Bool { summary.streakAfter > summary.streakBefore }
 
@@ -137,6 +144,9 @@ struct WorkoutCompleteView: View {
                         if summary.rests > 0 {
                             comboRow(t)
                         }
+                        if hasGrades {
+                            gradeRow(t)
+                        }
                         Spacer(minLength: 0)
                         Button("好") { onDone() }
                             .buttonStyle(HotButtonStyle())
@@ -161,6 +171,8 @@ struct WorkoutCompleteView: View {
             if goalHit { list.append((2.4, .success)) }
             if streakUp { list.append((2.8, .medium)) }
             if summary.comboShards > 0 { list.append((3.0, .success)) }
+            if summary.perfect > 0 { list.append((3.3, .heavy)) }
+            if !summary.bonuses.isEmpty { list.append((3.45, .success)) }
             haptics.play(list)
         }
         .onDisappear { haptics.cancel() }
@@ -219,6 +231,43 @@ struct WorkoutCompleteView: View {
     }
 
     /// 最高連擊、守時次數、換到的碎片
+    /// PERFECT／GOOD／MISS 次數和任務獎勵
+    private func gradeRow(_ t: Double) -> some View {
+        let p = FXMath.seg(t, 3.1, 3.4)
+        let gem = FXMath.seg(t, 3.4, 3.7)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                gradeChip(.perfect, summary.perfect)
+                gradeChip(.good, summary.good)
+                gradeChip(.miss, summary.miss)
+                Spacer(minLength: 0)
+            }
+            ForEach(summary.bonuses, id: \.self) { b in
+                Label(b, systemImage: "diamond.fill")
+                    .font(.subheadline.weight(.heavy))
+                    .foregroundStyle(Theme.gold)
+                    .scaleEffect(0.6 + 0.4 * FXMath.easeOutBack(gem), anchor: .leading)
+                    .opacity(gem)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .offset(y: 30 * (1 - FXMath.easeOutCubic(p)))
+        .opacity(p)
+    }
+
+    private func gradeChip(_ g: SetGrade, _ n: Int) -> some View {
+        HStack(spacing: 4) {
+            Text(g.title).font(.system(size: 12, weight: .black, design: .rounded))
+            Text("\(n)").font(Theme.number(15))
+        }
+        .foregroundStyle(g == .miss ? Theme.fg : Theme.bg)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(g == .miss ? Theme.raised : g.color, in: Capsule())
+        .opacity(n > 0 ? 1 : 0.4)
+    }
+
     private func comboRow(_ t: Double) -> some View {
         let p = FXMath.seg(t, 2.6, 2.9)
         let gem = FXMath.seg(t, 2.95, 3.25)
@@ -315,5 +364,100 @@ struct EquipFlash: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - 每組判定
+
+/// 每組做完的判定：PERFECT 金色大字砸下來＋光芒、雙層衝擊波、火花；GOOD 綠色彈出＋一圈波紋；
+/// MISS 灰色小字落下晃一下，不罰人。不擋操作，約 1.1 秒。
+/// 預覽：scripts/art/grade-anim.html（公式一一對應，改一邊要改另一邊）。
+struct GradeBurstView: View {
+    let moment: GradeMoment
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var start = Date()
+    @State private var haptics = HapticScript()
+
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            let t = ctx.date.timeIntervalSince(start)
+            let g = moment.grade
+            let fade = 1 - FXMath.seg(t, GradeMoment.duration - 0.3, GradeMoment.duration)
+            GeometryReader { geo in
+                let c = CGPoint(x: geo.size.width / 2, y: geo.size.height * 0.30)
+                ZStack {
+                    if !reduceMotion {
+                        Canvas { gc, _ in
+                            switch g {
+                            case .perfect:
+                                FX.glow(&gc, center: c, radius: 170, color: Theme.gold, alpha: 0.5 * fade * FXMath.seg(t, 0, 0.15))
+                                FX.rays(&gc, center: c, radius: 260, count: 12, angle: t * 0.9, color: Theme.gold,
+                                        alpha: 0.32 * fade * FXMath.seg(t, 0.05, 0.25))
+                                FX.ring(&gc, center: c, progress: FXMath.seg(t, 0.12, 0.7), maxRadius: 200, color: Theme.gold)
+                                FX.ring(&gc, center: c, progress: FXMath.seg(t, 0.25, 0.85), maxRadius: 150, color: .white, width: 8)
+                                FX.sparkBurst(&gc, center: c, tau: t - 0.12, count: 28, speed: 440,
+                                              colors: [Theme.gold, .white, Theme.hot])
+                            case .good:
+                                FX.glow(&gc, center: c, radius: 120, color: Theme.green, alpha: 0.35 * fade * FXMath.seg(t, 0, 0.15))
+                                FX.ring(&gc, center: c, progress: FXMath.seg(t, 0.08, 0.6), maxRadius: 150, color: Theme.green)
+                                FX.sparkBurst(&gc, center: c, tau: t - 0.08, count: 14, speed: 300, colors: [Theme.green, .white])
+                            case .miss:
+                                break
+                            }
+                        }
+                    }
+                    label(g, t: t)
+                        .position(c)
+                }
+                .opacity(fade)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .onAppear {
+            start = Date()
+            switch moment.grade {
+            case .perfect: haptics.play([(0, .heavy), (0.12, .success)])
+            case .good: haptics.play([(0, .medium)])
+            case .miss: haptics.play([(0, .light)])
+            }
+        }
+        .onDisappear { haptics.cancel() }
+    }
+
+    private func label(_ g: SetGrade, t: Double) -> some View {
+        let size: CGFloat = g == .perfect ? 56 : (g == .good ? 46 : 38)
+        let scale: Double
+        var dy = 0.0, dx = 0.0
+        switch g {
+        case .perfect: scale = 1 + 1.4 * (1 - FXMath.easeOutBack(FXMath.seg(t, 0, 0.28)))
+        case .good: scale = 0.5 + 0.5 * FXMath.easeOutBack(FXMath.seg(t, 0, 0.25))
+        case .miss:
+            scale = 1
+            dy = -30 * (1 - FXMath.easeOutCubic(FXMath.seg(t, 0, 0.25)))
+            dx = 6 * sin(t * 40) * exp(-(t - 0.25) * 8) * (t > 0.25 ? 1 : 0)
+        }
+        let sub: String
+        switch g {
+        case .perfect: sub = "完美控制！"
+        case .good: sub = "穩穩的"
+        case .miss: sub = "下一組調整一下"
+        }
+        let top: Color = g == .miss ? Theme.fg : .white
+        return VStack(spacing: 2) {
+            Text(g.title)
+                .font(.system(size: size, weight: .black, design: .rounded))
+                .tracking(2)
+                .foregroundStyle(LinearGradient(colors: [top, g.color], startPoint: .top, endPoint: .bottom))
+                .shadow(color: (g == .perfect ? Theme.hot : .black).opacity(0.8), radius: 12)
+            Text(sub)
+                .font(.subheadline.weight(.heavy))
+                .foregroundStyle(g.color)
+                .shadow(color: .black.opacity(0.8), radius: 6)
+                .opacity(reduceMotion ? 1 : FXMath.seg(t, 0.3, 0.45))
+        }
+        .scaleEffect(reduceMotion ? 1 : scale)
+        .offset(x: reduceMotion ? 0 : dx, y: reduceMotion ? 0 : dy)
+        .opacity(reduceMotion ? 1 : FXMath.seg(t, 0, 0.12))
     }
 }

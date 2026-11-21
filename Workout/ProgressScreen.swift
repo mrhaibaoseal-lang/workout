@@ -259,7 +259,7 @@ struct ProgressScreen: View {
                     }
                 }
             }
-            Text(ex.loaded ? "估算最大力量（1RM）" : "單組最多\(ex.unit.label)數")
+            Text(ex.loaded ? "推估最大力量" : "單組最多\(ex.unit.label)數")
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
 
