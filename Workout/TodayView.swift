@@ -46,6 +46,11 @@ struct TodayView: View {
     @AppStorage(Keys.planLog) private var planLogRaw = ""
     @AppStorage(Keys.shieldBuys) private var shieldBuysRaw = ""
     @AppStorage(Keys.bets) private var betsRaw = ""
+    // 換課表、改自訂課表或自訂動作時重算今天的動作
+    @AppStorage(Keys.activeProgram) private var activeProgram = ""
+    @AppStorage(Keys.customPrograms) private var programsRaw = ""
+    @AppStorage(Keys.customExercises) private var customExercisesRaw = ""
+    @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -55,7 +60,12 @@ struct TodayView: View {
 
     private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
     private var phase: Phase { ProgramBuilder.phase(week: week) }
-    private var day: DayTemplate { pickedDay ?? ProgramBuilder.nextDay(after: sessions) }
+    private var day: DayTemplate {
+        _ = (activeProgram, programsRaw, customExercisesRaw, customInAutoPick)
+        // 選過的那天用 id 重新找：換了課表或改了內容，才會拿到最新的
+        if let id = pickedDay?.id, let d = ProgramBuilder.days.first(where: { $0.id == id }) { return d }
+        return ProgramBuilder.nextDay(after: sessions)
+    }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
         ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
@@ -283,6 +293,11 @@ struct TodayView: View {
                 Text(summaryLine)
                     .font(.subheadline)
                     .foregroundStyle(Theme.accentSoft)
+                if let name = ProgramBuilder.customName {
+                    Label(name, systemImage: "list.bullet.rectangle")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.muted)
+                }
             }
 
             if let reason = today?.reason, !reason.isEmpty, !trainedToday {
@@ -421,6 +436,11 @@ struct TodayView: View {
                                 Text("\(r.item.sets) 組 × \(r.item.low)–\(r.item.high) \(r.item.exercise.unit.label)")
                                     .font(.caption)
                                     .foregroundStyle(Theme.muted)
+                                if let from = r.item.replaced {
+                                    Text("代替「\(from)」（器材不夠）")
+                                        .font(.caption2)
+                                        .foregroundStyle(Theme.accentSoft)
+                                }
                             }
                             Spacer(minLength: 8)
                             VStack(alignment: .trailing, spacing: 3) {

@@ -239,8 +239,10 @@ enum GoalEngine {
                 case .record: q.current += f.prs
                 case .fullTwice: if f.length == .full { q.current += 1 }
                 case .upperLower:
-                    if f.dayKey.hasPrefix("upper") { upper = true }
-                    if f.dayKey.hasPrefix("lower") { lower = true }
+                    let h = ProgramBuilder.template(id: f.dayKey)?.halves
+                        ?? (upper: f.dayKey.hasPrefix("upper"), lower: f.dayKey.hasPrefix("lower"))
+                    if h.upper { upper = true }
+                    if h.lower { lower = true }
                     q.current = (upper ? 1 : 0) + (lower ? 1 : 0)
                 case .sets: q.current += f.workSets
                 case .onPlan:

@@ -81,6 +81,9 @@ struct SettingsView: View {
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.autoWarmup) private var autoWarmup = true
     @AppStorage(Keys.limitBarbell) private var limitBarbell = true
+    @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
+    @AppStorage(Keys.activeProgram) private var activeProgram = ""
+    @AppStorage(Keys.customPrograms) private var programsRaw = ""
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
@@ -105,6 +108,11 @@ struct SettingsView: View {
         let upcoming = shiftInfo.shifts.filter { $0.end > .now }.count
         let updated = shiftInfo.updatedAt.map { "，更新於 \($0.formatted(date: .abbreviated, time: .shortened))" } ?? ""
         return "已讀到，接下來 \(upcoming) 個班\(updated)"
+    }
+
+    private var programStatus: String {
+        _ = (activeProgram, programsRaw)
+        return ProgramBuilder.customName.map { "使用中：\($0)" } ?? "使用中：內建課表"
     }
 
     private var reminderSummary: String {
@@ -181,6 +189,30 @@ struct SettingsView: View {
                 } footer: {
                     SectionLabel("依正式組的重量自動算熱身組（例如 50% × 10、75% × 5），每個部位的第一個動作才做完整熱身。熱身組不算進步和破紀錄。每個動作的「遞增／遞減／Drop set」在訓練畫面右上角的按鈕調整。開啟「少排槓鈴」時，在家只有下半身 B 的臀推用槓鈴，其他都用啞鈴。")
                 }
+
+                Section {
+                    NavigationLink {
+                        ProgramListView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("訓練課表", systemImage: "list.bullet.rectangle")
+                            Text(programStatus).font(.caption).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    NavigationLink {
+                        CustomExerciseListView()
+                    } label: {
+                        Label("自訂動作", systemImage: "plus.square.on.square")
+                    }
+                    Toggle(isOn: $customInAutoPick) {
+                        Label("自動挑動作時也排自訂動作", systemImage: "wand.and.stars")
+                    }
+                } header: {
+                    SectionLabel("課表與動作")
+                } footer: {
+                    SectionLabel("自訂課表和內建課表分開存，選哪一份就用哪一份。開關關著時，自訂動作只會出現在你指定它的自訂課表裡。")
+                }
+                .listRowBackground(Theme.surface)
 
                 Section {
                     NavigationLink {

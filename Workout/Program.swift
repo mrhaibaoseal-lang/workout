@@ -9,6 +9,10 @@ struct Slot {
     let essential: Bool
     /// 「少排槓鈴」時，這個位置仍然優先用槓鈴（槓鈴臀推：啞鈴壓髖部太輕）。
     var keepBarbell = false
+    /// 自訂課表：指定的動作。器材不夠或已刪除時，改用同類型自動挑。
+    var exerciseId: String? = nil
+    /// 自訂課表：完整版的休息秒數（內建課表依重點動作 120／60 秒）。
+    var rest: Int? = nil
 }
 
 struct DayTemplate: Identifiable {
@@ -17,7 +21,17 @@ struct DayTemplate: Identifiable {
     let focus: String
     /// B days start from the second exercise variant so A and B differ.
     var variant: Int = 0
+    /// 自訂課表的一天：組數照使用者填的，不自動 +1。
+    var custom = false
     let slots: [Slot]
+
+    /// 週任務「上下半身都練」用。內建看 id，自訂看動作類型（全身日兩邊都算）。
+    var halves: (upper: Bool, lower: Bool) {
+        if id.hasPrefix("upper") { return (true, false) }
+        if id.hasPrefix("lower") { return (false, true) }
+        let patterns = slots.map(\.pattern)
+        return (patterns.contains { $0.isUpper }, patterns.contains { $0.isLower })
+    }
 }
 
 enum Phase {
@@ -69,6 +83,8 @@ struct PlannedExercise: Identifiable {
     let high: Int
     let restSeconds: Int
     let essential: Bool
+    /// 自訂課表指定的動作今天排不了（器材不夠或已刪除），改用這個動作時，記原本的名字。
+    var replaced: String? = nil
 
     var id: String { exercise.id }
 }
@@ -80,7 +96,20 @@ enum ProgramBuilder {
     /// 每個肌群一週大約 9–12 個正式組：新手這個量就會一直長，不用練到爆。
     /// 複合動作 6–12 下、單關節動作 10–20 下；每組留 1–2 下的力氣，達標就加重（雙重進步法）。
     /// 健身房才有的動作（例如腿伸展機），在家會自動跳過。
-    static let days: [DayTemplate] = [
+    /// 現在用的課表：選了自訂課表就用它，不然用內建。
+    static var days: [DayTemplate] {
+        CustomPrograms.active.map(CustomPrograms.templates) ?? builtInDays
+    }
+
+    /// 自訂課表的名字；用內建課表時是 nil。
+    static var customName: String? { CustomPrograms.active?.name }
+
+    /// 舊紀錄的 dayKey 找回那一天（內建或任何一份自訂課表）。
+    static func template(id: String) -> DayTemplate? {
+        builtInDays.first { $0.id == id } ?? CustomPrograms.day(templateId: id)
+    }
+
+    static let builtInDays: [DayTemplate] = [
         DayTemplate(id: "upperA", name: "上半身 A", focus: "胸、背為主", slots: [
             Slot(pattern: .hPush, sets: 3, low: 6, high: 10, essential: true),
             Slot(pattern: .vPull, sets: 3, low: 8, high: 12, essential: true),
@@ -141,9 +170,19 @@ enum ProgramBuilder {
         let phase = phase(week: week)
         let block = block(week: week)
         var usedIds = Set<String>()
+        let siblings = days
 
         let all: [PlannedExercise] = day.slots.compactMap { slot in
             if length != .full && !slot.essential { return nil }
+            // 自訂課表指定的動作：器材夠、沒被刪掉就直接用
+            var replaced: String? = nil
+            if let fid = slot.exerciseId, let fixed = ExerciseLibrary.byId(fid), !usedIds.contains(fid) {
+                if fixed.requires.isSubset(of: equipment) && !CustomExercises.isHidden(fid) {
+                    usedIds.insert(fid)
+                    return planned(fixed, slot: slot, day: day, phase: phase, length: length, replaced: nil)
+                }
+                replaced = fixed.name
+            }
             var options = ExerciseLibrary.candidates(for: slot.pattern, equipment: equipment)
                 .filter { !usedIds.contains($0.id) }
             if limitBarbell && !slot.keepBarbell {
@@ -155,35 +194,48 @@ enum ProgramBuilder {
             let loaded = options.filter(\.loaded)
             let top = Array((loaded.isEmpty ? options : loaded).prefix(2))
             // 這類動作在另一天（同為上半身或下半身）也有，B 日才換第二個動作；一週只練一次的就用首選
-            let half = day.id.prefix(5)
-            let shared = days.contains { d in
-                d.id != day.id && d.id.prefix(5) == half && d.slots.contains { $0.pattern == slot.pattern }
+            let variant: Int
+            if day.custom {
+                // 自訂課表：前面幾天也有同類型（自動挑）的，就往後換一個，各天才不會都一樣
+                variant = siblings.prefix(while: { $0.id != day.id })
+                    .filter { d in d.slots.contains { $0.pattern == slot.pattern && $0.exerciseId == nil } }.count
+            } else {
+                let half = day.id.prefix(5)
+                let shared = siblings.contains { d in
+                    d.id != day.id && d.id.prefix(5) == half && d.slots.contains { $0.pattern == slot.pattern }
+                }
+                variant = shared ? day.variant : 0
             }
-            let exercise = slot.keepBarbell ? top[0] : top[(block + (shared ? day.variant : 0)) % top.count]
+            let exercise = slot.keepBarbell ? top[0] : top[(block + variant) % top.count]
             usedIds.insert(exercise.id)
-
-            var sets = slot.sets
-            if length == .full && slot.essential { sets += 1 }
-            if phase != .normal { sets = max(2, sets - 1) }
-
-            let rest: Int
-            switch length {
-            case .full: rest = slot.essential ? 120 : 60
-            case .short: rest = 60
-            case .minimal: rest = 90
-            }
-
-            let range = exercise.range ?? slot.low...slot.high
-            return PlannedExercise(
-                exercise: exercise,
-                sets: length == .minimal ? 1 : sets,
-                low: range.lowerBound,
-                high: range.upperBound,
-                restSeconds: rest,
-                essential: slot.essential
-            )
+            return planned(exercise, slot: slot, day: day, phase: phase, length: length, replaced: replaced)
         }
         return length == .minimal ? Array(all.prefix(1)) : all
+    }
+
+    private static func planned(_ exercise: Exercise, slot: Slot, day: DayTemplate, phase: Phase,
+                                length: WorkoutLength, replaced: String?) -> PlannedExercise {
+        var sets = slot.sets
+        if length == .full && slot.essential && !day.custom { sets += 1 }
+        if phase != .normal { sets = max(2, sets - 1) }
+
+        let rest: Int
+        switch length {
+        case .full: rest = slot.rest ?? (slot.essential ? 120 : 60)
+        case .short: rest = min(slot.rest ?? 60, 60)
+        case .minimal: rest = 90
+        }
+
+        let range = exercise.range ?? slot.low...slot.high
+        return PlannedExercise(
+            exercise: exercise,
+            sets: length == .minimal ? 1 : sets,
+            low: range.lowerBound,
+            high: range.upperBound,
+            restSeconds: rest,
+            essential: slot.essential,
+            replaced: replaced
+        )
     }
 
     /// 照實際排出來的組（含熱身）、換重量和組槓鈴的時間估算。
@@ -199,6 +251,7 @@ enum ProgramBuilder {
     }
 
     static func nextDay(after sessions: [WorkoutSession]) -> DayTemplate {
+        let days = self.days
         guard let last = sessions.first,
               let idx = days.firstIndex(where: { $0.id == last.dayKey }) else {
             return days[0]

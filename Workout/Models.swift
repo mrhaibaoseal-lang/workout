@@ -30,7 +30,7 @@ final class WorkoutSession {
     }
 
     var dayName: String {
-        ProgramBuilder.days.first { $0.id == dayKey }?.name ?? dayKey
+        ProgramBuilder.template(id: dayKey)?.name ?? dayKey
     }
 }
 
@@ -134,6 +134,14 @@ enum Keys {
     static let shieldBuys = "shieldBuys"
     /// 押注，JSON [Bet]
     static let bets = "bets"
+    /// 自訂動作，JSON [CustomExercise]
+    static let customExercises = "customExercises"
+    /// 自訂課表，JSON [CustomProgram]
+    static let customPrograms = "customPrograms"
+    /// 正在用的自訂課表 id；空字串 = 內建課表
+    static let activeProgram = "activeProgram"
+    /// 自動挑動作時也排自訂動作（預設關）
+    static let customInAutoPick = "customInAutoPick"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60

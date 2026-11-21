@@ -1,7 +1,47 @@
 import Foundation
 
-enum MovementPattern: String {
+enum MovementPattern: String, CaseIterable, Identifiable {
     case hPush, incline, vPush, hPull, vPull, squat, hinge, lunge, glute, hamCurl, quadIso, calf, biceps, triceps, lateral, rear, core
+
+    var id: String { rawValue }
+
+    /// 自訂動作、自訂課表選動作類型時顯示的名稱。
+    var title: String {
+        switch self {
+        case .hPush: "水平推（胸）"
+        case .incline: "上斜推（上胸）"
+        case .vPush: "垂直推（肩）"
+        case .hPull: "水平拉（背）"
+        case .vPull: "垂直拉（背闊）"
+        case .squat: "深蹲類"
+        case .hinge: "髖鉸鏈（硬舉類）"
+        case .lunge: "弓步、單腳"
+        case .glute: "臀推、臀橋"
+        case .hamCurl: "腿後彎舉"
+        case .quadIso: "腿伸展"
+        case .calf: "小腿"
+        case .biceps: "二頭"
+        case .triceps: "三頭"
+        case .lateral: "側平舉（肩側）"
+        case .rear: "後肩"
+        case .core: "核心"
+        }
+    }
+
+    /// 自訂課表判斷「上半身／下半身」日用（週任務「上下半身都練」）。核心兩邊都不算。
+    var isUpper: Bool {
+        switch self {
+        case .hPush, .incline, .vPush, .hPull, .vPull, .biceps, .triceps, .lateral, .rear: true
+        default: false
+        }
+    }
+
+    var isLower: Bool {
+        switch self {
+        case .squat, .hinge, .lunge, .glute, .hamCurl, .quadIso, .calf: true
+        default: false
+        }
+    }
 
     /// 熱身用的分區：同一區第一個複合動作做完整熱身，之後只做 1 組。nil = 單關節動作，不排熱身。
     var region: String? {
@@ -14,7 +54,7 @@ enum MovementPattern: String {
     }
 }
 
-enum RepUnit {
+enum RepUnit: String {
     case reps, seconds
 
     var label: String { self == .reps ? "下" : "秒" }
@@ -31,11 +71,16 @@ struct Exercise: Identifiable {
     /// Overrides the slot's rep range (e.g. plank seconds).
     var range: ClosedRange<Int>? = nil
     let tip: String
+
+    var isCustom: Bool { id.hasPrefix(CustomExercises.idPrefix) }
 }
 
 /// Candidates are listed in order of preference within each movement pattern.
 enum ExerciseLibrary {
-    static let all: [Exercise] = [
+    /// 內建 + 自訂（不含已刪除的自訂動作）。
+    static var all: [Exercise] { builtIn + CustomExercises.visible }
+
+    static let builtIn: [Exercise] = [
         // 水平推（健身房的排前面，在家沒有那些器材會自動跳過）
         Exercise(id: "bb_bench", name: "槓鈴臥推", pattern: .hPush, requires: [.barbell, .rack, .bench], loaded: true, tip: "肩胛骨夾緊、腳踩穩，槓下放到胸口下緣再推起"),
         Exercise(id: "machine_chest_press", name: "坐姿推胸機", pattern: .hPush, requires: [.machine], loaded: true, tip: "把手對齊胸口中段，推到手臂快打直就收回"),
@@ -149,11 +194,17 @@ enum ExerciseLibrary {
         Exercise(id: "plank", name: "棒式", pattern: .core, requires: [], loaded: false, unit: .seconds, range: 30...60, tip: "身體一直線，夾臀收腹"),
     ]
 
+    /// 刪除的自訂動作也找得到：舊紀錄、PR 還要顯示它的名字。
     static func byId(_ id: String) -> Exercise? {
-        all.first { $0.id == id }
+        if id.hasPrefix(CustomExercises.idPrefix) {
+            return CustomExercises.load().first { $0.id == id }?.exercise
+        }
+        return builtIn.first { $0.id == id }
     }
 
+    /// 自動挑動作用。自訂動作只有開了「自動挑動作時也排自訂動作」才會進來，排在內建的後面。
     static func candidates(for pattern: MovementPattern, equipment: Set<Equipment>) -> [Exercise] {
-        all.filter { $0.pattern == pattern && $0.requires.isSubset(of: equipment) }
+        let pool = CustomExercises.inAutoPick ? all : builtIn
+        return pool.filter { $0.pattern == pattern && $0.requires.isSubset(of: equipment) }
     }
 }

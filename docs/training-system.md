@@ -18,6 +18,25 @@
   只有 `keepBarbell` 的位置（下半身 B 的臀推）仍用槓鈴。使用者的槓鈴是兩個啞鈴接起來的，組裝很麻煩。
 - 進步：雙重進步法，每組都做到次數上限才加重；只看「最重那幾組」的正式組。
 
+## 自訂（0.19.0，`Custom/CustomStore.swift`、`Custom/CustomViews.swift`）
+
+- **自訂動作**（`Keys.customExercises`，JSON `[CustomExercise]`）：名稱、動作類型、器材、負重、次數／秒數、
+  可選的固定範圍、要點。id 是 `custom_` 開頭，建立後不改；刪除只設 `hidden`，`ExerciseLibrary.byId` 仍找得到
+  （舊紀錄、PR 要顯示名字）。`ExerciseLibrary.all` = 內建 + 沒刪的自訂；`builtIn` 是內建。
+- `candidates`（自動挑、健身房換動作）只有開了「自動挑動作時也排自訂動作」（`Keys.customInAutoPick`，預設關）
+  才包含自訂動作，排在內建後面。
+- **自訂課表**（`Keys.customPrograms`，JSON `[CustomProgram]`）：可以存好幾份，和內建分開；
+  `Keys.activeProgram` 選一份（空字串＝內建）。刪除只設 `hidden`，正在用的被刪就回到內建。
+  - `ProgramBuilder.days` 改成 computed：有可用的自訂課表就用它，否則 `builtInDays`。
+    自訂的天 id 是 `c_` + 亂碼，`ProgramBuilder.template(id:)` 會從內建和所有自訂課表（含已刪）找回舊紀錄的那天。
+  - 每一格（`CustomSlot`）：指定動作（`exerciseId`）或只指定動作類型（自動挑）、組數、次數範圍、休息秒數、
+    精簡版要不要做。指定的動作器材不夠或已刪除 → 同類型自動挑，`PlannedExercise.replaced` 記原本的名字，首頁顯示「代替」。
+  - 和內建的差別：組數照填的（不自動 +1）；休息用填的（精簡版最多 60 秒）；自動挑時，前面幾天也有同類型
+    自動挑的，就往後換一個候選，各天才不會一樣。適應期／減量週少 1 組、熱身、組數排法、加重建議都照舊。
+  - 「複製內建課表」會把內建完整版實際的組數（重點動作 +1）和休息（120／60 秒）寫進去，臀推位置保留 `keepBarbell`。
+  - 週任務「上下半身都練」：內建看 dayKey，自訂看那天的動作類型（`DayTemplate.halves`，全身日兩邊都算）。
+- 都加進 `SettingsBackup.keys`，重裝會還原。
+
 ## 在家／健身房（`TrainingPlace`）
 
 - 在家：`Keys.equipment` 勾的器材。健身房：`Equipment.gym`（全部，包含 `.rack`、`.machine`）。
