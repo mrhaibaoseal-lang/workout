@@ -203,8 +203,9 @@ enum ExerciseLibrary {
     }
 
     /// 自動挑動作用。自訂動作只有開了「自動挑動作時也排自訂動作」才會進來，排在內建的後面。
+    /// 使用者標記「會痛／不喜歡」的動作不會出現（`byId` 還是找得到，舊紀錄要顯示名字）。
     static func candidates(for pattern: MovementPattern, equipment: Set<Equipment>) -> [Exercise] {
         let pool = CustomExercises.inAutoPick ? all : builtIn
-        return pool.filter { $0.pattern == pattern && $0.requires.isSubset(of: equipment) }
+        return pool.filter { $0.pattern == pattern && $0.requires.isSubset(of: equipment) && !Avoid.isAvoided($0.id) }
     }
 }

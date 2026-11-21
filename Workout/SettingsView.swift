@@ -212,6 +212,11 @@ struct SettingsView: View {
                     } label: {
                         Label("自訂動作", systemImage: "plus.square.on.square")
                     }
+                    NavigationLink {
+                        AvoidListView()
+                    } label: {
+                        Label("不排的動作", systemImage: "hand.raised")
+                    }
                     Toggle(isOn: $customInAutoPick) {
                         Label("自動挑動作時也排自訂動作", systemImage: "wand.and.stars")
                     }

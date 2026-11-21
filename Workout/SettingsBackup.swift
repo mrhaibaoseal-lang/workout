@@ -15,6 +15,8 @@ enum SettingsBackup {
         Keys.place, Keys.schemes, Keys.limitBarbell, Keys.kits, Keys.autoWarmup, Keys.height,
         Keys.customExercises, Keys.customPrograms, Keys.activeProgram, Keys.customInAutoPick, Keys.autoSuperset,
         Keys.tempos, Keys.intervalSetups,
+        Keys.avoidExercises, Keys.painLog, Keys.patternShift, Keys.pinnedV023,
+        Keys.repCeiling, Keys.extraSet, Keys.tempRange,
         ClassStore.key, EventStore.key,
     ]
 
