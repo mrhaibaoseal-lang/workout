@@ -939,28 +939,6 @@ struct WorkoutView: View {
         }
     }
 
-    /// 練完：成果畫面 → 教練講評
-    @ViewBuilder
-    private var finishOverlay: some View {
-        if showCoach, let c = coach {
-            CoachReviewView(loader: c) {
-                onFinish()
-                dismiss()
-            }
-            .transition(.opacity)
-        } else if let s = summary {
-            WorkoutCompleteView(summary: s) {
-                if coach != nil {
-                    withAnimation(.easeOut(duration: 0.25)) { showCoach = true }
-                } else {
-                    onFinish()
-                    dismiss()
-                }
-            }
-            .transition(.opacity)
-        }
-    }
-
     /// 教練講評用的資料：這次做了什麼、和上次比、下次照規則會排多少。
     private func coachFacts(session: WorkoutSession) -> CoachFacts {
         let phase = ProgramBuilder.phase(week: week)
