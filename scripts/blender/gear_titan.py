@@ -94,7 +94,7 @@ if G['bottom'] == 'titan':
         a, b = B[f'thigh.{s}']; d = b - a
         obox(f'thigh.{s}', 'ti', a + d * 0.55 + Vector((0.01 * sx, -0.085, 0)), (0.075, 0.03, d.length * 0.3), d, 0.02)
         obox(f'thigh.{s}', 'glow', a + d * 0.55 + Vector((0.01 * sx, -0.117, 0)), (0.008, 0.004, d.length * 0.2), d, 0)
-        obox(f'thigh.{s}', 'tidk', a + d * 0.5 + Vector((0.09 * sx, 0, 0)), (0.02, 0.06, d.length * 0.25), d, 0.008)
+        obox(f'thigh.{s}', 'tidk', a + d * 0.5 + Vector((0.072 * sx, 0, 0)), (0.016, 0.06, d.length * 0.25), d, 0.008)
         k, an = B[f'shin.{s}']; d2 = an - k
         ellipsoid(f'shin.{s}', 'ti', k + Vector((0, -0.07, -0.01)), (0.065, 0.04, 0.075))     # 護膝
         cyl(f'shin.{s}', 'glow', k + Vector((0, -0.112, -0.01)), 0.018, 0.008, (0, -1, 0), 8)

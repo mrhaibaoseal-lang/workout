@@ -18,6 +18,9 @@ elif '=' in GEAR:
         k, v = kv.split('='); assert k in SLOTS, k; G[k] = v
 if os.environ.get('MOVE', 'squat') != 'squat':
     G['bell'] = 'none'          # 伏地挺身、下拉不拿啞鈴
+# 背靠靠背、躺在椅子上的動作：背部裝備（披風、背包）一定會卡進椅背 → 示範時隱藏
+if os.environ.get('MOVE', 'squat') in ('pulldown',):
+    G['back'] = 'none'
 TOP, BOT = G['top'] == 'titan', G['bottom'] == 'titan'
 def hexc(h):
     h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))
@@ -214,17 +217,20 @@ for f_ in skinbody.data.polygons:
         f_.material_index = 2
 # 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣
 SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09) if TOP else (0.12, 0.105))]
-SE = [(0, 1), (1, 2)]
+if not TOP:  # 腰和胸之間加控制點，軀幹維持直筒倒三角（不加會被收成沙漏形）
+    SP[0] = ((0, 0, 1.02), (0.142, 0.104)); SP.insert(1, ((0, -0.003, 1.15), (0.168, 0.112)))
+SE = [(0, 1), (1, 2)] if TOP else [(0, 1), (1, 2), (2, 3)]
+CH = 1 if TOP else 2   # 胸部節點的編號
 for sx in (1, -1):
     if not TOP:
-        SP += [((0.15 * sx, 0.0, 1.455), (0.075, 0.105))]; SE += [(1, len(SP) - 1)]
+        SP += [((0.15 * sx, 0.0, 1.455), (0.075, 0.105))]; SE += [(CH, len(SP) - 1)]
         continue
     SP += [((0.23 * sx, 0, 1.42), (0.095, 0.09)), ((0.28 * sx, -0.005, 1.30), (0.075, 0.073))]
     SE += [(1, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
     if TOP:
         SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
         SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.12)
+shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.05)
 HP = [((0, 0, 0.95), (0.155, 0.105)), ((0, 0, 1.07), (0.135, 0.10))]
 HE = [(0, 1)]
 for sx in (1, -1):

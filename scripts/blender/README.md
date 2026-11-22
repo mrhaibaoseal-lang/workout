@@ -22,6 +22,8 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 - 衣服用 Data Transfer 複製身體權重；衣服底下的身體面塗成衣服色。
 - 自動權重會讓手臂影響延伸到胸口：軀幹 |x|<0.235 的手臂權重改給胸部，0.235～0.29 漸變（肩關節外側才跟手臂）。
 - 背心沒有袖子：權重只留軀幹。背心範圍內凸出的身體頂點壓到背心內 1.2 cm；完全蓋住的身體面刪掉。
+- 自動檢查：`blender -b <輸出>/hero.blend -P scripts/blender/clipcheck.py -- 報告.json 2`（見 docs/3d-system.md「防穿模」）。
+- 接地修正（moves3d.py 結尾）、背靠椅背的動作隱藏背部裝備（hero_proto.py）。
 - 檢查方法：從正上方看伏地挺身（上背最容易穿）；依頂點最大權重骨頭上色找是哪根骨頭帶出來的。
 預覽：`docs/art/blender/`（`squat_basic.gif`、`squat_titan.gif`、`cmp.png`）。
 

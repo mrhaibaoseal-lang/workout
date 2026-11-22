@@ -127,9 +127,9 @@ def build_bench(back_deg):
     # 靠背調整支架（梯形孔架）
     tube((0, 0.42, 0.21), HINGE + dv * 0.25 - nv * 0.05, 0.02)
     # 前端腳踝滾筒（兩顆）＋橫桿
-    pcyl('chrome', (0, -0.47, 0.22), 0.012, 0.42, (1, 0, 0), n=12)
-    tube((0, -0.47, 0.10), (0, -0.47, 0.22), 0.02)
-    for sx in (1, -1): pcyl('pad', (0.12 * sx, -0.47, 0.22), 0.055, 0.17, (1, 0, 0), bevel=0.012)
+    pcyl('chrome', (0, -0.53, 0.22), 0.012, 0.42, (1, 0, 0), n=12)
+    tube((0, -0.53, 0.10), (0, -0.53, 0.22), 0.02)
+    for sx in (1, -1): pcyl('pad', (0.12 * sx, -0.53, 0.22), 0.055, 0.17, (1, 0, 0), bevel=0.012)
     # 立柱＋頂部滑輪盒
     pbox('frame', (0, POST_Y, POST_TOP / 2), (0.032, 0.032, POST_TOP / 2), 0.006)
     pbox('frame', (0, POST_Y + 0.02, POST_TOP - 0.03), (0.05, 0.085, 0.07), 0.02)
@@ -168,7 +168,7 @@ if MOVE == 'squat':
             A, K, Hj = J[s]
             aim(f'thigh.{s}', Hj, K - Hj); aim(f'shin.{s}', K, A - K)
             aim(f'foot.{s}', A, rest[f'foot.{s}'][1] - rest[f'foot.{s}'][0])
-            d = Vector((0.03 * sx, -0.10 * t, -1))
+            d = Vector((0.03 * sx + 0.10 * sx * t, -0.10 * t, -1))   # 蹲低時手往外，啞鈴落在大腿外側
             e = aim(f'upper_arm.{s}', sh[s], d); w = aim(f'forearm.{s}', e, d); aim(f'hand.{s}', w, d)
     for f in range(N):
         sc.frame_set(f); pose(ease(f / 24 if f <= 24 else (47 - f) / 23)); keyall(f)
@@ -224,7 +224,7 @@ elif MOVE == 'pushup':
 # 坐在使用者的啞鈴椅上、面向前端立柱，腳踝勾在滾筒下；寬握直槓從前上方拉到上胸，手肘往下往後、上身後仰靠向靠背。
 elif MOVE == 'pulldown':
     N = 48
-    HIP_Z, HIP_Y = SEAT_Z + 0.085, 0.0
+    HIP_Z, HIP_Y = SEAT_Z + 0.10, 0.0
     GX = 0.40                                         # 握距（手腕 x）
     WHEEL = Vector((0, POST_Y + 0.09, POST_TOP - 0.03))  # 滑輪靠使用者那一側
     stack = build_bench(24)                            # 靠背往後倒 24 度，拉到底時背剛好靠上
@@ -238,7 +238,7 @@ elif MOVE == 'pulldown':
     def lean(t): return D(-6) + D(-18) * t
     def upper(t):
         hm = lower(t); lam = lean(t)
-        return trunk(hm + Vector((0, 0, 0.04)), lam * 0.5, lam, lam - D(20) * (1 - t))
+        return trunk(hm + Vector((0, 0, 0.04)), lam * 0.5, lam, lam * 0.35 - D(20) * (1 - t))   # 拉到底時頭維持往前看，不往後靠
     # 起點：手臂幾乎打直、往前上方（立柱在前面，鋼索斜斜的）；終點：槓子到上胸
     cp0, sh0 = upper(0.0)
     reach = (blen['upper_arm.L'] + blen['forearm.L']) * 0.97
@@ -274,3 +274,15 @@ elif MOVE == 'pulldown':
     CAM = dict(loc=(4.0, -2.2, 1.45), tgt=(0, -0.12, 1.02), lens=58, stage=(0, -0.05, 1.0))
 
 sc.frame_start, sc.frame_end = 0, N - 1
+
+# ---------- 接地修正：裝備比基本款厚（例如推進靴、手甲），手腳釘點是照身體算的 → 有東西沉到地板下，就把整個人抬高 ----------
+_sol = [m for m in bpy.data.objects['hero'].modifiers if m.type == 'SOLIDIFY']
+for m in _sol: m.show_viewport = False
+_hero = bpy.data.objects['hero']
+for f in range(N):
+    sc.frame_set(f); rig.location.z = 0; bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get(); ev = _hero.evaluated_get(dg); me = ev.to_mesh()
+    low = min((_hero.matrix_world @ v.co).z for v in me.vertices); ev.to_mesh_clear()
+    rig.location.z = max(0.0, -low - 0.002) if low < -0.004 else 0.0
+    rig.keyframe_insert('location', index=2, frame=f)
+for m in _sol: m.show_viewport = True
