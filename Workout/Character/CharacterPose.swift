@@ -287,7 +287,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         // 弓步：站直（重心在前腳）
         case .lunge: return CharacterMove.j([134, 38, 130, 60, 132, 88, 134, 112, 128, 110, 130, 146, 132, 182, 148, 184])
         // 臀橋：躺著、髖在地上
-        case .bridge: return CharacterMove.j([152, 174, 132, 172, 106, 176, 82, 178, 82, 172, 64, 140, 54, 180, 70, 184])
+        case .bridge: return CharacterMove.j([152, 174, 132, 172, 106, 176, 82, 178, 82, 172, 64, 140, 54, 180, 38, 184])
         // 提踵：腳跟著地
         case .calf: return CharacterMove.j([110, 38, 106, 60, 108, 88, 110, 112, 104, 110, 107, 146, 106, 182, 122, 184])
         // 彎舉：手垂下
@@ -324,7 +324,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         // 弓步：下沉、前膝彎
         case .lunge: return CharacterMove.j([110, 68, 104, 90, 106, 118, 108, 142, 100, 140, 136, 148, 132, 182, 148, 184])
         // 臀橋：髖頂起
-        case .bridge: return CharacterMove.j([152, 168, 132, 164, 108, 172, 86, 176, 88, 132, 54, 146, 54, 180, 70, 184])
+        case .bridge: return CharacterMove.j([152, 168, 132, 164, 108, 172, 86, 176, 88, 132, 54, 146, 54, 180, 38, 184])
         // 提踵：腳跟抬起
         case .calf: return CharacterMove.j([118, 26, 114, 48, 116, 76, 118, 100, 112, 98, 114, 134, 118, 170, 124, 184])
         // 彎舉：前臂捲到肩前

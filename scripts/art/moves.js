@@ -45,7 +45,8 @@ function fk(s) {
     let ang = given;
     if (ang === undefined) {
       if (ankle[1] >= 176) {
-        const d = knee[0] - ankle[0];
+        // 腳尖朝大腿（髖→膝）的水平方向：深蹲朝前、臀橋和臥推朝遠離頭的那邊；大腿垂直時朝身體正面
+        const d = knee[0] - hipOf(knee);
         ang = Math.abs(d) > 4 ? (d > 0 ? 0 : 180) : (s.mirror ? 180 : 0);
       } else {
         const shin = Math.atan2(ankle[1] - knee[1], ankle[0] - knee[0]) * 180 / Math.PI;
@@ -54,6 +55,7 @@ function fk(s) {
     }
     return step(ankle, ang, LEN.foot);
   };
+  const hipOf = (knee) => (knee === P.kn ? P.hip[0] : P.hip[0] + FAR[0]);
   P.to = foot(P.kn, P.an, s.leg[2]);
   if (s.farLeg) P.fto = foot(P.fkn, P.fan, s.farLeg[2]);
   for (const k in P) P[k] = [+P[k][0].toFixed(1), +P[k][1].toFixed(1)];
@@ -90,7 +92,7 @@ const MOVES = {
     title: '後跨弓步', gear: 'bare', period: 3,
     frames: [
       S({ arm: [100, -120], farLeg: [88, 92] }),
-      { torso: -90, neck: -86, arm: [100, -120], leg: [8, 92], farLeg: [128, 178], anchor: ['an', 128, 182] },
+      { torso: -90, neck: -86, arm: [100, -120], leg: [8, 92], farLeg: [128, 178, 28], anchor: ['an', 128, 182] },
     ],
   },
   armSwing: {
@@ -145,8 +147,8 @@ const MOVES = {
   quadStretch: {
     title: '站姿大腿前側伸展', gear: 'bare', period: 5,
     frames: [
-      S({ arm: [110, 105], farArm: [10, 0], leg: [100, -115, -150], farLeg: [90, 90], anchor: ['fan', 108, 182] }),
-      S({ arm: [112, 106], farArm: [6, -4], leg: [104, -112, -150], farLeg: [90, 90], anchor: ['fan', 108, 182] }),
+      S({ arm: [110, 105], farArm: [10, 0], leg: [100, -115, -105], farLeg: [90, 90], anchor: ['fan', 108, 182] }),
+      S({ arm: [112, 106], farArm: [6, -4], leg: [104, -112, -102], farLeg: [90, 90], anchor: ['fan', 108, 182] }),
     ],
   },
   seatedFold: {
@@ -159,8 +161,8 @@ const MOVES = {
   kneeHug: {
     title: '仰躺抱膝', gear: 'bare', period: 5,
     frames: [
-      lie({ torso: 0, arm: [-150, 150], leg: [-125, 110], anchor: ['hip', 96, 172] }),
-      lie({ torso: 0, arm: [-145, 150], leg: [-130, 108], anchor: ['hip', 96, 172] }),
+      lie({ torso: 0, arm: [-145, -150], leg: [-58, 178], anchor: ['hip', 96, 172] }),
+      lie({ torso: 0, arm: [-142, -148], leg: [-62, 176], anchor: ['hip', 96, 172] }),
     ],
   },
   calfStretch: {
@@ -197,7 +199,7 @@ const MOVES = {
     title: '後跨弓步', gear: 'db', period: 3,
     frames: [
       S({ farLeg: [88, 92] }),
-      { torso: -90, neck: -86, arm: [92, 90], leg: [8, 92], farLeg: [128, 178], anchor: ['an', 128, 182] },
+      { torso: -90, neck: -86, arm: [92, 90], leg: [8, 92], farLeg: [128, 178, 28], anchor: ['an', 128, 182] },
     ],
   },
   stepUp: {
@@ -252,8 +254,8 @@ const MOVES = {
   pikePushup: {
     title: '屈體伏地挺身', gear: 'bare', period: 2.6,
     frames: [
-      { torso: 25, neck: 60, arm: [65, 75], leg: [105, 105], anchor: ['an', 58, 182] },
-      { torso: 50, neck: 95, arm: [20, 77], leg: [105, 105], anchor: ['an', 58, 182] },
+      { torso: 25, neck: 60, arm: [65, 75], leg: [105, 105, 0], anchor: ['an', 58, 182] },
+      { torso: 50, neck: 95, arm: [20, 77], leg: [105, 105, 0], anchor: ['an', 58, 182] },
     ],
   },
   reverseCrunch: {
@@ -331,7 +333,7 @@ async function preview(out, only) {
   for (const id of ids) {
     const m = MOVES[id];
     const fr = framesOf(id);
-    const pick = [0, 0.25, 0.5, 0.75, 1].map((ph) => {
+    const pick = [0, 0.25, 0.5].map((ph) => {
       if (m.loop) {
         const x = ph * fr.length; const i = Math.floor(x) % fr.length; const t = x - Math.floor(x);
         return lerpP(fr[i], fr[(i + 1) % fr.length], t);
@@ -361,7 +363,7 @@ async function preview(out, only) {
     };
     (0, eval)(src.replace('function drawGear(', 'window.drawGear=function('));
     const g = { head: 'none', top: 'none', bottom: 'none', feet: 'none', hands: 'none', back: 'none', bell: 'none', fx: 'none' };
-    let h = '<div style="background:#0E1116;padding:8px;width:980px;font:13px sans-serif;color:#ccc">';
+    let h = '<div style="background:#0E1116;padding:8px;width:980px;font:16px sans-serif;color:#ccc">';
     for (const id in data) {
       const d = data[id];
       POSES[id] = { muscles: [], gear: d.gear, a: d.poses[0], b: d.poses[0], mirror: d.mirror };
@@ -369,7 +371,7 @@ async function preview(out, only) {
       for (const P of d.poses) {
         let svg = '';
         try { svg = drawGear(id, P, g, false, 0.3); } catch (e) { svg = `<text x="40" y="100" fill="red">${e.message}</text>`; }
-        h += `<svg width="150" height="170" viewBox="10 -14 180 204" style="background:#161B22;border-radius:8px"><line x1="10" y1="186" x2="190" y2="186" stroke="#333" stroke-width="2"/>${d.prop}${svg}</svg>`;
+        h += `<svg width="270" height="306" viewBox="10 -14 180 204" style="background:#161B22;border-radius:8px"><line x1="10" y1="186" x2="190" y2="186" stroke="#333" stroke-width="2"/>${d.prop}${svg}</svg>`;
       }
       h += '</div>';
     }
