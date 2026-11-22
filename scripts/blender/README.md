@@ -14,6 +14,10 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 混搭：`GEAR="head=titan,hands=titan"` 逐部位指定（head top bottom feet hands back bell fx），沒寫的用基本款。
 每個部位是獨立零件；上衣／下身換鈦甲時，緊身衣袖子／褲管和底下身體的顏色一起換。預覽 `docs/art/blender/mix.png`。
 
+動作：`moves3d.py`，`MOVE=squat｜pushup｜pulldown`（hero_proto 會 exec 它）。手腳釘在地板／握把上，軀幹用角度、手肘膝蓋用兩節 IK。
+伏地挺身：腳尖和手掌固定、身體繞腳尖轉、手肘往後約 45 度。高位下拉：含椅子、護膝滾筒、立柱、滑輪、鋼索、槓片（跟著升降）、寬握下拉槓。
+使用者決定：之後改成 App 內即時 3D（可顯示自己的裝備）；示範影片不放裝備特效。
+
 穿模處理：衣服用 Data Transfer 複製身體權重；衣服底下的身體面直接塗成衣服色。
 預覽：`docs/art/blender/`（`squat_basic.gif`、`squat_titan.gif`、`cmp.png`）。
 

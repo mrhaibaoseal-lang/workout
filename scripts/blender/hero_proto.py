@@ -16,6 +16,8 @@ if GEAR in ('titan',):
 elif '=' in GEAR:
     for kv in GEAR.split(','):
         k, v = kv.split('='); assert k in SLOTS, k; G[k] = v
+if os.environ.get('MOVE', 'squat') != 'squat':
+    G['bell'] = 'none'          # 伏地挺身、下拉不拿啞鈴
 TOP, BOT = G['top'] == 'titan', G['bottom'] == 'titan'
 def hexc(h):
     h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))
@@ -312,44 +314,8 @@ body.parent = rig
 sol = body.modifiers.new('outline', 'SOLIDIFY'); sol.thickness = -0.014; sol.use_flip_normals = True
 sol.material_offset = len(body.data.materials) - 1; sol.use_rim = False
 
-# ---------- 動畫：啞鈴深蹲（關節座標 → 骨頭矩陣） ----------
-pb = rig.pose.bones
-for p_ in pb: p_.rotation_mode = 'QUATERNION'
-rest = {n: (h.copy(), t.copy()) for n, (h, t) in B.items()}
-blen = {n: (t - h).length for n, (h, t) in rest.items()}
-def aim(name, head, direction):
-    yv = direction.normalized(); zv = Vector((1, 0, 0)).cross(yv).normalized(); xv = yv.cross(zv)
-    m = Matrix((xv, yv, zv)).transposed().to_4x4(); m.translation = head
-    pb[name].matrix = m; bpy.context.view_layer.update()
-    return head + yv * blen[name]
-sc.frame_start, sc.frame_end = 0, 47
-def ease(x): return x * x * (3 - 2 * x)
-def pose(t):
-    ts, tt, lam = math.radians(38) * t, math.radians(78) * t, math.radians(36) * t
-    hipmid = Vector((0, 0, 0))
-    joints = {}
-    for s, sx in (('L', 1), ('R', -1)):
-        A = rest[f'shin.{s}'][1]
-        K = A + blen[f'shin.{s}'] * Vector((0.035 * sx * t, -math.sin(ts), math.cos(ts)))
-        Hj = K + blen[f'thigh.{s}'] * Vector((-0.02 * sx * t, math.sin(tt), math.cos(tt)))
-        joints[s] = (A, K, Hj); hipmid += Hj / 2
-    R = lambda ang: Matrix.Rotation(ang, 4, 'X')
-    hh = hipmid + Vector((0, 0, 0.04))
-    ctop = aim('hips', hh, R(lam * 0.6) @ Vector((0, 0, 1)))
-    aim('chest', ctop, R(lam) @ Vector((0, 0, 1)))
-    aim('head', ctop + R(lam) @ (rest['head'][0] - rest['chest'][0]), R(lam * 0.15) @ Vector((0, 0, 1)))
-    for s, sx in (('L', 1), ('R', -1)):
-        A, K, Hj = joints[s]
-        aim(f'thigh.{s}', Hj, K - Hj); aim(f'shin.{s}', K, A - K)
-        aim(f'foot.{s}', A, rest[f'foot.{s}'][1] - rest[f'foot.{s}'][0])
-        sh = ctop + R(lam) @ (rest[f'upper_arm.{s}'][0] - rest['chest'][0])
-        d = Vector((0.03 * sx, -0.10 * t, -1))
-        e = aim(f'upper_arm.{s}', sh, d); w = aim(f'forearm.{s}', e, d); aim(f'hand.{s}', w, d)
-for f in range(48):
-    t = ease(f / 24 if f <= 24 else (47 - f) / 23)
-    sc.frame_set(f); pose(t)
-    for p_ in pb:
-        p_.keyframe_insert('rotation_quaternion', frame=f); p_.keyframe_insert('location', frame=f)
+# ---------- 動畫：見 moves3d.py（MOVE=squat｜pushup｜pulldown） ----------
+exec(open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1])), 'moves3d.py')).read())
 
 # ---------- 舞台、燈光、相機 ----------
 sc.render.engine = 'BLENDER_EEVEE'
@@ -358,17 +324,17 @@ sc.render.film_transparent = False
 w = bpy.data.worlds.new('w'); sc.world = w; w.use_nodes = True
 w.node_tree.nodes['Background'].inputs[0].default_value = (0.02, 0.025, 0.05, 1)
 # 地板圓台 + 光圈
-bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.62, depth=0.06, location=(0, 0, -0.03))
+bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=CAM['stage'][2], depth=0.06, location=(CAM['stage'][0], CAM['stage'][1], -0.03))
 bpy.context.object.data.materials.append(toon('stage', (0.08, 0.10, 0.18)))
-bpy.ops.mesh.primitive_torus_add(major_radius=0.62, minor_radius=0.012, location=(0, 0, 0.0))
+bpy.ops.mesh.primitive_torus_add(major_radius=CAM['stage'][2], minor_radius=0.012, location=(CAM['stage'][0], CAM['stage'][1], 0.0))
 bpy.context.object.data.materials.append(flat('ring', (1.0, 0.55, 0.2), 4))
 sc.eevee.use_bloom = True; sc.eevee.bloom_intensity = 0.08
 sun = bpy.data.objects.new('sun', bpy.data.lights.new('sun', 'SUN')); sc.collection.objects.link(sun)
 sun.rotation_euler = (math.radians(50), math.radians(-25), math.radians(-35)); sun.data.energy = 3
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
-cam.data.lens = 70
-cam.location = (4.2, -3.9, 1.7)
-dirv = Vector((0, 0, 0.95)) - cam.location
+cam.data.lens = CAM['lens']
+cam.location = CAM['loc']
+dirv = Vector(CAM['tgt']) - cam.location
 cam.rotation_euler = dirv.to_track_quat('-Z', 'Y').to_euler()
 sc.render.resolution_x = sc.render.resolution_y = 600
 sc.view_settings.view_transform = 'Standard'
