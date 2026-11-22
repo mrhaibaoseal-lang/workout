@@ -66,7 +66,8 @@ final class MobilityTests: XCTestCase {
             .chestStretch, .crossBody, .tricepsStretch, .childPose, .quadStretch, .seatedFold, .kneeHug,
             .calfStretch, .hipFlexor, .cobra, .splitSquat, .reverseLunge, .stepUp, .hipThrust, .benchPress,
             .floorPress, .skullCrusher, .pullover, .kickback, .pikePushup, .reverseCrunch, .deadBug, .slRdl, .legCurl,
-            .latPulldown,
+            .latPulldown, .straightArmPulldown, .tricepsPushdown, .overheadCableExt, .facePull, .cableCrunch,
+            .seatedCableRow, .cableCurl, .cableLateral,
         ]
         for m in generated {
             XCTAssertNotNil(m.spec, "\(m) 沒有產生的資料")
@@ -79,6 +80,10 @@ final class MobilityTests: XCTestCase {
         XCTAssertEqual(CharacterMove.forExercise(ExerciseLibrary.byId("db_hip_thrust")!), .hipThrust)
         // 沒有專屬示範的照動作模式
         XCTAssertEqual(CharacterMove.forExercise(ExerciseLibrary.byId("goblet_squat")!), .squat)
+        // 用滑輪的內建動作都有畫出滑輪架
+        for e in ExerciseLibrary.builtIn where e.id.hasPrefix("cable_") {
+            XCTAssertNotNil(CharacterMove.forExercise(e).prop?.pulley, "\(e.id) 沒有滑輪")
+        }
         for id in CharacterMove.byExercise.keys {
             XCTAssertNotNil(ExerciseLibrary.byId(id), "\(id) 不在動作庫")
         }

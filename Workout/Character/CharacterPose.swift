@@ -91,21 +91,26 @@ struct FarLimb {
     var to: CGPoint
 }
 
-/// 畫在角色後面的道具（200 單位座標，和 scripts/art/moves.js 的 PROPS 一致）
-enum MoveProp {
-    /// 平躺用的椅子（臥推、仰臥三頭）
-    case benchFlat
-    /// 椅子在身體後方（分腿蹲後腳、臀推靠背）
-    case benchBack
-    /// 椅子在身體前方（登階）
-    case benchFront
-    /// 牆（推牆伸展）
-    case wall
-    /// 下拉架（直柱、上橫桿、滑輪）＋坐的椅子；鋼索和握把跟著手畫
-    case cableTower
+/// 道具的一塊（`MoveProp` 在 MoveFrames.swift，由 scripts/art/moves.js 產生）
+struct PropShape {
+    enum Kind { case pad, leg, frame }
+    let kind: Kind
+    let rect: CGRect
 
-    /// 下拉架滑輪的位置（200 單位座標）
-    static let pulley = CGPoint(x: 114, y: 2)
+    init(_ kind: Kind, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) {
+        self.kind = kind
+        rect = CGRect(x: x, y: y, width: w, height: h)
+    }
+}
+
+/// 滑輪動作手上拿的握把
+enum CableGrip {
+    /// 直槓（下拉、彎舉）
+    case bar
+    /// 三頭繩（下壓、面拉、捲腹）
+    case rope
+    /// D 型把手（划船、側平舉）
+    case handle
 }
 
 /// 由 scripts/art/moves.js 產生的動作（`MoveFrames.swift`）
@@ -117,6 +122,8 @@ struct MoveSpec {
     /// 一個來回（或一圈）幾秒
     let period: Double
     let prop: MoveProp?
+    /// 滑輪動作的握把；有滑輪但沒寫就是直槓
+    var grip: CableGrip? = nil
     /// 仰躺、頭在右邊的動作：身體是側面圖左右翻過來的，臉和腳掌要翻面
     var mirror: Bool = false
     let frames: [Joints]
@@ -140,7 +147,10 @@ enum CharacterMove: String, CaseIterable, Identifiable {
     case chestStretch, crossBody, tricepsStretch, childPose, quadStretch, seatedFold, kneeHug, calfStretch, hipFlexor, cobra
     // 比依動作模式套用更貼近的訓練示範
     case splitSquat, reverseLunge, stepUp, hipThrust, benchPress, floorPress, skullCrusher, pullover, kickback
-    case pikePushup, reverseCrunch, deadBug, slRdl, legCurl, latPulldown
+    case pikePushup, reverseCrunch, deadBug, slRdl, legCurl
+    // 滑輪（下拉架）
+    case latPulldown, straightArmPulldown, tricepsPushdown, overheadCableExt, facePull, cableCrunch
+    case seatedCableRow, cableCurl, cableLateral
 
     var id: String { rawValue }
 
@@ -184,6 +194,9 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         "db_sl_rdl": .slRdl, "sl_rdl": .slRdl,
         "db_leg_curl": .legCurl, "squat": .bwSquat,
         "cable_pulldown": .latPulldown, "cable_close_pulldown": .latPulldown, "band_pulldown": .latPulldown,
+        "cable_straight_arm": .straightArmPulldown, "cable_pushdown": .tricepsPushdown, "band_pushdown": .tricepsPushdown,
+        "cable_overhead_ext": .overheadCableExt, "cable_face_pull": .facePull, "cable_crunch": .cableCrunch,
+        "cable_row": .seatedCableRow, "cable_curl": .cableCurl, "cable_lateral": .cableLateral,
     ]
 
     static func forExercise(_ e: Exercise) -> CharacterMove {

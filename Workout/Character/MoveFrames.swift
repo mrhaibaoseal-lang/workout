@@ -6,7 +6,7 @@ extension CharacterMove {
     /// rawValue → 動作資料
     static let generated: [String: MoveSpec] = {
         var d: [String: MoveSpec] = [:]
-        d["armCircle"] = MoveSpec(title: "手臂繞圈", gear: .bare, loop: true, period: 2.4, prop: nil, mirror: false, frames: [
+        d["armCircle"] = MoveSpec(title: "手臂繞圈", gear: .bare, loop: true, period: 2.4, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 104.3, 88.1, 104.3, 112.1, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([105.8, 38.1, 104.3, 60.1, 124.1, 79.9, 141, 96.8, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([105.8, 38.1, 104.3, 60.1, 132.3, 60.1, 156.3, 60.1, 106, 110, 107.3, 146, 106, 182, 122, 182]),
@@ -16,134 +16,200 @@ extension CharacterMove {
             .j([105.8, 38.1, 104.3, 60.1, 76.3, 60.1, 52.3, 60.1, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([105.8, 38.1, 104.3, 60.1, 84.5, 79.9, 67.5, 96.8, 106, 110, 107.3, 146, 106, 182, 122, 182]),
         ])
-        d["hipHinge"] = MoveSpec(title: "徒手早安式", gear: .bare, loop: false, period: 2.8, prop: nil, mirror: false, frames: [
+        d["hipHinge"] = MoveSpec(title: "徒手早安式", gear: .bare, loop: false, period: 2.8, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 118.3, 84.3, 97.5, 72.3, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([172.6, 94.6, 150.7, 96.9, 134.6, 119.8, 146.6, 99, 103.1, 112.3, 114.3, 146.5, 108, 182, 124, 182]),
         ])
-        d["bwSquat"] = MoveSpec(title: "徒手深蹲", gear: .bare, loop: false, period: 2.6, prop: nil, mirror: false, frames: [
+        d["bwSquat"] = MoveSpec(title: "徒手深蹲", gear: .bare, loop: false, period: 2.6, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 103.3, 88.1, 103.3, 112.1, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([109.6, 73.3, 105, 94.8, 133, 94.8, 157, 94.8, 86.3, 141.1, 121.5, 148.6, 108, 182, 124, 182]),
         ])
-        d["lungeStep"] = MoveSpec(title: "後跨弓步", gear: .bare, loop: false, period: 3, prop: nil, mirror: false, frames: [
+        d["lungeStep"] = MoveSpec(title: "後跨弓步", gear: .bare, loop: false, period: 3, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 99.4, 87.6, 87.4, 66.9, 106, 110, 107.3, 146, 106, 182, 122, 182], far: [93.4, 86.6, 81.4, 65.9, 101.3, 145, 100, 181, 116, 181]),
             .j([95.1, 69.1, 93.6, 91, 88.7, 118.6, 76.7, 97.8, 93.6, 141, 129.3, 146, 128, 182, 144, 182], far: [82.7, 117.6, 70.7, 96.8, 65.4, 168.4, 29.5, 169.6, 43.6, 177.1]),
         ])
-        d["armSwing"] = MoveSpec(title: "手臂前後開合", gear: .bare, loop: false, period: 1.8, prop: nil, mirror: false, frames: [
+        d["armSwing"] = MoveSpec(title: "手臂前後開合", gear: .bare, loop: false, period: 1.8, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 132.3, 60.1, 156.3, 60.1, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([105.8, 38.1, 104.3, 60.1, 80, 74.1, 57.5, 82.3, 106, 110, 107.3, 146, 106, 182, 122, 182]),
         ])
-        d["wallSlide"] = MoveSpec(title: "頭上推舉伸展", gear: .bare, loop: false, period: 2.8, prop: nil, mirror: false, frames: [
+        d["wallSlide"] = MoveSpec(title: "頭上推舉伸展", gear: .bare, loop: false, period: 2.8, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 99.4, 87.6, 97.3, 63.7, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([105.8, 38.1, 104.3, 60.1, 101.8, 32.2, 101, 8.2, 106, 110, 107.3, 146, 106, 182, 122, 182]),
         ])
-        d["legSwing"] = MoveSpec(title: "前後擺腿", gear: .bare, loop: false, period: 2.2, prop: nil, mirror: false, frames: [
+        d["legSwing"] = MoveSpec(title: "前後擺腿", gear: .bare, loop: false, period: 2.2, prop: nil, grip: nil, mirror: false, frames: [
             .j([111.8, 39.1, 110.3, 61, 137.8, 65.9, 161.5, 61.7, 112, 111, 143.2, 129, 170.8, 152.1, 181, 139.9], far: [109.1, 87.6, 111.2, 111.5, 106, 146, 106, 182, 122, 182]),
             .j([111.8, 39.1, 110.3, 61, 137.8, 65.9, 161.5, 61.7, 112, 111, 91.4, 140.5, 70.7, 170, 83.8, 179.2], far: [109.1, 87.6, 111.2, 111.5, 106, 146, 106, 182, 122, 182]),
         ])
-        d["bwBridge"] = MoveSpec(title: "臀橋", gear: .bare, loop: false, period: 2.6, prop: nil, mirror: true, frames: [
+        d["bwBridge"] = MoveSpec(title: "臀橋", gear: .bare, loop: false, period: 2.6, prop: nil, grip: nil, mirror: true, frames: [
             .j([179.5, 172.4, 157.6, 174, 129.6, 174.9, 105.6, 174.9, 107.6, 174, 80, 150.8, 62, 182, 46, 182]),
             .j([167, 174.4, 145, 172.5, 118, 179.7, 94.1, 181.8, 101.7, 147.5, 65.8, 146.2, 62, 182, 46, 182]),
         ])
-        d["chestStretch"] = MoveSpec(title: "胸肌伸展", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["chestStretch"] = MoveSpec(title: "胸肌伸展", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([104.8, 38.3, 102.5, 60.2, 86.5, 83.1, 71, 101.5, 106, 110, 107.3, 146, 106, 182, 122, 182]),
             .j([102.2, 38.5, 99.9, 60.4, 80.1, 80.2, 61.7, 95.6, 106, 110, 107.3, 146, 106, 182, 122, 182]),
         ])
-        d["crossBody"] = MoveSpec(title: "手臂橫拉", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["crossBody"] = MoveSpec(title: "手臂橫拉", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 132.1, 57.6, 156.1, 58.5, 106, 110, 107.3, 146, 106, 182, 122, 182], far: [112.3, 83.3, 135.9, 79.2, 101.3, 145, 100, 181, 116, 181]),
             .j([105.8, 38.1, 104.3, 60.1, 132, 56.2, 156, 56.2, 106, 110, 107.3, 146, 106, 182, 122, 182], far: [113.1, 82.8, 136.4, 77, 101.3, 145, 100, 181, 116, 181]),
         ])
-        d["tricepsStretch"] = MoveSpec(title: "三頭伸展", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["tricepsStretch"] = MoveSpec(title: "三頭伸展", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 99.4, 32.5, 91.2, 55.1, 106, 110, 107.3, 146, 106, 182, 122, 182], far: [122.5, 45.1, 114.3, 22.5, 101.3, 145, 100, 181, 116, 181]),
             .j([105.8, 38.1, 104.3, 60.1, 97.5, 32.9, 88.5, 55.2, 106, 110, 107.3, 146, 106, 182, 122, 182], far: [121.5, 43.4, 112.5, 21.2, 101.3, 145, 100, 181, 116, 181]),
         ])
-        d["childPose"] = MoveSpec(title: "嬰兒式", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["childPose"] = MoveSpec(title: "嬰兒式", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([146.2, 173.2, 125.8, 165, 153.6, 167.9, 177.6, 168.8, 77.2, 152.9, 104, 177, 68, 177, 52, 177]),
             .j([149, 167.4, 128.1, 160.6, 156, 162.1, 180, 162.1, 79, 151.1, 104, 177, 68, 177, 52, 177]),
         ])
-        d["quadStretch"] = MoveSpec(title: "站姿大腿前側伸展", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["quadStretch"] = MoveSpec(title: "站姿大腿前側伸展", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([113.8, 39.1, 112.3, 61, 102.7, 87.3, 96.5, 110.5, 114, 111, 107.7, 146.5, 92.5, 113.8, 88.4, 98.4], far: [133.8, 64.9, 157.8, 64.9, 108, 146, 108, 182, 124, 182]),
             .j([113.8, 39.1, 112.3, 61, 101.8, 87, 95.2, 110.1, 114, 111, 105.3, 145.9, 91.8, 112.6, 88.5, 96.9], far: [134.1, 63, 158, 61.3, 108, 146, 108, 182, 124, 182]),
         ])
-        d["seatedFold"] = MoveSpec(title: "坐姿體前彎", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["seatedFold"] = MoveSpec(title: "坐姿體前彎", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([124.4, 125.6, 105.4, 136.6, 128.3, 152.7, 151.5, 158.9, 70, 172, 106, 173.3, 142, 173.3, 142.5, 157.3]),
             .j([131.4, 135.1, 111, 143.3, 135.7, 156.5, 159.3, 160.6, 70, 172, 106, 173.3, 142, 173.3, 142.5, 157.3]),
         ])
-        d["kneeHug"] = MoveSpec(title: "仰躺抱膝", gear: .bare, loop: false, period: 5, prop: nil, mirror: true, frames: [
+        d["kneeHug"] = MoveSpec(title: "仰躺抱膝", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: true, frames: [
             .j([167.9, 169.7, 146, 172, 123.1, 155.9, 102.3, 143.9, 96, 172, 115.1, 141.5, 79.1, 142.7, 78.5, 126.7]),
             .j([167.9, 169.7, 146, 172, 123.9, 154.8, 103.6, 142, 96, 172, 112.9, 140.2, 77, 142.7, 75.9, 126.8]),
         ])
-        d["calfStretch"] = MoveSpec(title: "推牆小腿伸展", gear: .bare, loop: false, period: 5, prop: .wall, mirror: false, frames: [
+        d["calfStretch"] = MoveSpec(title: "推牆小腿伸展", gear: .bare, loop: false, period: 5, prop: .wall, grip: nil, mirror: false, frames: [
             .j([129.9, 56.3, 117.3, 74.3, 143.6, 64.7, 167.6, 63.9, 93.8, 118.4, 76.9, 150.2, 60, 182, 44, 182], far: [137.6, 63.7, 161.6, 62.9, 103, 150.1, 93.7, 184.8, 109.7, 184.8]),
             .j([134, 59.9, 120.5, 77.2, 147.4, 69.5, 171.4, 70.4, 94, 119.6, 76, 150.8, 58, 182, 42, 182], far: [141.4, 68.5, 165.4, 69.4, 104.9, 150.4, 93.8, 184.7, 109.8, 184.7]),
         ])
-        d["hipFlexor"] = MoveSpec(title: "跪姿髖屈肌伸展", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["hipFlexor"] = MoveSpec(title: "跪姿髖屈肌伸展", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([104, 70.6, 102.5, 92.6, 107.4, 120.2, 125.8, 135.6, 104.3, 142.5, 98, 178, 62, 178, 46, 178.6], far: [101.4, 119.2, 119.8, 134.6, 134.3, 141.5, 133, 177.5, 149, 177.5]),
             .j([105.5, 71.4, 103.9, 93.4, 108.8, 121, 127.2, 136.4, 103.9, 143.4, 94, 178, 58, 178, 42, 178.6], far: [102.8, 120, 121.2, 135.4, 133.8, 139.9, 130.1, 175.7, 146, 177.4]),
         ])
-        d["cobra"] = MoveSpec(title: "人面獅身式", gear: .bare, loop: false, period: 5, prop: nil, mirror: false, frames: [
+        d["cobra"] = MoveSpec(title: "人面獅身式", gear: .bare, loop: false, period: 5, prop: nil, grip: nil, mirror: false, frames: [
             .j([163.2, 143.1, 146.4, 157.3, 143.4, 185.1, 167.4, 184.3, 100, 176, 64.1, 178.5, 28.1, 178.5, 13.1, 184]),
             .j([160.2, 138.3, 144.9, 154.1, 143, 182, 167, 181.2, 100, 176, 64.1, 178.5, 28.1, 178.5, 13.1, 184]),
         ])
-        d["splitSquat"] = MoveSpec(title: "保加利亞分腿蹲", gear: .db, loop: false, period: 2.8, prop: .benchBack, mirror: false, frames: [
+        d["splitSquat"] = MoveSpec(title: "保加利亞分腿蹲", gear: .db, loop: false, period: 2.8, prop: .benchBack, grip: nil, mirror: false, frames: [
             .j([129.4, 41.6, 127.9, 63.6, 126.9, 91.6, 126.9, 115.6, 129.6, 113.6, 141.9, 147.4, 132, 182, 148, 182], far: [120.9, 90.6, 120.9, 114.6, 106.7, 144.4, 74.4, 160.1, 58.4, 161.5]),
             .j([107.1, 67.2, 104.8, 89.1, 103.8, 117.1, 103.8, 141.1, 103, 139.1, 138.3, 146.5, 132, 182, 148, 182], far: [97.8, 116.1, 97.8, 140.1, 90.8, 173.5, 55.6, 181, 39.6, 182.4]),
         ])
-        d["reverseLunge"] = MoveSpec(title: "後跨弓步", gear: .db, loop: false, period: 3, prop: nil, mirror: false, frames: [
+        d["reverseLunge"] = MoveSpec(title: "後跨弓步", gear: .db, loop: false, period: 3, prop: nil, grip: nil, mirror: false, frames: [
             .j([105.8, 38.1, 104.3, 60.1, 103.3, 88.1, 103.3, 112.1, 106, 110, 107.3, 146, 106, 182, 122, 182], far: [97.3, 87.1, 97.3, 111.1, 101.3, 145, 100, 181, 116, 181]),
             .j([95.1, 69.1, 93.6, 91, 92.6, 119, 92.6, 143, 93.6, 141, 129.3, 146, 128, 182, 144, 182], far: [86.6, 118, 86.6, 142, 65.4, 168.4, 29.5, 169.6, 43.6, 177.1]),
         ])
-        d["stepUp"] = MoveSpec(title: "登階", gear: .db, loop: false, period: 3, prop: .benchFront, mirror: false, frames: [
+        d["stepUp"] = MoveSpec(title: "登階", gear: .db, loop: false, period: 3, prop: .benchFront, grip: nil, mirror: false, frames: [
             .j([118.9, 40.3, 115.1, 61.9, 114.1, 89.9, 114.1, 113.9, 106.4, 111.2, 140.2, 98.8, 130.9, 133.6, 146.4, 137.8], far: [108.1, 88.9, 108.1, 112.9, 97.3, 146, 96, 182, 112, 182]),
             .j([129.5, 0.1, 128, 22, 127, 50, 127, 74, 128, 72, 129.3, 108, 128, 144, 144, 144.6], far: [121, 49, 121, 73, 123.3, 107, 122, 143, 138, 143.6]),
         ])
-        d["hipThrust"] = MoveSpec(title: "臀推", gear: .db, loop: false, period: 2.8, prop: .benchBack, mirror: false, frames: [
+        d["hipThrust"] = MoveSpec(title: "臀推", gear: .db, loop: false, period: 2.8, prop: .benchBack, grip: nil, mirror: false, frames: [
             .j([28.3, 129.6, 50, 133.4, 76.3, 123.9, 100.3, 123.9, 93.3, 158.4, 127.1, 146.1, 124, 182, 140, 182]),
             .j([16.1, 146.2, 38, 144.3, 65.6, 149.1, 86.4, 137.1, 88, 146, 124, 146, 124, 182, 140, 182]),
         ])
-        d["benchPress"] = MoveSpec(title: "臥推", gear: .db, loop: false, period: 2.6, prop: .benchFlat, mirror: true, frames: [
+        d["benchPress"] = MoveSpec(title: "臥推", gear: .db, loop: false, period: 2.6, prop: .benchFlat, grip: nil, mirror: true, frames: [
             .j([155.9, 140.7, 134, 142.3, 134.9, 114.3, 134.9, 90.3, 84, 144, 48.1, 147.1, 45, 183, 29, 183]),
             .j([155.9, 140.7, 134, 142.3, 112.5, 160.3, 116.7, 136.6, 84, 144, 48.1, 147.1, 45, 183, 29, 183]),
         ])
-        d["floorPress"] = MoveSpec(title: "地板臥推", gear: .db, loop: false, period: 2.6, prop: nil, mirror: true, frames: [
+        d["floorPress"] = MoveSpec(title: "地板臥推", gear: .db, loop: false, period: 2.6, prop: nil, grip: nil, mirror: true, frames: [
             .j([178.6, 163.3, 156.6, 164.9, 157.6, 136.9, 157.6, 112.9, 106.7, 166.6, 75.5, 148.6, 62, 182, 46, 182]),
             .j([178.6, 163.3, 156.6, 164.9, 130.3, 174.5, 132.4, 150.5, 106.7, 166.6, 75.5, 148.6, 62, 182, 46, 182]),
         ])
-        d["skullCrusher"] = MoveSpec(title: "仰臥三頭伸展", gear: .db, loop: false, period: 2.6, prop: .benchFlat, mirror: true, frames: [
+        d["skullCrusher"] = MoveSpec(title: "仰臥三頭伸展", gear: .db, loop: false, period: 2.6, prop: .benchFlat, grip: nil, mirror: true, frames: [
             .j([155.9, 140.7, 134, 142.3, 139.8, 114.9, 144, 91.2, 84, 144, 48.1, 147.1, 45, 183, 29, 183]),
             .j([155.9, 140.7, 134, 142.3, 139.8, 114.9, 160.6, 126.9, 84, 144, 48.1, 147.1, 45, 183, 29, 183]),
         ])
-        d["pullover"] = MoveSpec(title: "仰臥拉舉", gear: .goblet, loop: false, period: 3, prop: .benchFlat, mirror: true, frames: [
+        d["pullover"] = MoveSpec(title: "仰臥拉舉", gear: .goblet, loop: false, period: 3, prop: .benchFlat, grip: nil, mirror: true, frames: [
             .j([155.9, 140.7, 134, 142.3, 136.4, 114.4, 137.2, 90.4, 84, 144, 48.1, 147.1, 45, 183, 29, 183]),
             .j([155.9, 140.7, 134, 142.3, 161, 135, 184.7, 130.8, 84, 144, 48.1, 147.1, 45, 183, 29, 183]),
         ])
-        d["kickback"] = MoveSpec(title: "三頭後踢", gear: .db, loop: false, period: 2.4, prop: nil, mirror: false, frames: [
+        d["kickback"] = MoveSpec(title: "三頭後踢", gear: .db, loop: false, period: 2.4, prop: nil, grip: nil, mirror: false, frames: [
             .j([169.9, 83.8, 148.5, 89.1, 128.7, 108.9, 134.9, 132.1, 104.4, 112.5, 115.5, 146.8, 108, 182, 124, 182], far: [152.1, 114.4, 154.2, 138.3, 109.5, 145.8, 102, 181, 118, 181]),
             .j([169.9, 83.8, 148.5, 89.1, 127.7, 107.8, 108, 121.6, 104.4, 112.5, 115.5, 146.8, 108, 182, 124, 182], far: [152.1, 114.4, 154.2, 138.3, 109.5, 145.8, 102, 181, 118, 181]),
         ])
-        d["pikePushup"] = MoveSpec(title: "屈體伏地挺身", gear: .bare, loop: false, period: 2.6, prop: nil, mirror: false, frames: [
+        d["pikePushup"] = MoveSpec(title: "屈體伏地挺身", gear: .bare, loop: false, period: 2.6, prop: nil, grip: nil, mirror: false, frames: [
             .j([133, 152.6, 122, 133.6, 133.8, 159, 140, 182.1, 76.6, 112.5, 67.3, 147.2, 58, 182, 74, 182]),
             .j([106.9, 172.7, 108.8, 150.8, 135.1, 160.3, 140.5, 183.7, 76.6, 112.5, 67.3, 147.2, 58, 182, 74, 182]),
         ])
-        d["reverseCrunch"] = MoveSpec(title: "反向捲腹", gear: .bare, loop: false, period: 2.6, prop: nil, mirror: true, frames: [
+        d["reverseCrunch"] = MoveSpec(title: "反向捲腹", gear: .bare, loop: false, period: 2.6, prop: nil, grip: nil, mirror: true, frames: [
             .j([163.8, 168, 142, 170.3, 114, 171.2, 90, 172.1, 92, 172, 92, 136, 56, 136, 56, 120]),
             .j([167.4, 172.7, 145.5, 175, 117.5, 175.9, 93.5, 176.8, 96, 168, 121.5, 142.5, 90.3, 160.5, 82.3, 146.7]),
         ])
-        d["deadBug"] = MoveSpec(title: "死蟲式", gear: .bare, loop: false, period: 3, prop: nil, mirror: true, frames: [
+        d["deadBug"] = MoveSpec(title: "死蟲式", gear: .bare, loop: false, period: 3, prop: nil, grip: nil, mirror: true, frames: [
             .j([163.8, 168, 142, 170.3, 142, 142.3, 142, 118.3, 92, 172, 92, 136, 56, 136, 56, 120]),
             .j([163.8, 168, 142, 170.3, 168.3, 160.7, 191.5, 154.5, 92, 172, 92, 136, 56, 136, 56, 120], far: [136, 141.3, 136, 117.3, 50.1, 168.5, 14.1, 167.2, 14.7, 151.2]),
         ])
-        d["slRdl"] = MoveSpec(title: "單腳羅馬尼亞硬舉", gear: .db, loop: false, period: 3, prop: nil, mirror: false, frames: [
+        d["slRdl"] = MoveSpec(title: "單腳羅馬尼亞硬舉", gear: .db, loop: false, period: 3, prop: nil, grip: nil, mirror: false, frames: [
             .j([111.8, 39.1, 110.3, 61.1, 109.3, 89.1, 109.3, 113.1, 112, 111, 110.7, 147, 109.5, 183, 125.5, 183], far: [103.3, 88.1, 103.3, 112.1, 107.3, 146, 106, 182, 122, 182]),
             .j([182.3, 104.9, 160.3, 104.9, 159.3, 132.9, 159.3, 156.9, 110.8, 111.9, 74.8, 114.4, 38.9, 115.7, 39.4, 131.7], far: [153.3, 131.9, 153.3, 155.9, 111, 146.4, 106, 182, 122, 182]),
         ])
-        d["legCurl"] = MoveSpec(title: "俯臥腿後彎舉", gear: .goblet, loop: false, period: 2.6, prop: .benchFlat, mirror: false, frames: [
+        d["legCurl"] = MoveSpec(title: "俯臥腿後彎舉", gear: .goblet, loop: false, period: 2.6, prop: .benchFlat, grip: nil, mirror: false, frames: [
             .j([167.7, 132.2, 146, 136, 160, 160.2, 160, 184.2, 96, 136, 60, 136, 24, 134.7, 23.5, 150.7]),
             .j([167.7, 132.2, 146, 136, 160, 160.2, 160, 184.2, 96, 136, 60, 136, 78, 104.8, 64.1, 96.8]),
         ])
-        d["latPulldown"] = MoveSpec(title: "高位下拉", gear: .bare, loop: false, period: 3, prop: .cableTower, mirror: false, frames: [
+        d["latPulldown"] = MoveSpec(title: "高位下拉", gear: .bare, loop: false, period: 3, prop: .cableTower, grip: .bar, mirror: false, frames: [
             .j([91, 68.5, 91, 90.5, 95.9, 62.9, 98.4, 39, 98, 140, 133.6, 145, 132.4, 181, 148.4, 181]),
             .j([84.4, 69.5, 85.9, 91.5, 81, 119.1, 93.8, 98.7, 98, 140, 133.6, 145, 132.4, 181, 148.4, 181]),
         ])
+        d["straightArmPulldown"] = MoveSpec(title: "直臂下拉", gear: .bare, loop: false, period: 3, prop: .cableHigh, grip: .bar, mirror: false, frames: [
+            .j([119.3, 44.6, 109, 64.1, 133.7, 50.9, 154.9, 39.7, 93.5, 111.6, 102.3, 146.5, 96, 182, 112, 182]),
+            .j([114.6, 43, 105.6, 63.1, 102.7, 90.9, 100.2, 114.8, 93.5, 111.6, 102.3, 146.5, 96, 182, 112, 182]),
+        ])
+        d["tricepsPushdown"] = MoveSpec(title: "三頭下壓", gear: .bare, loop: false, period: 2.6, prop: .cableHigh, grip: .rope, mirror: false, frames: [
+            .j([111, 40, 105.7, 61.4, 100.9, 89, 123.4, 80.8, 98.8, 110.9, 105, 146.4, 100, 182, 116, 182]),
+            .j([111, 40, 105.7, 61.4, 100.9, 89, 103.4, 112.8, 98.8, 110.9, 105, 146.4, 100, 182, 116, 182]),
+        ])
+        d["overheadCableExt"] = MoveSpec(title: "繩索過頭三頭伸展", gear: .bare, loop: false, period: 2.8, prop: .cableHighBack, grip: .rope, mirror: false, frames: [
+            .j([152.2, 48, 143.2, 68.1, 162, 47.2, 141.2, 59.2, 126.1, 115, 141.9, 147.4, 132, 182, 148, 182], far: [156, 46.2, 135.2, 58.2, 106.7, 147.4, 112.9, 182.9, 96.9, 182.9]),
+            .j([152.2, 48, 143.2, 68.1, 162.7, 47.9, 181.1, 32.5, 126.1, 115, 141.9, 147.4, 132, 182, 148, 182], far: [156.7, 46.9, 175.1, 31.5, 106.7, 147.4, 112.9, 182.9, 96.9, 182.9]),
+        ])
+        d["facePull"] = MoveSpec(title: "繩索面拉", gear: .bare, loop: false, period: 2.8, prop: .cableTower, grip: .rope, mirror: false, frames: [
+            .j([92.8, 68.3, 92.8, 90.3, 105.9, 65.6, 117.2, 44.4, 98, 140, 133.6, 145, 132.4, 181, 148.4, 181]),
+            .j([91, 68.5, 91, 90.5, 63.7, 96.3, 82, 80.9, 98, 140, 133.6, 145, 132.4, 181, 148.4, 181]),
+        ])
+        d["cableCrunch"] = MoveSpec(title: "跪姿繩索捲腹", gear: .bare, loop: false, period: 3, prop: .cableHigh, grip: .rope, mirror: false, frames: [
+            .j([112.8, 70.6, 105.2, 91.3, 126.7, 73.3, 105.9, 85.3, 100, 141, 100, 177, 64, 177, 48, 177]),
+            .j([169.9, 146.7, 153, 132.5, 174.5, 150.5, 156.1, 135.1, 103.8, 141.2, 100, 177, 64, 177, 48, 177]),
+        ])
+        d["seatedCableRow"] = MoveSpec(title: "坐姿滑輪划船", gear: .bare, loop: false, period: 2.8, prop: .cableRow, grip: .handle, mirror: false, frames: [
+            .j([87, 83.6, 82.4, 105.1, 110.2, 108, 134.2, 108.9, 72, 154, 106.9, 145.3, 138.1, 163.3, 146.1, 149.4]),
+            .j([69.3, 82.1, 68.5, 104.1, 44.3, 118.1, 68.2, 119.8, 72, 154, 106.9, 145.3, 138.1, 163.3, 146.1, 149.4]),
+        ])
+        d["cableCurl"] = MoveSpec(title: "低位滑輪彎舉", gear: .bare, loop: false, period: 2.6, prop: .cableLow, grip: .bar, mirror: false, frames: [
+            .j([99.8, 38.1, 98.3, 60.1, 96.3, 88, 100.5, 111.6, 100, 110, 101.3, 146, 100, 182, 116, 182]),
+            .j([99.8, 38.1, 98.3, 60.1, 96.3, 88, 108.3, 67.2, 100, 110, 101.3, 146, 100, 182, 116, 182]),
+        ])
+        d["cableLateral"] = MoveSpec(title: "單手滑輪側平舉", gear: .bare, loop: false, period: 2.8, prop: .cableLow, grip: .handle, mirror: false, frames: [
+            .j([103.8, 38.1, 102.3, 60.1, 103.2, 88.1, 111.4, 110.6, 104, 110, 105.3, 146, 104, 182, 120, 182], far: [124, 55.2, 147.9, 53.5, 99.3, 145, 98, 181, 114, 181]),
+            .j([103.8, 38.1, 102.3, 60.1, 130.2, 58.1, 153.5, 52.3, 104, 110, 105.3, 146, 104, 182, 120, 182], far: [124, 55.2, 147.9, 53.5, 99.3, 145, 98, 181, 114, 181]),
+        ])
         return d
     }()
+}
+
+/// 畫在角色後面的道具（200 單位座標）。資料在 scripts/art/moves.js 的 PROPS。
+enum MoveProp: CaseIterable {
+    case benchFlat, benchBack, benchFront, wall, cableTower, cableHigh, cableHighBack, cableLow, cableRow
+
+    var shapes: [PropShape] {
+        switch self {
+        case .benchFlat: return [PropShape(.leg, 56, 155, 6, 29), PropShape(.leg, 122, 155, 6, 29), PropShape(.pad, 44, 146, 96, 9)]
+        case .benchBack: return [PropShape(.leg, 30, 155, 6, 29), PropShape(.leg, 66, 155, 6, 29), PropShape(.pad, 20, 146, 62, 9)]
+        case .benchFront: return [PropShape(.leg, 122, 155, 6, 29), PropShape(.leg, 166, 155, 6, 29), PropShape(.pad, 112, 146, 70, 9)]
+        case .wall: return [PropShape(.frame, 152, 20, 10, 166)]
+        case .cableTower: return [PropShape(.frame, 158, -6, 9, 192), PropShape(.frame, 108, -8, 58, 7), PropShape(.leg, 78, 155, 6, 29), PropShape(.leg, 112, 155, 6, 29), PropShape(.pad, 70, 146, 56, 9)]
+        case .cableHigh: return [PropShape(.frame, 158, -6, 9, 192), PropShape(.frame, 126, -8, 40, 7)]
+        case .cableHighBack: return [PropShape(.frame, 24, -6, 9, 192), PropShape(.frame, 24, -8, 40, 7)]
+        case .cableLow: return [PropShape(.frame, 158, -6, 9, 192), PropShape(.frame, 142, 166, 24, 7)]
+        case .cableRow: return [PropShape(.frame, 172, -6, 9, 192), PropShape(.frame, 152, 150, 28, 7), PropShape(.frame, 140, 150, 6, 34), PropShape(.leg, 44, 164, 6, 20), PropShape(.leg, 96, 164, 6, 20), PropShape(.pad, 34, 156, 76, 8)]
+        }
+    }
+
+    /// 滑輪位置；沒有滑輪是 nil
+    var pulley: CGPoint? {
+        switch self {
+        case .benchFlat: return nil
+        case .benchBack: return nil
+        case .benchFront: return nil
+        case .wall: return nil
+        case .cableTower: return CGPoint(x: 114, y: 2)
+        case .cableHigh: return CGPoint(x: 132, y: 2)
+        case .cableHighBack: return CGPoint(x: 58, y: 2)
+        case .cableLow: return CGPoint(x: 146, y: 170)
+        case .cableRow: return CGPoint(x: 156, y: 154)
+        }
+    }
 }

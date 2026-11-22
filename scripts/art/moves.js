@@ -288,10 +288,74 @@ const MOVES = {
   },
   latPulldown: {
     // 坐在椅子上、面向下拉架；從頭上把握把拉到上胸，手肘往下往後
-    title: '高位下拉', gear: 'bare', period: 3, prop: 'cableTower',
+    title: '高位下拉', gear: 'bare', period: 3, prop: 'cableTower', grip: 'bar',
     frames: [
       { torso: -98, neck: -90, arm: [-80, -84], leg: [8, 92], anchor: ['hip', 98, 140] },
       { torso: -104, neck: -94, arm: [100, -58], leg: [8, 92], anchor: ['hip', 98, 140] },
+    ],
+  },
+  straightArmPulldown: {
+    // 站著面向下拉架、微微前傾，手臂打直從前上方壓到大腿
+    title: '直臂下拉', gear: 'bare', period: 3, prop: 'cableHigh', grip: 'bar',
+    frames: [
+      { torso: -72, neck: -62, arm: [-28, -28], leg: [76, 100], anchor: ['an', 96, 182] },
+      { torso: -76, neck: -66, arm: [96, 96], leg: [76, 100], anchor: ['an', 96, 182] },
+    ],
+  },
+  tricepsPushdown: {
+    // 站著面向下拉架，上臂貼身不動，只有前臂往下壓
+    title: '三頭下壓', gear: 'bare', period: 2.6, prop: 'cableHigh', grip: 'rope',
+    frames: [
+      { torso: -82, neck: -76, arm: [100, -20], leg: [80, 98], anchor: ['an', 100, 182] },
+      { torso: -82, neck: -76, arm: [100, 84], leg: [80, 98], anchor: ['an', 100, 182] },
+    ],
+  },
+  overheadCableExt: {
+    // 背對下拉架、前後腳站，手肘朝前上方，繩子從頭後面往前上方伸直
+    title: '繩索過頭三頭伸展', gear: 'bare', period: 2.8, prop: 'cableHighBack', grip: 'rope',
+    frames: [
+      { torso: -70, neck: -66, arm: [-48, 150], leg: [64, 106], farLeg: [112, 80], anchor: ['an', 132, 182] },
+      { torso: -70, neck: -66, arm: [-46, -40], leg: [64, 106], farLeg: [112, 80], anchor: ['an', 132, 182] },
+    ],
+  },
+  facePull: {
+    // 坐著面向下拉架，用三頭繩拉向臉，手肘外開、往後
+    title: '繩索面拉', gear: 'bare', period: 2.8, prop: 'cableTower', grip: 'rope',
+    frames: [
+      { torso: -96, neck: -90, arm: [-62, -62], leg: [8, 92], anchor: ['hip', 98, 140] },
+      { torso: -98, neck: -90, arm: [168, -40], leg: [8, 92], anchor: ['hip', 98, 140] },
+    ],
+  },
+  cableCrunch: {
+    // 跪在下拉架前，繩子抓在頭兩側，用腹部把身體捲下去
+    title: '跪姿繩索捲腹', gear: 'bare', period: 3, prop: 'cableHigh', grip: 'rope',
+    frames: [
+      { torso: -84, neck: -70, arm: [-40, 150], leg: [90, 180, 180], anchor: ['kn', 100, 177] },
+      { torso: -10, neck: 40, arm: [40, -140], leg: [96, 180, 180], anchor: ['kn', 100, 177] },
+    ],
+  },
+  seatedCableRow: {
+    // 坐在低椅上、腳踩踏板，挺胸把把手拉到肚子
+    title: '坐姿滑輪划船', gear: 'bare', period: 2.8, prop: 'cableRow', grip: 'handle',
+    frames: [
+      { torso: -78, neck: -78, arm: [6, 2], leg: [-14, 30], anchor: ['hip', 72, 154] },
+      { torso: -94, neck: -88, arm: [150, 4], leg: [-14, 30], anchor: ['hip', 72, 154] },
+    ],
+  },
+  cableCurl: {
+    // 站著面向低位滑輪，手肘貼身，把手彎到肩前
+    title: '低位滑輪彎舉', gear: 'bare', period: 2.6, prop: 'cableLow', grip: 'bar',
+    frames: [
+      S({ arm: [94, 80], anchor: ['an', 100, 182] }),
+      S({ arm: [94, -60], anchor: ['an', 100, 182] }),
+    ],
+  },
+  cableLateral: {
+    // 低位滑輪在身體前側，一手扶架子，另一手微彎往側上方舉到肩膀高
+    title: '單手滑輪側平舉', gear: 'bare', period: 2.8, prop: 'cableLow', grip: 'handle',
+    frames: [
+      S({ arm: [88, 70], farArm: [-8, -4], anchor: ['an', 104, 182] }),
+      S({ arm: [-4, -14], farArm: [-8, -4], anchor: ['an', 104, 182] }),
     ],
   },
 };
@@ -309,7 +373,7 @@ function toSwift() {
   s += 'extension CharacterMove {\n    /// rawValue → 動作資料\n    static let generated: [String: MoveSpec] = {\n        var d: [String: MoveSpec] = [:]\n';
   for (const id of Object.keys(MOVES)) {
     const m = MOVES[id];
-    s += `        d["${id}"] = MoveSpec(title: "${m.title}", gear: .${m.gear}, loop: ${!!m.loop}, period: ${m.period}, prop: ${m.prop ? '.' + m.prop : 'nil'}, mirror: ${isMirror(m)}, frames: [\n`;
+    s += `        d["${id}"] = MoveSpec(title: "${m.title}", gear: .${m.gear}, loop: ${!!m.loop}, period: ${m.period}, prop: ${m.prop ? '.' + m.prop : 'nil'}, grip: ${m.grip ? '.' + m.grip : 'nil'}, mirror: ${isMirror(m)}, frames: [\n`;
     for (const P of framesOf(id)) {
       const main = ORDER.flatMap((k) => P[k]).map(n).join(', ');
       const hasFar = FAR_ORDER.some((k) => P[k]);
@@ -323,20 +387,67 @@ function toSwift() {
     s += '        ])\n';
   }
   s += '        return d\n    }()\n}\n';
+  // 道具
+  s += '\n/// 畫在角色後面的道具（200 單位座標）。資料在 scripts/art/moves.js 的 PROPS。\nenum MoveProp: CaseIterable {\n';
+  s += '    case ' + Object.keys(PROPS).join(', ') + '\n\n';
+  s += '    var shapes: [PropShape] {\n        switch self {\n';
+  for (const [name, p] of Object.entries(PROPS)) {
+    s += `        case .${name}: return [${p.shapes.map(([k, x, y, w, h]) => `PropShape(.${k}, ${x}, ${y}, ${w}, ${h})`).join(', ')}]\n`;
+  }
+  s += '        }\n    }\n\n    /// 滑輪位置；沒有滑輪是 nil\n    var pulley: CGPoint? {\n        switch self {\n';
+  for (const [name, p] of Object.entries(PROPS)) {
+    s += `        case .${name}: return ${p.pulley ? `CGPoint(x: ${p.pulley[0]}, y: ${p.pulley[1]})` : 'nil'}\n`;
+  }
+  s += '        }\n    }\n}\n';
   return s;
 }
 
-// 預覽用：在畫布上畫道具（和 Swift 的 MoveProp 一樣的位置）
+// 道具（權威來源，預覽和 Swift 都用這份）。形狀依序畫：
+//   pad＝椅墊（淺色、有邊）、leg＝椅腳（深色）、frame＝架子、牆（有邊）。座標是 200 單位。
+// pulley：滑輪位置，鋼索從這裡接到手上的握把（握把樣式寫在動作的 grip：bar 直槓、rope 三頭繩、handle D 型把手）。
+const POST = ['frame', 158, -6, 9, 192];
 const PROPS = {
-  benchFlat: '<rect x="44" y="146" width="96" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="56" y="155" width="6" height="29" fill="#2A313C"/><rect x="122" y="155" width="6" height="29" fill="#2A313C"/>',
-  benchBack: '<rect x="20" y="146" width="62" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="30" y="155" width="6" height="29" fill="#2A313C"/><rect x="66" y="155" width="6" height="29" fill="#2A313C"/>',
-  benchFront: '<rect x="112" y="146" width="70" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="122" y="155" width="6" height="29" fill="#2A313C"/><rect x="166" y="155" width="6" height="29" fill="#2A313C"/>',
-  wall: '<rect x="152" y="20" width="10" height="166" rx="2" fill="#2E3642" stroke="#4A5566" stroke-width="1.5"/>',
-  // 下拉架：直柱、上橫桿、滑輪＋椅子；鋼索和握把跟著手（預覽時另外畫）
-  cableTower: '<rect x="158" y="-6" width="9" height="192" rx="2" fill="#2E3642" stroke="#4A5566" stroke-width="1.5"/><rect x="108" y="-8" width="58" height="7" rx="2" fill="#2E3642" stroke="#4A5566" stroke-width="1.5"/><circle cx="114" cy="2" r="5" fill="#5B6778" stroke="#2A313C" stroke-width="2"/><rect x="70" y="146" width="56" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="78" y="155" width="6" height="29" fill="#2A313C"/><rect x="112" y="155" width="6" height="29" fill="#2A313C"/>',
+  benchFlat: { shapes: [['leg', 56, 155, 6, 29], ['leg', 122, 155, 6, 29], ['pad', 44, 146, 96, 9]] },
+  benchBack: { shapes: [['leg', 30, 155, 6, 29], ['leg', 66, 155, 6, 29], ['pad', 20, 146, 62, 9]] },
+  benchFront: { shapes: [['leg', 122, 155, 6, 29], ['leg', 166, 155, 6, 29], ['pad', 112, 146, 70, 9]] },
+  wall: { shapes: [['frame', 152, 20, 10, 166]] },
+  // 下拉架＋椅子（坐著做：高位下拉、面拉）
+  cableTower: { shapes: [POST, ['frame', 108, -8, 58, 7], ['leg', 78, 155, 6, 29], ['leg', 112, 155, 6, 29], ['pad', 70, 146, 56, 9]], pulley: [114, 2] },
+  // 下拉架，站或跪在前面（直臂下拉、三頭下壓、捲腹）
+  cableHigh: { shapes: [POST, ['frame', 126, -8, 40, 7]], pulley: [132, 2] },
+  // 下拉架在身後（背對著做：過頭三頭伸展）
+  cableHighBack: { shapes: [['frame', 24, -6, 9, 192], ['frame', 24, -8, 40, 7]], pulley: [58, 2] },
+  // 低位滑輪（健身房：彎舉、側平舉）
+  cableLow: { shapes: [POST, ['frame', 142, 166, 24, 7]], pulley: [146, 170] },
+  // 坐姿划船：低椅、踏板、低位滑輪
+  cableRow: { shapes: [['frame', 172, -6, 9, 192], ['frame', 152, 150, 28, 7], ['frame', 140, 150, 6, 34],
+    ['leg', 44, 164, 6, 20], ['leg', 96, 164, 6, 20], ['pad', 34, 156, 76, 8]], pulley: [156, 154] },
 };
-/** 下拉架滑輪的位置（鋼索從這裡接到手上的握把） */
-const PULLEY = [114, 2];
+const PROP_STYLE = {
+  pad: { fill: '#3A4452', stroke: '#5B6778', rx: 3 },
+  leg: { fill: '#2A313C', stroke: null, rx: 0 },
+  frame: { fill: '#2E3642', stroke: '#4A5566', rx: 2 },
+};
+function propSVG(name) {
+  const p = PROPS[name];
+  let o = '';
+  for (const [k, x, y, w, h] of p.shapes) {
+    const st = PROP_STYLE[k];
+    o += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${st.rx}" fill="${st.fill}"${st.stroke ? ` stroke="${st.stroke}" stroke-width="1.5"` : ''}/>`;
+  }
+  if (p.pulley) o += `<circle cx="${p.pulley[0]}" cy="${p.pulley[1]}" r="5" fill="#5B6778" stroke="#2A313C" stroke-width="2"/>`;
+  return o;
+}
+function gripSVG(kind, P, pulley) {
+  const [hx, hy] = P.ha;
+  if (kind === 'rope') {
+    const d = [pulley[0] - hx, pulley[1] - hy]; const l = Math.hypot(d[0], d[1]) || 1;
+    const e = [hx + d[0] / l * 8, hy + d[1] / l * 8];
+    return `<line x1="${hx}" y1="${hy}" x2="${e[0]}" y2="${e[1]}" stroke="#0A0D12" stroke-width="6.5" stroke-linecap="round"/><line x1="${hx}" y1="${hy}" x2="${e[0]}" y2="${e[1]}" stroke="#C9A66B" stroke-width="3.5" stroke-linecap="round"/>`;
+  }
+  if (kind === 'handle') return `<circle cx="${hx}" cy="${hy}" r="4.5" fill="none" stroke="#0A0D12" stroke-width="4"/><circle cx="${hx}" cy="${hy}" r="4.5" fill="none" stroke="#4A5566" stroke-width="2"/>`;
+  return `<line x1="${hx - 5}" y1="${hy + 1}" x2="${hx + 5}" y2="${hy - 1}" stroke="#0A0D12" stroke-width="7" stroke-linecap="round"/><line x1="${hx - 5}" y1="${hy + 1}" x2="${hx + 5}" y2="${hy - 1}" stroke="#4A5566" stroke-width="4" stroke-linecap="round"/>`;
+}
 
 async function preview(out, only) {
   const { chromium } = require('playwright');
@@ -354,7 +465,9 @@ async function preview(out, only) {
       const x = p * (fr.length - 1); const i = Math.min(Math.floor(x), fr.length - 2); const t = x - i;
       return lerpP(fr[i], fr[i + 1], t);
     });
-    data[id] = { title: m.title, gear: m.gear, prop: m.prop ? PROPS[m.prop] : '', cable: m.prop === 'cableTower' ? PULLEY : null, poses: pick, mirror: isMirror(m) };
+    const pulley = m.prop && PROPS[m.prop].pulley;
+    data[id] = { title: m.title, gear: m.gear, prop: m.prop ? propSVG(m.prop) : '', cable: pulley || null,
+      grips: pulley ? pick.map((P) => gripSVG(m.grip || 'bar', P, pulley)) : null, poses: pick, mirror: isMirror(m) };
   }
   const b = await chromium.launch();
   const page = await b.newPage({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 1 });
@@ -386,7 +499,7 @@ async function preview(out, only) {
         let cable = '', grip = '';
         if (d.cable) {
           cable = `<line x1="${d.cable[0]}" y1="${d.cable[1]}" x2="${P.ha[0]}" y2="${P.ha[1]}" stroke="#AEB8C6" stroke-width="1.6"/>`;
-          grip = `<line x1="${P.ha[0] - 5}" y1="${P.ha[1] + 1}" x2="${P.ha[0] + 5}" y2="${P.ha[1] - 1}" stroke="#0A0D12" stroke-width="7" stroke-linecap="round"/><line x1="${P.ha[0] - 5}" y1="${P.ha[1] + 1}" x2="${P.ha[0] + 5}" y2="${P.ha[1] - 1}" stroke="#4A5566" stroke-width="4" stroke-linecap="round"/>`;
+          grip = d.grips[d.poses.indexOf(P)];
         }
         h += `<svg width="270" height="306" viewBox="10 -14 180 204" style="background:#161B22;border-radius:8px"><line x1="10" y1="186" x2="190" y2="186" stroke="#333" stroke-width="2"/>${d.prop}${cable}${svg}${grip}</svg>`;
       }

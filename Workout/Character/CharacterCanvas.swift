@@ -201,51 +201,51 @@ enum CharacterRenderer {
     private static let fg = Color(gearHex: "#E7EBF0")
     private static let lineGrey = Color(gearHex: "#2C3440")
 
-    /// 道具（和 scripts/art/moves.js 的 PROPS 一致）
+    /// 道具（形狀資料在 scripts/art/moves.js 的 PROPS → MoveFrames.swift）
     private static func drawProp(_ c: inout GraphicsContext, _ pen: Pen, _ prop: MoveProp) {
-        let pad = Color(gearHex: "#3A4452")
-        let edge = Color(gearHex: "#5B6778")
-        let leg = Color(gearHex: "#2A313C")
-        func bench(_ x: CGFloat, _ w: CGFloat, legs: [CGFloat]) {
-            for lx in legs {
-                pen.fill(&c, Path(CGRect(x: lx, y: 155, width: 6, height: 29)), leg)
+        for sh in prop.shapes {
+            switch sh.kind {
+            case .pad:
+                let path = Path(roundedRect: sh.rect, cornerRadius: 3)
+                pen.fill(&c, path, Color(gearHex: "#3A4452"))
+                pen.stroke(&c, path, Color(gearHex: "#5B6778"), 1.5)
+            case .leg:
+                pen.fill(&c, Path(sh.rect), Color(gearHex: "#2A313C"))
+            case .frame:
+                let path = Path(roundedRect: sh.rect, cornerRadius: 2)
+                pen.fill(&c, path, Color(gearHex: "#2E3642"))
+                pen.stroke(&c, path, Color(gearHex: "#4A5566"), 1.5)
             }
-            let top = Path(roundedRect: CGRect(x: x, y: 146, width: w, height: 9), cornerRadius: 3)
-            pen.fill(&c, top, pad)
-            pen.stroke(&c, top, edge, 1.5)
         }
-        switch prop {
-        case .benchFlat: bench(44, 96, legs: [56, 122])
-        case .benchBack: bench(20, 62, legs: [30, 66])
-        case .benchFront: bench(112, 70, legs: [122, 166])
-        case .wall:
-            let r = Path(roundedRect: CGRect(x: 152, y: 20, width: 10, height: 166), cornerRadius: 2)
-            pen.fill(&c, r, Color(gearHex: "#2E3642"))
-            pen.stroke(&c, r, Color(gearHex: "#4A5566"), 1.5)
-        case .cableTower:
-            let frame = Color(gearHex: "#2E3642")
-            let frameEdge = Color(gearHex: "#4A5566")
-            for r in [CGRect(x: 158, y: -6, width: 9, height: 192), CGRect(x: 108, y: -8, width: 58, height: 7)] {
-                let path = Path(roundedRect: r, cornerRadius: 2)
-                pen.fill(&c, path, frame)
-                pen.stroke(&c, path, frameEdge, 1.5)
-            }
-            pen.circle(&c, MoveProp.pulley, 5, fill: edge, stroke: leg, sw: 2)
-            bench(70, 56, legs: [78, 112])
+        if let p = prop.pulley {
+            pen.circle(&c, p, 5, fill: Color(gearHex: "#5B6778"), stroke: Color(gearHex: "#2A313C"), sw: 2)
         }
     }
 
-    /// 下拉架的鋼索（畫在身體後面）
-    private static func drawCable(_ c: inout GraphicsContext, _ pen: Pen, P: Joints) {
-        pen.line(&c, MoveProp.pulley, P.ha, 1.6, Color(gearHex: "#AEB8C6"))
+    /// 滑輪的鋼索（畫在身體後面）
+    private static func drawCable(_ c: inout GraphicsContext, _ pen: Pen, from pulley: CGPoint, P: Joints) {
+        pen.line(&c, pulley, P.ha, 1.6, Color(gearHex: "#AEB8C6"))
     }
 
-    /// 下拉架的握把（畫在手上）
-    private static func drawGrip(_ c: inout GraphicsContext, _ pen: Pen, P: Joints) {
-        let a = pt(P.ha.x - 5, P.ha.y + 1)
-        let b = pt(P.ha.x + 5, P.ha.y - 1)
-        pen.line(&c, a, b, 7, K)
-        pen.line(&c, a, b, 4, Color(gearHex: "#4A5566"))
+    /// 滑輪的握把（畫在手上）
+    private static func drawGrip(_ c: inout GraphicsContext, _ pen: Pen, _ grip: CableGrip, pulley: CGPoint, P: Joints) {
+        let h = P.ha
+        switch grip {
+        case .bar:
+            let a = pt(h.x - 5, h.y + 1)
+            let b = pt(h.x + 5, h.y - 1)
+            pen.line(&c, a, b, 7, K)
+            pen.line(&c, a, b, 4, Color(gearHex: "#4A5566"))
+        case .rope:
+            let d = sub(pulley, h)
+            let l = max(hyp(d), 1)
+            let e = pt(h.x + d.x / l * 8, h.y + d.y / l * 8)
+            pen.line(&c, h, e, 6.5, K)
+            pen.line(&c, h, e, 3.5, Color(gearHex: "#C9A66B"))
+        case .handle:
+            pen.circle(&c, h, 4.5, stroke: K, sw: 4)
+            pen.circle(&c, h, 4.5, stroke: Color(gearHex: "#4A5566"), sw: 2)
+        }
     }
 
     fileprivate static func draw(_ c: inout GraphicsContext, size: CGSize, move: CharacterMove,
@@ -318,7 +318,7 @@ enum CharacterRenderer {
 
         if let prop = move.prop {
             drawProp(&c, pen, prop)
-            if prop == .cableTower { drawCable(&c, pen, P: P) }
+            if let pulley = prop.pulley { drawCable(&c, pen, from: pulley, P: P) }
         }
 
         // 後層特效
@@ -437,7 +437,9 @@ enum CharacterRenderer {
 
         // 啞鈴
         drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet, mirror: mirrored)
-        if move.prop == .cableTower { drawGrip(&c, pen, P: P) }
+        if let pulley = move.prop?.pulley {
+            drawGrip(&c, pen, move.spec?.grip ?? .bar, pulley: pulley, P: P)
+        }
 
         // 喝水的水壺：從手往嘴巴的方向
         if move == .drink {
