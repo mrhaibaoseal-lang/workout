@@ -118,13 +118,12 @@
   未簽名 IPA 用 Feather 能不能裝 Watch App。先做小測試版，不要直接承諾。
 - 不支援 CloudKit，所以沒有 iCloud 同步；換手機靠匯出／匯入。
 
-## 還沒合進 main 的分支
+## 遠端分支清理（2026-11-22 確認）
 
-- `claude/fitness-app-design-style-yohbte`：拳手生涯模式。0.14.0 已挑出請假、保護卡、週任務、押注、逆轉、
-  影子對手、總重量、狀態、屬性改接進牌位和角色系統（見 `docs/goals-system.md`）；其餘（XP、等級、排名、獎金、
-  選手裝備、掉落、腰帶、6 週訓練營）不要。分支可以刪。
-- `claude/amazing-curie-55u0ey`：舊版 App 圖示，main 已經有更新的，不用合。
-- `claude/loving-wozniak-c6h4el`：最早版的角色分頁，main 已經重做過角色系統，不用合。
-- `claude/festive-johnson-xdlmuw`：0.5.0 時期的深色主題改版＋圖示，main 已經重做過，不用合。
-- `claude/beautiful-carson-0de7pe`：0.6.0 時期的牌位／行事曆改版、角色只穿內褲，都已在 main 重做（內褲在 `CharacterCanvas.swift`），不用合。
-- 以上分支都可以刪（Claude 沒有刪遠端分支的權限，要的話使用者在 GitHub 上刪）。
+所有 `claude/*` 分支都可以刪，main 沒有缺任何東西：
+- 17 個已經完整合進 main（是 main 的祖先）。
+- 6 個沒合，都是 2026-11-20 從同一個舊版本分出來的試做，新增的檔案 main 都已經有重做過的版本：
+  `amazing-curie-55u0ey`（舊圖示）、`loving-wozniak-c6h4el`（最早的角色分頁）、`festive-johnson-xdlmuw`（0.5.0 深色主題）、
+  `beautiful-carson-0de7pe`（0.6.0 牌位／行事曆）、`determined-curie-pqxpwc`（0.7.0 裝備與牌位外形，main 的 `scripts/art/` 已重做）。
+  `fitness-app-design-style-yohbte`（拳手生涯模式）：0.14.0 已挑出要的部分（見 `docs/goals-system.md`），其餘使用者不要。
+- Claude 沒有刪遠端分支的權限（push --delete 回 403），要由使用者在 GitHub 的 Branches 頁面刪。
