@@ -1,6 +1,7 @@
 """原型：程序化 3D 角色（玩具公仔風）+ 骨架 + 啞鈴深蹲動畫，EEVEE 卡通著色。
 GEAR=titan xvfb-run -a blender -b -P hero_proto.py -- <outdir> [frames...]
-GEAR：basic（示範用）或 titan（鈦甲測試）"""
+GEAR：basic（示範用）、titan（整套，不含特效）、或逐部位混搭，例如 GEAR="head=titan,hands=titan"
+部位：head top bottom feet hands back bell fx（沒寫的部位用基本款）"""
 import bpy, bmesh, math, sys, os
 from mathutils import Vector, Matrix
 
@@ -8,7 +9,14 @@ argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = argv[0] if argv else '/tmp/out'
 FRAMES = [int(a) for a in argv[1:]]
 GEAR = os.environ.get('GEAR', 'basic')
-TI = GEAR == 'titan'
+SLOTS = ('head', 'top', 'bottom', 'feet', 'hands', 'back', 'bell', 'fx')
+G = {k: 'basic' for k in SLOTS}
+if GEAR in ('titan',):
+    G.update({k: GEAR for k in SLOTS if k != 'fx'})
+elif '=' in GEAR:
+    for kv in GEAR.split(','):
+        k, v = kv.split('='); assert k in SLOTS, k; G[k] = v
+TOP, BOT = G['top'] == 'titan', G['bottom'] == 'titan'
 def hexc(h):
     h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))
 os.makedirs(OUT, exist_ok=True)
@@ -80,8 +88,8 @@ M = {
     'glow': flat('glow', hexc('#31F2D4'), 3.0),
     'flame': flat('flame', hexc('#BFFFF4'), 5.0),
 }
-if TI:
-    M['shirt'] = M['shorts'] = M['tisuit']
+if TOP: M['shirt'] = M['tisuit']
+if BOT: M['shorts'] = M['tisuit']
 OUTLINE = flat('outline', (0.01, 0.01, 0.02))
 OUTLINE.use_backface_culling = True
 MAT_ORDER = list(M.keys())
@@ -198,32 +206,32 @@ skinbody = skinmesh('skin', 'skin', P, E)
 skinbody.data.materials.append(M['shirt']); skinbody.data.materials.append(M['shorts'])
 for f_ in skinbody.data.polygons:
     c = f_.center; ax = abs(c.x)
-    if (TI and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TI and 1.0 < c.z < 1.44 and ax < 0.19):
+    if (TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TOP and 1.0 < c.z < 1.44 and ax < 0.19):
         f_.material_index = 1
-    elif c.z <= 1.0 and c.z > (0.12 if TI else 0.72):
+    elif c.z <= 1.0 and c.z > (0.12 if BOT else 0.72):
         f_.material_index = 2
 # 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣
 SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09))]
 SE = [(0, 1), (1, 2)]
 for sx in (1, -1):
-    if not TI:
+    if not TOP:
         SP += [((0.15 * sx, -0.005, 1.47), (0.045, 0.07))]; SE += [(1, len(SP) - 1)]
         continue
     SP += [((0.23 * sx, 0, 1.42), (0.095, 0.09)), ((0.28 * sx, -0.005, 1.30), (0.075, 0.073))]
     SE += [(1, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-    if TI:
+    if TOP:
         SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
         SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TI else 1.06)
+shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.06)
 HP = [((0, 0, 0.95), (0.155, 0.105)), ((0, 0, 1.07), (0.135, 0.10))]
 HE = [(0, 1)]
 for sx in (1, -1):
     HP += [((0.11 * sx, 0, 0.92), (0.105, 0.105)), ((0.118 * sx, -0.01, 0.75), (0.10, 0.098))]
     HE += [(0, len(HP) - 2), (len(HP) - 2, len(HP) - 1)]
-    if TI:
+    if BOT:
         HP += [((0.12 * sx, -0.01, 0.52), (0.066, 0.066)), ((0.12 * sx, 0.005, 0.38), (0.071, 0.069)), ((0.12 * sx, 0.01, 0.14), (0.048, 0.048))]
         HE += [(len(HP) - 4, len(HP) - 3), (len(HP) - 3, len(HP) - 2), (len(HP) - 2, len(HP) - 1)]
-shorts = skinmesh('shorts', 'shorts', HP, HE, 1.08 if TI else 1.15)
+shorts = skinmesh('shorts', 'shorts', HP, HE, 1.08 if BOT else 1.15)
 bpy.ops.object.select_all(action='DESELECT')
 skinbody.select_set(True)
 rig.select_set(True); bpy.context.view_layer.objects.active = rig
@@ -264,20 +272,22 @@ def base_head():
       ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
       ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
       ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))  # 眉毛
-if not TI: base_head()
+if G['head'] == 'basic': base_head()
 for s, sx in (('L', 1), ('R', -1)):
     ua, fa, ha = B[f'upper_arm.{s}'], B[f'forearm.{s}'], B[f'hand.{s}']
     th, sh, ft = B[f'thigh.{s}'], B[f'shin.{s}'], B[f'foot.{s}']
     hc = ha[0] + Vector((0, 0, -0.07))
-    if not TI:
+    if G['hands'] == 'basic':
         box(f'hand.{s}', 'skin', ha[0] + Vector((0, 0, -0.065)), (0.042, 0.06, 0.055))
         # 護腕
         bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.056, depth=0.06, location=fa[1] + (fa[0] - fa[1]) * 0.18)
         finish(bpy.context.object, f'forearm.{s}', 'band', 1)
+    if G['feet'] == 'basic':
         # 球鞋：鞋身 + 鞋底 + 鞋舌
         box(f'foot.{s}', 'shoe', (0.12 * sx, -0.06, 0.075), (0.065, 0.13, 0.055))
         box(f'foot.{s}', 'sole', (0.12 * sx, -0.06, 0.02), (0.07, 0.14, 0.02), subd=1)
         box(f'foot.{s}', 'shoe', (0.12 * sx, -0.02, 0.13), (0.05, 0.06, 0.04))
+    if G['bell'] == 'basic':
         # 啞鈴（握把沿 Y 軸，兩頭各兩片槓片）
         hc = ha[0] + Vector((0, 0, -0.07))
         bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.018, depth=0.30, location=hc, rotation=(math.radians(90), 0, 0))
@@ -288,7 +298,7 @@ for s, sx in (('L', 1), ('R', -1)):
             finish(ob, f'hand.{s}', 'iron', 0)
 
 
-if TI:
+if 'titan' in G.values():
     exec(open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1])), 'gear_titan.py')).read())
 
 # 合併成一個蒙皮網格
