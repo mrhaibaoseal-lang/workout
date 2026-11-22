@@ -29,6 +29,12 @@ struct WeeklyFacts {
     let review: BlockReview?
     /// 用自訂課表（組數調整不會自動套用）
     let custom: Bool
+    /// 增重速度（`Nutrition`），算不出來是 nil
+    var pace: Nutrition.Pace = .unknown
+    /// 每週體重變化（kg）
+    var weeklyGain: Double? = nil
+    /// 最近 7 天平均蛋白質（g）和目標
+    var protein: (avg: Int, target: Int)? = nil
 
     func range(_ m: Muscle) -> ClosedRange<Double>? {
         custom ? VolumePlan.range(for: m) : PersonalVolume.range(for: m)
@@ -62,6 +68,10 @@ struct WeeklyFacts {
         if !sore.isEmpty { lines.append("回報到下次還在痠的部位：" + sore.joined(separator: "、")) }
         if !joint.isEmpty { lines.append("回報關節不舒服的部位：" + joint.joined(separator: "、")) }
         if !pain.isEmpty { lines.append("會痛的動作：" + pain.joined(separator: "、")) }
+        if let g = weeklyGain, pace != .unknown {
+            lines.append("體重每週 \(g >= 0 ? "+" : "")\(String(format: "%.2f", g)) kg，增重速度\(pace.title)。")
+        }
+        if let p = protein { lines.append("最近 7 天平均每天蛋白質 \(p.avg) g（目標 \(p.target) g）。") }
         if let review {
             let changes = review.changes
             if changes.isEmpty {
@@ -179,6 +189,12 @@ enum WeeklySummary {
         if let s = f.stalled.first { next.append("\(s)卡住了，照停滯建議先減重再爬") }
         if !f.sore.isEmpty { next.append("\(f.sore.prefix(2).joined(separator: "、"))恢復比較慢，多睡一點") }
         if !f.pain.isEmpty { next.append("\(f.pain.first!)會痛就先減輕或換掉") }
+        switch f.pace {
+        case .losing, .slow: next.append("增重速度\(f.pace.title)，每天再多吃一點")
+        case .fast: next.append("體重長太快，每天少吃一點")
+        default: break
+        }
+        if let p = f.protein, p.avg < p.target * 8 / 10 { next.append("蛋白質平均 \(p.avg) g，離 \(p.target) g 還差一些") }
         if next.isEmpty { next.append("照課表練，每組都做到次數上限就加重") }
 
         return CoachReply(headline: headline,

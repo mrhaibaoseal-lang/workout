@@ -266,4 +266,35 @@ final class BlockAndVolumeTests: XCTestCase {
             XCTAssertNotNil(StartWeight.strength[id], id)
         }
     }
+
+    // MARK: Nutrition
+
+    func testWeeklyGainSlope() {
+        let now = Date.now
+        let pts: [(date: Date, weight: Double)] = (0..<5).map { i in
+            (date: now.addingTimeInterval(-Double(28 - i * 7) * 86400), weight: 70 + Double(i) * 0.3)
+        }
+        XCTAssertEqual(Nutrition.weeklyChange(pts, now: now) ?? 0, 0.3, accuracy: 0.001)
+        // 只有一筆或相隔太近算不出來
+        XCTAssertNil(Nutrition.weeklyChange(Array(pts.suffix(1)), now: now))
+        XCTAssertNil(Nutrition.weeklyChange([(now.addingTimeInterval(-3 * 86400), 70), (now, 70.5)], now: now))
+    }
+
+    func testPaceBands() {
+        XCTAssertEqual(Nutrition.pace(weeklyChange: nil, bodyWeight: 70), .unknown)
+        XCTAssertEqual(Nutrition.pace(weeklyChange: -0.2, bodyWeight: 70), .losing)
+        XCTAssertEqual(Nutrition.pace(weeklyChange: 0.05, bodyWeight: 70), .slow)
+        XCTAssertEqual(Nutrition.pace(weeklyChange: 0.25, bodyWeight: 70), .good)
+        XCTAssertEqual(Nutrition.pace(weeklyChange: 0.6, bodyWeight: 70), .fast)
+        XCTAssertEqual(Nutrition.target(bodyWeight: 70), 112)
+    }
+
+    func testProteinAverageSkipsEmptyDays() {
+        let now = Date.now
+        let cal = Calendar.current
+        let log = [Nutrition.key(now): 100, Nutrition.key(cal.date(byAdding: .day, value: -2, to: now)!): 140,
+                   Nutrition.key(cal.date(byAdding: .day, value: -9, to: now)!): 10]
+        XCTAssertEqual(Nutrition.average(log, days: 7, now: now), 120)
+        XCTAssertNil(Nutrition.average([:], days: 7, now: now))
+    }
 }

@@ -64,6 +64,8 @@ struct WorkoutView: View {
     @State private var stretchDone = false
     @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
+    /// 練完的分享圖卡（`ShareCardData`）
+    @State private var shareData: ShareCardData?
 
     private var allDone: Bool {
         drafts.allSatisfy { $0.sets.allSatisfy(\.done) }
@@ -279,7 +281,7 @@ struct WorkoutView: View {
     private var finishOverlay: some View {
         if showCoach, let c = coach {
             CoachReviewView(loader: c, onStretch: stretchSteps.isEmpty ? nil : { showStretch = true },
-                            stretchMinutes: Self.minutes(stretchSteps, kind: .cooldown)) {
+                            stretchMinutes: Self.minutes(stretchSteps, kind: .cooldown), share: shareData) {
                 onFinish()
                 dismiss()
             }
@@ -1071,7 +1073,12 @@ struct WorkoutView: View {
             guard !work.isEmpty, ProgramBuilder.phase(week: week) == .normal else { continue }
             Upgrade.record(item: d.item, work: work, ladder: d.ladder, equipment: equipment)
         }
-        coach = CoachLoader(facts: coachFacts(session: session))
+        let facts = coachFacts(session: session)
+        coach = CoachLoader(facts: facts)
+        shareData = ShareCardData(facts: facts,
+                                  rank: RankEngine.rank(sessions: [session] + sessions.filter { $0 !== session },
+                                                        goal: weeklyGoal),
+                                  loadout: inventory.state.loadout, date: session.date)
         askMuscles = PersonalVolume.musclesToAsk(
             done: drafts.map { d in (exercise: d.item.exercise, sets: d.sets.filter { $0.done && $0.kind == .work }.count) },
             history: sessions.filter { $0 !== session }, now: now)

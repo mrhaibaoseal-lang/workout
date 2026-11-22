@@ -268,10 +268,13 @@ struct CoachReviewView: View {
     /// 有給就多一顆「練後伸展」按鈕
     var onStretch: (() -> Void)? = nil
     var stretchMinutes = 4
+    /// 有給就多一顆「分享」按鈕（練完的圖卡）
+    var share: ShareCardData? = nil
     let onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
+    @State private var showShare = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -284,6 +287,15 @@ struct CoachReviewView: View {
                     .foregroundStyle(Theme.fg)
                 Spacer()
                 if loader.reply != nil { sourceTag }
+                if share != nil {
+                    Button { showShare = true } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.headline)
+                            .frame(width: 44, height: 44)
+                    }
+                    .foregroundStyle(Theme.accentSoft)
+                    .accessibilityLabel("分享今天的訓練")
+                }
             }
             .padding(.top, 8)
 
@@ -334,6 +346,9 @@ struct CoachReviewView: View {
         .contentShape(Rectangle())
         .onTapGesture { shown = true }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showShare) {
+            if let share { ShareCardSheet(data: share) }
+        }
         .onAppear { if loader.reply != nil { reveal() } }
         .onChange(of: loader.reply) { _, r in if r != nil { reveal() } }
     }

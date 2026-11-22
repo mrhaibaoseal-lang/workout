@@ -89,6 +89,7 @@ struct BodyScreen: View {
         ScrollView {
             VStack(spacing: 12) {
                 header
+                NutritionCard(weights: logs.filter { $0.weight > 0 }.map { (date: $0.date, weight: $0.weight) })
                 figureCard
                 if !logs.isEmpty {
                     tiles
@@ -394,7 +395,7 @@ struct BodyEntrySheet: View {
                 } header: {
                     SectionLabel("只填有量的就好")
                 } footer: {
-                    SectionLabel("每 2–4 週量一次，同一個時間、同一個位置量，變化才準。增肌時體重每月增加 0.5–1 kg、腰圍沒有明顯變大，就是長肌肉的好速度。")
+                    SectionLabel("體重每週量一次（算增重速度），圍度每 2–4 週量一次；同一個時間、同一個位置量，變化才準。增肌時體重每月增加 0.5–1 kg、腰圍沒有明顯變大，就是長肌肉的好速度。")
                 }
             }
             .themeForm()

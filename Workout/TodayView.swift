@@ -9,6 +9,7 @@ struct ActiveWorkout: Identifiable {
 
 struct TodayView: View {
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
+    @Query(sort: \BodyLog.date) private var bodyLogs: [BodyLog]
     @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
     @AppStorage(Keys.place) private var placeRaw = TrainingPlace.home.rawValue
@@ -665,8 +666,15 @@ struct TodayView: View {
         let start = Date(timeIntervalSince1970: startDate)
         if let w = WeeklySummary.pendingWeek(start: start, seen: summarySeen, sessions: sessions) {
             WeeklySummaryCard(week: w, hasReview: PersonalVolume.review(endingWeek: w) != nil) {
-                weeklyFacts = WeeklyFactsItem(facts: WeeklySummary.facts(week: w, start: start, sessions: sessions,
-                                                                         goal: weeklyGoal))
+                var facts = WeeklySummary.facts(week: w, start: start, sessions: sessions, goal: weeklyGoal)
+                let weights = bodyLogs.filter { $0.weight > 0 }.map { (date: $0.date, weight: $0.weight) }
+                let bw = weights.last?.weight ?? StartWeight.bodyWeight
+                facts.weeklyGain = Nutrition.weeklyChange(weights)
+                facts.pace = Nutrition.pace(weeklyChange: facts.weeklyGain, bodyWeight: bw)
+                if bw > 0, let avg = Nutrition.average(Nutrition.load(), days: 7) {
+                    facts.protein = (avg, Nutrition.target(bodyWeight: bw))
+                }
+                weeklyFacts = WeeklyFactsItem(facts: facts)
             }
         }
     }
