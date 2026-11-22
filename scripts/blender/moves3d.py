@@ -135,13 +135,19 @@ def build_bench(back_deg):
     pbox('frame', (0, POST_Y + 0.02, POST_TOP - 0.03), (0.05, 0.085, 0.07), 0.02)
     for sx in (1, -1): pcyl('frame', (0.05 * sx, POST_Y + 0.02, POST_TOP - 0.03), 0.07, 0.01, (1, 0, 0), n=32)
     pcyl('chrome', (0, POST_Y + 0.02, POST_TOP - 0.03), 0.02, 0.11, (1, 0, 0), n=12)
-    # 槓片收納柱：兩側、兩層，各掛兩片槓片＋紅色星形螺帽
+    # 配重：套在立柱上的滑套，上下各插一顆「啞鈴」（橫穿滑套的握把＋兩側槓片＋紅色星形螺帽）。
+    # 拉下拉槓時整組沿立柱往上滑。回傳這組的父物件，動畫只要移動它。
+    stack = bpy.data.objects.new('stack', None); sc.collection.objects.link(stack)
+    own = [pbox('frame', (0, POST_Y, 0.82), (0.05, 0.05, 0.27), 0.01),            # 滑套
+           pcyl('chrome', (0, POST_Y + 0.055, 1.10), 0.012, 0.035, (0, 1, 0), n=12)]  # 頂部掛鉤
     for z_ in (0.98, 0.66):
+        own.append(pcyl('chrome', (0, POST_Y, z_), 0.016, 0.36, (1, 0, 0), n=12))
         for sx in (1, -1):
-            pcyl('frame', (0.11 * sx, POST_Y, z_), 0.018, 0.16, (1, 0, 0), n=12)
             for i_, x_ in enumerate((0.075, 0.105)):
-                pcyl('plate', (x_ * sx, POST_Y, z_), 0.115 - i_ * 0.012, 0.028, (1, 0, 0), n=32, bevel=0.006)
-            pcyl('red', (0.15 * sx, POST_Y, z_), 0.032, 0.04, (1, 0, 0), n=6, bevel=0.004)
+                own.append(pcyl('plate', (x_ * sx, POST_Y, z_), 0.115 - i_ * 0.012, 0.028, (1, 0, 0), n=32, bevel=0.006))
+            own.append(pcyl('red', (0.15 * sx, POST_Y, z_), 0.032, 0.04, (1, 0, 0), n=6, bevel=0.004))
+    for o_ in own: o_.parent = stack
+    return stack
 
 MOVE = os.environ.get('MOVE', 'squat')
 CAM = dict(loc=(4.2, -3.9, 1.7), tgt=(0, 0, 0.95), lens=70, stage=(0, 0, 0.62))
@@ -221,7 +227,7 @@ elif MOVE == 'pulldown':
     HIP_Z, HIP_Y = SEAT_Z + 0.085, 0.0
     GX = 0.40                                         # 握距（手腕 x）
     WHEEL = Vector((0, POST_Y + 0.09, POST_TOP - 0.03))  # 滑輪靠使用者那一側
-    build_bench(24)                                    # 靠背往後倒 24 度，拉到底時背剛好靠上
+    stack = build_bench(24)                            # 靠背往後倒 24 度，拉到底時背剛好靠上
     def lower(_t):
         for s, sx in SX:
             hj = Vector((HIPX[s], HIP_Y, HIP_Z))
@@ -242,13 +248,6 @@ elif MOVE == 'pulldown':
     P0 = Vector((0, BAR_Y0, z0))
     cp1, sh1 = upper(1.0)
     P1 = cp1((0, -0.17, 1.33)) + Vector((0, -0.06, 0.0))   # 上胸（鎖骨下方）
-    # 配重：立柱前面（-Y）吊一支插銷掛槓片，拉下時升起
-    load = bpy.data.objects.new('load', None); sc.collection.objects.link(load)
-    LOAD_Y, LOAD_Z = POST_Y - 0.09, 0.22
-    pcyl('chrome', (0, LOAD_Y, LOAD_Z + 0.16), 0.014, 0.40, n=12).parent = load
-    for i, (r, dz) in enumerate(((0.115, 0.0), (0.115, 0.032), (0.10, 0.064))):
-        pcyl('plate', (0, LOAD_Y, LOAD_Z + dz), r, 0.026, n=32, bevel=0.006).parent = load
-    pcyl('red', (0, LOAD_Y, LOAD_Z + 0.095), 0.03, 0.03, n=6, bevel=0.004).parent = load
     cab1 = stretch('cable', 0.006); cab3 = stretch('cable', 0.006)
     # 下拉槓：中段直、兩端往下彎，握把包膠
     bar = bpy.data.objects.new('bar', None); sc.collection.objects.link(bar)
@@ -269,9 +268,9 @@ elif MOVE == 'pulldown':
         sc.frame_set(f); t = profile(f, N, 14, 6, 22); P = pose(t); keyall(f)
         bar.location = P; bar.keyframe_insert('location', frame=f)
         rise = P0.z - P.z
-        load.location = (0, 0, rise); load.keyframe_insert('location', frame=f)
+        stack.location = (0, 0, rise); stack.keyframe_insert('location', frame=f)
         key_stretch(cab1, WHEEL + Vector((0, 0.06, 0)), P + Vector((0, 0, 0.06)), f)
-        key_stretch(cab3, WHEEL + Vector((0, -0.17, 0.0)), Vector((0, LOAD_Y, LOAD_Z + 0.36 + rise)), f)
+        key_stretch(cab3, Vector((0, POST_Y + 0.055, POST_TOP - 0.10)), Vector((0, POST_Y + 0.055, 1.10 + rise)), f)
     CAM = dict(loc=(4.0, -2.2, 1.45), tgt=(0, -0.12, 1.02), lens=58, stage=(0, -0.05, 1.0))
 
 sc.frame_start, sc.frame_end = 0, N - 1
