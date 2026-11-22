@@ -3,7 +3,7 @@ import SwiftUI
 extension Keys {
     /// 不排的動作（會痛、不喜歡），JSON [exerciseId: AvoidEntry]
     static let avoidExercises = "avoidExercises"
-    /// 「這個動作會痛」的紀錄，JSON [PainRecord]（先只存，之後的功能會用）
+    /// 「這個動作會痛」的紀錄，JSON [PainRecord]
     static let painLog = "painLog"
     /// 換動作的位移，JSON ["dayId|pattern": Int]：排課選動作時，順位往後加這個數字
     static let patternShift = "patternShift"
@@ -70,6 +70,8 @@ struct AvoidItem: Identifiable {
 struct PainRecord: Codable, Equatable {
     var exerciseId: String
     var date: Double
+    /// 使用者選的關節（`Joint.rawValue`）；0.32.0 以前的紀錄沒有，或選了「說不上來」。
+    var joint: String? = nil
 }
 
 enum Avoid {
@@ -100,9 +102,9 @@ enum Avoid {
         return list
     }
 
-    static func logPain(_ exerciseId: String) {
+    static func logPain(_ exerciseId: String, joint: Joint? = nil) {
         var list = painLog()
-        list.append(PainRecord(exerciseId: exerciseId, date: Date.now.timeIntervalSince1970))
+        list.append(PainRecord(exerciseId: exerciseId, date: Date.now.timeIntervalSince1970, joint: joint?.rawValue))
         guard let data = try? JSONEncoder().encode(list), let raw = String(data: data, encoding: .utf8) else { return }
         UserDefaults.standard.set(raw, forKey: Keys.painLog)
     }

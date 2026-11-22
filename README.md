@@ -49,13 +49,13 @@ Workout/
   ExerciseLibrary.swift     動作庫
   Program.swift             課表、週期、加重建議、統計
   TodayView.swift           今天練什麼
-  WorkoutView.swift         訓練中畫面（記錄、休息計時）
+  Session/                  訓練中畫面：WorkoutView（主畫面）、ExerciseCard、SetRows（組的列與編輯）、RestCard、WorkoutDrafts
   Reminders.swift           練習提醒通知
   Schedule/                 課表、班表讀取、自動排程、課表截圖辨識
   ProgressScreen.swift      進步圖表（右上角可開訓練紀錄）
   HistoryView.swift         訓練紀錄
   Character/                角色與裝備：骨架動作、裝備目錄、Canvas 繪製、背包、角色分頁、開箱、碎片兌換
-  SettingsView.swift        設定、第一次開啟引導
+  Settings/                 設定主頁與五個分頁（器材、訓練、課表與動作、排程與提醒、資料）、第一次開啟引導、Keychain 備份
 Shared/SharedStore.swift    App 與小工具共用的資料（App Group）
 WorkoutWidget/              主畫面小工具
 ```
