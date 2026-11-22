@@ -33,6 +33,8 @@ struct QuestCard: View {
                     .foregroundStyle(shields > 0 ? Theme.accent : Theme.muted)
                     .padding(.horizontal, 10).frame(minHeight: 30)
                     .background(Theme.raised, in: Capsule())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("保護卡 \(shields) 張")
@@ -45,6 +47,8 @@ struct QuestCard: View {
                     .foregroundStyle(Theme.fg)
                     .padding(.horizontal, 10).frame(minHeight: 30)
                     .background(Theme.raised, in: Capsule())
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

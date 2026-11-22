@@ -145,6 +145,13 @@ struct RestScreen: View {
                         }
                     }
                     .frame(minHeight: 290)
+                    // 要動手的放最上面：休息一開始就換重量，接著看下一組
+                    ForEach(changes) { c in
+                        PlateChangeCard(change: c)
+                    }
+                    if let next {
+                        nextCard(next)
+                    }
                     if let result {
                         resultCard(result)
                     }
@@ -155,13 +162,6 @@ struct RestScreen: View {
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    // 換重量放最上面：休息一開始就要動手
-                    ForEach(changes) { c in
-                        PlateChangeCard(change: c)
-                    }
-                    if let next {
-                        nextCard(next)
                     }
                     if let next, next.trend.count >= 2 {
                         trendCard(next)
