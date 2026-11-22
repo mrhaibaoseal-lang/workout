@@ -40,6 +40,19 @@ private struct Pen {
         tf = CGAffineTransform(translationX: ox, y: oy).scaledBy(x: s, y: s).translatedBy(x: -20, y: 14)
     }
 
+    init(k: CGFloat, tf: CGAffineTransform) {
+        self.k = k
+        self.tf = tf
+    }
+
+    /// 以 p 為中心旋轉（弧度）；mirror 先左右翻再轉。畫頭用：頭跟著脖子的方向轉。
+    func turned(around p: CGPoint, by angle: CGFloat, mirror: Bool) -> Pen {
+        var local = CGAffineTransform(translationX: p.x, y: p.y).rotated(by: angle)
+        if mirror { local = local.scaledBy(x: -1, y: 1) }
+        local = local.translatedBy(x: -p.x, y: -p.y)
+        return Pen(k: k, tf: local.concatenating(tf))
+    }
+
     func map(_ p: CGPoint) -> CGPoint { p.applying(tf) }
 
     func fill(_ c: inout GraphicsContext, _ path: Path, _ col: Color) {
@@ -188,27 +201,50 @@ enum CharacterRenderer {
     private static let fg = Color(gearHex: "#E7EBF0")
     private static let lineGrey = Color(gearHex: "#2C3440")
 
-    /// 道具（和 scripts/art/moves.js 的 PROPS 一致）
+    /// 道具（形狀資料在 scripts/art/moves.js 的 PROPS → MoveFrames.swift）
     private static func drawProp(_ c: inout GraphicsContext, _ pen: Pen, _ prop: MoveProp) {
-        let pad = Color(gearHex: "#3A4452")
-        let edge = Color(gearHex: "#5B6778")
-        let leg = Color(gearHex: "#2A313C")
-        func bench(_ x: CGFloat, _ w: CGFloat, legs: [CGFloat]) {
-            for lx in legs {
-                pen.fill(&c, Path(CGRect(x: lx, y: 155, width: 6, height: 29)), leg)
+        for sh in prop.shapes {
+            switch sh.kind {
+            case .pad:
+                let path = Path(roundedRect: sh.rect, cornerRadius: 3)
+                pen.fill(&c, path, Color(gearHex: "#3A4452"))
+                pen.stroke(&c, path, Color(gearHex: "#5B6778"), 1.5)
+            case .leg:
+                pen.fill(&c, Path(sh.rect), Color(gearHex: "#2A313C"))
+            case .frame:
+                let path = Path(roundedRect: sh.rect, cornerRadius: 2)
+                pen.fill(&c, path, Color(gearHex: "#2E3642"))
+                pen.stroke(&c, path, Color(gearHex: "#4A5566"), 1.5)
             }
-            let top = Path(roundedRect: CGRect(x: x, y: 146, width: w, height: 9), cornerRadius: 3)
-            pen.fill(&c, top, pad)
-            pen.stroke(&c, top, edge, 1.5)
         }
-        switch prop {
-        case .benchFlat: bench(44, 96, legs: [56, 122])
-        case .benchBack: bench(20, 62, legs: [30, 66])
-        case .benchFront: bench(112, 70, legs: [122, 166])
-        case .wall:
-            let r = Path(roundedRect: CGRect(x: 152, y: 20, width: 10, height: 166), cornerRadius: 2)
-            pen.fill(&c, r, Color(gearHex: "#2E3642"))
-            pen.stroke(&c, r, Color(gearHex: "#4A5566"), 1.5)
+        if let p = prop.pulley {
+            pen.circle(&c, p, 5, fill: Color(gearHex: "#5B6778"), stroke: Color(gearHex: "#2A313C"), sw: 2)
+        }
+    }
+
+    /// 滑輪的鋼索（畫在身體後面）
+    private static func drawCable(_ c: inout GraphicsContext, _ pen: Pen, from pulley: CGPoint, P: Joints) {
+        pen.line(&c, pulley, P.ha, 1.6, Color(gearHex: "#AEB8C6"))
+    }
+
+    /// 滑輪的握把（畫在手上）
+    private static func drawGrip(_ c: inout GraphicsContext, _ pen: Pen, _ grip: CableGrip, pulley: CGPoint, P: Joints) {
+        let h = P.ha
+        switch grip {
+        case .bar:
+            let a = pt(h.x - 5, h.y + 1)
+            let b = pt(h.x + 5, h.y - 1)
+            pen.line(&c, a, b, 7, K)
+            pen.line(&c, a, b, 4, Color(gearHex: "#4A5566"))
+        case .rope:
+            let d = sub(pulley, h)
+            let l = max(hyp(d), 1)
+            let e = pt(h.x + d.x / l * 8, h.y + d.y / l * 8)
+            pen.line(&c, h, e, 6.5, K)
+            pen.line(&c, h, e, 3.5, Color(gearHex: "#C9A66B"))
+        case .handle:
+            pen.circle(&c, h, 4.5, stroke: K, sw: 4)
+            pen.circle(&c, h, 4.5, stroke: Color(gearHex: "#4A5566"), sw: 2)
         }
     }
 
@@ -282,6 +318,7 @@ enum CharacterRenderer {
 
         if let prop = move.prop {
             drawProp(&c, pen, prop)
+            if let pulley = prop.pulley { drawCable(&c, pen, from: pulley, P: P) }
         }
 
         // 後層特效
@@ -292,9 +329,10 @@ enum CharacterRenderer {
         // 裝備造型（GearArt）
         let gear = gearParts(loadout, kind: move.gearKind)
         let goblet = move.gearKind == .goblet
+        let mirrored = move.mirrored
 
         // 背部物件（身體後方）
-        drawParts(&c, pen, gear, z: .back, P: P, t: t, goblet: goblet)
+        drawParts(&c, pen, gear, z: .back, P: P, t: t, goblet: goblet, mirror: mirrored)
 
         // 光暈
         if rr >= 2 {
@@ -315,7 +353,7 @@ enum CharacterRenderer {
             defer {
                 if let an = anchorFor(sh.base) {
                     let set: Set<GearPart.Anchor> = an == .fore ? [.fore, .fist] : [an]
-                    drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, anchors: set,
+                    drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, mirror: mirrored, anchors: set,
                               side: sh.far ? .far : .near)
                 }
             }
@@ -370,10 +408,14 @@ enum CharacterRenderer {
         }
 
         // 疊在所有肢段上面的裝備（毛領、腰帶、法袍下襬…）
-        drawParts(&c, pen, gear, z: .over, P: P, t: t, goblet: goblet)
+        drawParts(&c, pen, gear, z: .over, P: P, t: t, goblet: goblet, mirror: mirrored)
 
         // 頭
-        drawHead(&c, pen, loadout.item(.head), P: P, t: t)
+        // 頭跟著脖子的方向轉（站直時不轉）；仰躺頭在右的動作要翻面，臉才會朝上
+        let neck = sub(P.head, P.sh)
+        let headAngle = atan2(neck.y, neck.x) + .pi / 2
+        drawHead(&c, pen.turned(around: P.head, by: headAngle, mirror: move.mirrored),
+                 loadout.item(.head), P: P, t: t)
 
         // 手舉過頭（肩推）時，手臂要壓在頭上面，跟啞鈴同一層
         // 只重畫近側手臂；上臂從中段開始，避免黑框切過軀幹。遠側手臂留在頭後面。
@@ -390,11 +432,14 @@ enum CharacterRenderer {
                 fillLimb(&c, pen, sh, stripe: stripe, glow: sglow)
                 if sh.w >= 11 { highlight(&c, pen, sh) }
             }
-            drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, anchors: [.fore, .fist], side: .near)
+            drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, mirror: mirrored, anchors: [.fore, .fist], side: .near)
         }
 
         // 啞鈴
-        drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet)
+        drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet, mirror: mirrored)
+        if let pulley = move.prop?.pulley {
+            drawGrip(&c, pen, move.spec?.grip ?? .bar, pulley: pulley, P: P)
+        }
 
         // 喝水的水壺：從手往嘴巴的方向
         if move == .drink {
@@ -468,7 +513,9 @@ enum CharacterRenderer {
     }
 
     /// 局部座標 → 200 單位座標。y 正向＝前面／上面。
-    private static func gearFrame(_ a: GearPart.Anchor, P: Joints, far: Bool, t: CGFloat, goblet: Bool) -> CGAffineTransform {
+    /// mirror：仰躺頭在右的動作，四肢上的裝備（鞋子、護腕…）翻面，不然腳尖和鞋底會畫反
+    private static func gearFrame(_ a: GearPart.Anchor, P: Joints, far: Bool, t: CGFloat, goblet: Bool,
+                                  mirror: Bool = false) -> CGAffineTransform {
         func q(_ j: JointName) -> CGPoint { P.point(j, far: far) }
         func unit(_ v: CGPoint) -> CGPoint {
             let l = hyp(v)
@@ -479,7 +526,8 @@ enum CharacterRenderer {
         }
         func seg(_ a: JointName, _ b: JointName, ccw: Bool) -> CGAffineTransform {
             let x = unit(sub(q(b), q(a)))
-            return make(q(a), x, ccw ? pt(x.y, -x.x) : pt(-x.y, x.x))
+            let side = mirror ? !ccw : ccw
+            return make(q(a), x, side ? pt(x.y, -x.x) : pt(-x.y, x.x))
         }
         switch a {
         case .torso: return seg(.hip, .sh, ccw: false)
@@ -502,21 +550,21 @@ enum CharacterRenderer {
     }
 
     private static func drawParts(_ c: inout GraphicsContext, _ pen: Pen, _ parts: [GearPart], z: GearPart.Z,
-                                  P: Joints, t: CGFloat, goblet: Bool,
+                                  P: Joints, t: CGFloat, goblet: Bool, mirror: Bool = false,
                                   anchors: Set<GearPart.Anchor>? = nil, side: PartSide = .both) {
         for part in parts where part.z == z {
             if let a = anchors, !a.contains(part.anchor) { continue }
             // 高腳杯深蹲只抱一顆啞鈴
             let wantFar = part.far && !(part.anchor == .grip && goblet) && side != .near
             if wantFar {
-                let tf = gearFrame(part.anchor, P: P, far: true, t: t, goblet: goblet).concatenating(pen.tf)
+                let tf = gearFrame(part.anchor, P: P, far: true, t: t, goblet: goblet, mirror: mirror).concatenating(pen.tf)
                 c.drawLayer { (l: inout GraphicsContext) in
                     l.addFilter(.colorMultiply(Color(white: 0.72)))
                     part.layers.draw(&l, transform: tf, scale: pen.k)
                 }
             }
             if side != .far {
-                let tf = gearFrame(part.anchor, P: P, far: false, t: t, goblet: goblet).concatenating(pen.tf)
+                let tf = gearFrame(part.anchor, P: P, far: false, t: t, goblet: goblet, mirror: mirror).concatenating(pen.tf)
                 part.layers.draw(&c, transform: tf, scale: pen.k)
             }
         }
