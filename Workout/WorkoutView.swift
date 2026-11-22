@@ -923,8 +923,9 @@ struct WorkoutView: View {
                      onSwap: { swap(at: i, to: $0) },
                      group: groupBadge(i),
                      canReplace: replacement(for: i) != nil,
-                     onEasePain: { easePain(at: i) },
-                     onAvoid: { avoid(at: i, reason: $0) })
+                     onEasePain: { easePain(at: i, joint: $0) },
+                     onAvoid: { avoid(at: i, reason: $0, joint: $1) },
+                     onLogPain: { logPainOnly(at: i, joint: $0) })
             .id(drafts[i].id)
     }
 
@@ -940,24 +941,42 @@ struct WorkoutView: View {
     }
 
     /// 「這次減輕 20% 試試」：這個動作還沒做的組，重量降到階梯上不超過 80% 的那一級，並記一筆痛的紀錄（不標記動作）。
-    private func easePain(at i: Int) {
+    private func easePain(at i: Int, joint: Joint?) {
         guard drafts.indices.contains(i) else { return }
         let ladder = drafts[i].ladder
         for k in drafts[i].sets.indices where !drafts[i].sets[k].done && drafts[i].sets[k].weight > 0 {
             drafts[i].sets[k].weight = ladder.snap(drafts[i].sets[k].weight * 0.8)
             drafts[i].sets[k].eased = true
         }
-        Avoid.logPain(drafts[i].item.exercise.id)
+        Avoid.logPain(drafts[i].item.exercise.id, joint: joint)
+        refreshCautions()
         showToast("這個動作剩下的組減輕約兩成，不舒服就停下來")
     }
 
+    /// 只記一筆痛的紀錄（沒有重量可減、也不能換的時候）。
+    private func logPainOnly(at i: Int, joint: Joint?) {
+        guard drafts.indices.contains(i) else { return }
+        Avoid.logPain(drafts[i].item.exercise.id, joint: joint)
+        refreshCautions()
+        showToast("記下來了，不舒服就停下來")
+    }
+
+    /// 剛回報會痛：今天其他用到同一個關節的動作，卡片上馬上出現提醒。
+    private func refreshCautions() {
+        let pain = Joint.recentPain()
+        for k in drafts.indices {
+            drafts[k].caution = Joint.caution(for: drafts[k].item.exercise, pain: pain)
+        }
+    }
+
     /// 標記會痛／不喜歡，並換成同類型下一個候選（之後排課也不會再排它）。
-    private func avoid(at i: Int, reason: AvoidReason) {
+    private func avoid(at i: Int, reason: AvoidReason, joint: Joint? = nil) {
         guard drafts.indices.contains(i), let next = replacement(for: i) else { return }
         let old = drafts[i].item.exercise
         Avoid.mark(old.id, reason: reason)
-        if reason == .pain { Avoid.logPain(old.id) }
+        if reason == .pain { Avoid.logPain(old.id, joint: joint) }
         swap(at: i, to: next)
+        if reason == .pain { refreshCautions() }
         showToast("之後不排「\(old.name)」，換成「\(next.name)」")
     }
 
@@ -1345,9 +1364,12 @@ struct ExerciseCard: View {
     var group: GroupBadge? = nil
     /// 還沒做任何一組、而且有同類型的其他動作可以換
     var canReplace = false
-    var onEasePain: () -> Void = {}
-    var onAvoid: (AvoidReason) -> Void = { _ in }
+    var onEasePain: (Joint?) -> Void = { _ in }
+    var onAvoid: (AvoidReason, Joint?) -> Void = { _, _ in }
+    var onLogPain: (Joint?) -> Void = { _ in }
     @State private var showPain = false
+    /// 「會痛…」選的關節；nil＝說不上來
+    @State private var painJoint: Joint?
     /// 備註框：有上次的備註或已經寫了才一直開著，不然按「加備註」才出現
     @State private var noteOpen = false
 
@@ -1544,7 +1566,7 @@ struct ExerciseCard: View {
                 .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .accessibilityLabel("組數排法、熱身與換動作")
-        .confirmationDialog("這個動作會痛？", isPresented: $showPain, titleVisibility: .visible) {
+        .confirmationDialog(painJoint.map { "\($0.title)會痛？" } ?? "這個動作會痛？", isPresented: $showPain, titleVisibility: .visible) {
             painChoices
         } message: {
             Text(painMessage)
@@ -1573,20 +1595,28 @@ struct ExerciseCard: View {
 
     @ViewBuilder
     private var painItems: some View {
-        Button("會痛…", systemImage: "bandage") { showPain = true }
+        Menu("會痛…", systemImage: "bandage") {
+            Section("哪裡痛？") {
+                ForEach(Joint.menuOrder(for: ex.pattern)) { j in
+                    Button(j.title) { painJoint = j; showPain = true }
+                }
+                Button("說不上來") { painJoint = nil; showPain = true }
+            }
+        }
         if canReplace {
-            Button("不喜歡，換掉", systemImage: "hand.thumbsdown") { onAvoid(.dislike) }
+            Button("不喜歡，換掉", systemImage: "hand.thumbsdown") { onAvoid(.dislike, nil) }
         }
     }
 
     @ViewBuilder
     private var painChoices: some View {
         if ex.loaded {
-            Button("這次減輕 20% 試試") { onEasePain() }
+            Button("這次減輕 20% 試試") { onEasePain(painJoint) }
         }
         if canReplace {
-            Button("換掉並記住，之後不排", role: .destructive) { onAvoid(.pain) }
+            Button("換掉並記住，之後不排", role: .destructive) { onAvoid(.pain, painJoint) }
         }
+        Button("只記下來") { onLogPain(painJoint) }
         Button("取消", role: .cancel) {}
     }
 

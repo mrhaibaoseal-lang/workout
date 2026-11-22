@@ -7,9 +7,11 @@ extension Keys {
 
 // MARK: - 關節（會痛之後的提醒）
 
-/// 動作主要吃力的關節。某個動作最近回報會痛，同一個關節的其他動作在訓練時提醒先輕一點（0.30.0）。
-enum Joint: String {
+/// 動作吃力的關節。「會痛…」時使用者自己選哪裡痛（0.32.0）；同一個關節的其他動作在訓練時提醒先輕一點。
+enum Joint: String, CaseIterable, Identifiable {
     case shoulder, elbow, lowerBack, knee, hip
+
+    var id: String { rawValue }
 
     var title: String {
         switch self {
@@ -21,35 +23,62 @@ enum Joint: String {
         }
     }
 
-    static func of(_ p: MovementPattern) -> Joint? {
+    /// 這類動作會用到的關節，最吃力的在前。舊的痛紀錄沒有關節時，用第一個推測。
+    static func involved(_ p: MovementPattern) -> [Joint] {
         switch p {
-        case .hPush, .incline, .vPush, .vPull, .lateral, .rear: .shoulder
-        case .hPull, .biceps, .triceps: .elbow
-        case .hinge, .core: .lowerBack
-        case .squat, .lunge, .hamCurl, .quadIso: .knee
-        case .glute: .hip
-        case .calf: nil
+        case .hPush, .incline, .vPush: [.shoulder, .elbow]
+        case .vPull, .hPull: [.shoulder, .elbow, .lowerBack]
+        case .lateral, .rear: [.shoulder]
+        case .biceps, .triceps: [.elbow, .shoulder]
+        case .hinge: [.lowerBack, .hip, .knee]
+        case .core: [.lowerBack, .hip]
+        case .squat, .lunge: [.knee, .hip, .lowerBack]
+        case .hamCurl, .quadIso: [.knee]
+        case .glute: [.hip, .lowerBack, .knee]
+        case .calf: []
         }
     }
 
-    /// 最近 14 天回報會痛（減輕或換掉）的動作，各自的關節 → 最近那次的動作名稱。
-    static func recentPain(now: Date = .now) -> [Joint: String] {
+    static func of(_ p: MovementPattern) -> Joint? { involved(p).first }
+
+    /// 「會痛…」選單的順序：這個動作會用到的關節在前，其他的接在後面。
+    static func menuOrder(for p: MovementPattern) -> [Joint] {
+        let first = involved(p)
+        return first + allCases.filter { !first.contains($0) }
+    }
+
+    /// 最近 14 天回報會痛的關節 → 最近那次的動作名稱。
+    /// 紀錄有選關節就用選的；舊紀錄（0.32.0 以前）用動作類型推測。
+    static func recentPain(now: Date = .now, log: [PainRecord] = Avoid.painLog(),
+                           marked: [String: AvoidEntry] = Avoid.store.load()) -> [Joint: String] {
         let from = now.addingTimeInterval(-14 * 86400).timeIntervalSince1970
-        var ids: [(String, Double)] = Avoid.painLog().filter { $0.date >= from }.map { ($0.exerciseId, $0.date) }
-        for (id, e) in Avoid.store.load() where e.kind == .pain && e.date >= from { ids.append((id, e.date)) }
-        var out: [Joint: (String, Double)] = [:]
-        for (id, date) in ids {
+        var hits: [(Joint, String, Double)] = []
+        for r in log where r.date >= from {
+            guard let ex = ExerciseLibrary.byId(r.exerciseId),
+                  let j = r.joint.flatMap(Joint.init(rawValue:)) ?? of(ex.pattern) else { continue }
+            hits.append((j, ex.name, r.date))
+        }
+        // 標記「會痛、不排」的動作都會另外寫一筆痛紀錄；只有更早、沒有紀錄的才靠推測。
+        let logged = Set(log.map(\.exerciseId))
+        for (id, e) in marked where e.kind == .pain && e.date >= from && !logged.contains(id) {
             guard let ex = ExerciseLibrary.byId(id), let j = of(ex.pattern) else { continue }
+            hits.append((j, ex.name, e.date))
+        }
+        var out: [Joint: (String, Double)] = [:]
+        for (j, name, date) in hits {
             if let cur = out[j], cur.1 >= date { continue }
-            out[j] = (ex.name, date)
+            out[j] = (name, date)
         }
         return out.mapValues { $0.0 }
     }
 
-    /// 訓練卡片上的提醒；這個動作本身或關節沒問題就是 nil。
+    /// 訓練卡片上的提醒；這個動作本身或用到的關節都沒問題就是 nil。
     static func caution(for ex: Exercise, pain: [Joint: String]) -> String? {
-        guard let j = of(ex.pattern), let name = pain[j], name != ex.name else { return nil }
-        return "最近「\(name)」\(j.title)不舒服：這個動作也會用到\(j.title)，先用輕一點的重量，會痛就停"
+        for j in involved(ex.pattern) {
+            guard let name = pain[j], name != ex.name else { continue }
+            return "最近「\(name)」\(j.title)不舒服：這個動作也會用到\(j.title)，先用輕一點的重量，會痛就停"
+        }
+        return nil
     }
 }
 

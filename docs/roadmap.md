@@ -24,7 +24,7 @@
 1. ~~設定頁拆分頁~~（0.32.0 完成：`Workout/Settings/`，主頁＝摘要卡＋5 個入口，每列有一行目前狀態）。
 2. **`WorkoutView.swift` 拆檔**（約 1900 行）：先把獨立的 struct（`ExerciseCard`、`ActiveSetEditor`、`CompactSetRow`、休息卡等）搬到各自的檔案；
    主畫面的 private 成員不動。拆完一定要等 CI 編譯通過。
-3. **會痛時選關節**：「會痛…」選單多一步問哪裡痛（肩、肘、下背、膝、髖），存進 `painLog`，取代 `Joint.of` 用動作類型推測。
+3. ~~會痛時選關節~~（0.32.0 完成，見 `docs/training-system.md` ③）。
 4. **其他畫面再檢查一輪**：行程頁（`Schedule/AgendaView.swift`，約 700 行）、休息頁（`RestScreen.swift`）、牌位頁、目標頁（`Goals/GoalViews.swift`）、
    角色頁的版面，標準同 0.30.0：直觀、不擁擠、現代；只改版面，不加新系統。
 5. **補測試**：區塊時鐘（`BlockClock`）、每週組數平衡（`VolumePlan.balance`）、併成全身日（`WeekFit`）、停練回來（`Comeback`）。

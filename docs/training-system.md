@@ -209,6 +209,9 @@
 - `Keys.avoidExercises`：JSON [id: {reason: pain/dislike, date}]。`ExerciseLibrary.candidates` 排除；`byId` 照找得到。
   自訂課表指定的動作被標記 → 當成器材不夠，自動挑同類型，首頁顯示「代替」。設定 →「不排的動作」可取消。
 - 訓練畫面動作卡選單：「會痛…」→ 「這次減輕 20% 試試」（還沒做的組重量 `ladder.snap(w × 0.8)`，寫一筆 `Keys.painLog` JSON [{exerciseId, date}]，不標記）
+- 0.32.0：「會痛…」是子選單，先點哪裡痛（肩膀、手肘、下背、膝蓋、髖部，這個動作會用到的排前面；或「說不上來」），
+  再選減輕／換掉／只記下來。紀錄多存 `joint`（舊紀錄沒有）。`Joint.recentPain` 有選關節就用選的，沒有才用 `Joint.involved(pattern).first` 推測；
+  同關節提醒（`Joint.caution`）看動作會用到的**所有**關節，回報後今天其他卡片馬上更新。測試：`WorkoutTests/PainJointTests.swift`。
   或「換掉並記住」（標記 pain、換成同類型下一個候選）；「不喜歡，換掉」（標記 dislike）。只有這個動作還沒做任何一組才能換，做了就只給減輕。
 - 複合動作（`pattern.region != nil`）選動作的順位不加區塊數；單關節照舊。`Keys.patternShift` JSON ["dayId|pattern": Int] 是額外位移。
   停滯卡有「換一個動作」（`ProgramBuilder.shiftExercise`，只有課表自動挑、且還有其他候選時出現）。
