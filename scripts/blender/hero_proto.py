@@ -179,14 +179,14 @@ bpy.ops.object.mode_set(mode='OBJECT')
 B = {n: (Vector(h), Vector(t)) for n, h, t, _ in BONES}
 
 # ---------- 身體：Skin modifier 連續網格 ----------
-def skinmesh(name, mat, pts, edges, scale=1.0):
+def skinmesh(name, mat, pts, edges, scale=1.0, lv=2):
     me = bpy.data.meshes.new(name); me.from_pydata([p[0] for p in pts], edges, [])
     ob = bpy.data.objects.new(name, me); sc.collection.objects.link(ob)
     ob.modifiers.new('sk', 'SKIN')
     for i, p in enumerate(pts):
         r = p[1]; ob.data.skin_vertices[0].data[i].radius = (r[0] * scale, r[1] * scale)
     ob.data.skin_vertices[0].data[0].use_root = True
-    sub = ob.modifiers.new('s', 'SUBSURF'); sub.levels = sub.render_levels = 2
+    sub = ob.modifiers.new('s', 'SUBSURF'); sub.levels = sub.render_levels = lv
     bpy.ops.object.select_all(action='DESELECT'); bpy.context.view_layer.objects.active = ob; ob.select_set(True)
     for md in list(ob.modifiers): bpy.ops.object.modifier_apply(modifier=md.name)
     ob.data.materials.append(M[mat])
@@ -206,31 +206,28 @@ for sx in (1, -1):
     addchain([((0.11 * sx, 0, 0.92), (0.10, 0.10)), ((0.118 * sx, -0.01, 0.74), (0.095, 0.092)),
               ((0.12 * sx, -0.01, 0.52), (0.062, 0.062)), ((0.12 * sx, 0.005, 0.38), (0.068, 0.066)),
               ((0.12 * sx, 0.01, 0.12), (0.042, 0.042))], 0)
-skinbody = skinmesh('skin', 'skin', P, E)
+skinbody = skinmesh('skin', 'skin', P, E, lv=3)   # 細一級：背心是塗色，邊緣才不會鋸齒
 # 衣服底下的身體直接塗成衣服色：彎曲時就算皮膚穿出來也看不到
 skinbody.data.materials.append(M['shirt']); skinbody.data.materials.append(M['shorts'])
 for f_ in skinbody.data.polygons:
     c = f_.center; ax = abs(c.x)
-    if (TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TOP and 1.0 < c.z < 1.44 and ax < 0.19):
+    if (TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TOP and 1.03 < c.z < 1.44 and ax < 0.19):
         f_.material_index = 1
-    elif c.z <= 1.0 and c.z > (0.12 if BOT else 0.72):
+    elif c.z <= (1.0 if TOP else 1.03) and c.z > (0.12 if BOT else 0.72):
         f_.material_index = 2
-# 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣
-SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09) if TOP else (0.12, 0.105))]
-if not TOP:  # 腰和胸之間加控制點，軀幹維持直筒倒三角（不加會被收成沙漏形）
-    SP[0] = ((0, 0, 1.02), (0.142, 0.104)); SP.insert(1, ((0, -0.003, 1.15), (0.168, 0.112)))
-SE = [(0, 1), (1, 2)] if TOP else [(0, 1), (1, 2), (2, 3)]
-CH = 1 if TOP else 2   # 胸部節點的編號
+# 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣。
+# 基本款的背心最後會刪掉（改成身體塗色，見下方）；這裡照樣建，因為衣服權重轉移的流程共用。
+SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09))]
+SE = [(0, 1), (1, 2)]
 for sx in (1, -1):
     if not TOP:
-        SP += [((0.15 * sx, 0.0, 1.455), (0.075, 0.105))]; SE += [(CH, len(SP) - 1)]
+        SP += [((0.15 * sx, -0.005, 1.47), (0.045, 0.07))]; SE += [(1, len(SP) - 1)]
         continue
     SP += [((0.23 * sx, 0, 1.42), (0.095, 0.09)), ((0.28 * sx, -0.005, 1.30), (0.075, 0.073))]
     SE += [(1, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-    if TOP:
-        SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
-        SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.05)
+    SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
+    SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
+shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.06)
 HP = [((0, 0, 0.95), (0.155, 0.105)), ((0, 0, 1.07), (0.135, 0.10))]
 HE = [(0, 1)]
 for sx in (1, -1):
@@ -273,31 +270,10 @@ def arm_w(ob, vi):
         if ob.vertex_groups[g.group].name in ARMG: w += g.weight
     return w
 if not TOP:
-    # 背心沒有袖子：權重只留軀幹，不跟手臂動（不然舉手時橘色會被扯到上臂上）
-    chest_g = shirt.vertex_groups.get('chest') or shirt.vertex_groups.new(name='chest')
-    for v in shirt.data.vertices:
-        aw = arm_w(shirt, v.index)
-        if aw > 0:
-            for n in ARMG:
-                g = shirt.vertex_groups.get(n)
-                if g: g.remove([v.index])
-            chest_g.add([v.index], aw, 'ADD')
-if not TOP:
-    # 身體曲面和背心曲面形狀不同，靜止時上背就比背心鼓 → 把背心範圍內凸出去（或太貼近）的身體頂點壓到背心裡面 1.2 cm
-    for v in skinbody.data.vertices:
-        if not (1.0 < v.co.z < 1.50 and abs(v.co.x) < 0.23): continue
-        ok, loc, nrm, _ = shirt.closest_point_on_mesh(v.co)
-        if not ok: continue
-        d = (v.co - loc).dot(nrm)
-        if d > -0.012 and (v.co - loc).length < 0.08:
-            v.co = loc - nrm * 0.012
-if not TOP:
-    # 背心完全蓋住的身體面直接刪掉：衣服底下沒有皮膚，就不可能戳穿（遊戲常用做法）
-    import bmesh as _bm
-    bm = _bm.new(); bm.from_mesh(skinbody.data)
-    dead = [f_ for f_ in bm.faces if all(abs(v.co.x) < 0.16 and 1.05 < v.co.z < 1.40 for v in f_.verts)]
-    _bm.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(skinbody.data); bm.free()
-for o in (skinbody, shirt, shorts): parts.append(o)
+    # 基本款背心不另外做網格：直接把身體軀幹塗成背心色（上面的塗色）。只有一層表面，不會穿模，
+    # 輪廓就是身體本身的平直倒三角（使用者選定的身型）。
+    bpy.data.objects.remove(shirt)
+for o in ((skinbody, shirt, shorts) if TOP else (skinbody, shorts)): parts.append(o)
 # 頭
 H = (0, -0.01, 1.70)
 # 頭：一顆蛋形（下半部收窄成下巴，不另外加零件）
