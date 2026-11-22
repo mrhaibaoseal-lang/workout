@@ -14,9 +14,9 @@ struct CharacterView: View {
             Canvas { context, size in
                 let now: Double = animated ? timeline.date.timeIntervalSinceReferenceDate : 0.7
                 let t = CGFloat(now)
-                let p: CGFloat = animated ? CGFloat(0.5 - 0.5 * cos(2.0 * Double.pi * now / 2.6)) : 0
+                let phase: Double = animated ? now / move.period : 0
                 CharacterRenderer.draw(&context, size: size, move: move, loadout: loadout,
-                                       t: t, p: p, showStats: showStats, bonusPower: bonusPower)
+                                       t: t, phase: phase, showStats: showStats, bonusPower: bonusPower)
             }
         }
         .aspectRatio(180.0 / 204.0, contentMode: .fit)
@@ -188,12 +188,36 @@ enum CharacterRenderer {
     private static let fg = Color(gearHex: "#E7EBF0")
     private static let lineGrey = Color(gearHex: "#2C3440")
 
+    /// 道具（和 scripts/art/moves.js 的 PROPS 一致）
+    private static func drawProp(_ c: inout GraphicsContext, _ pen: Pen, _ prop: MoveProp) {
+        let pad = Color(gearHex: "#3A4452")
+        let edge = Color(gearHex: "#5B6778")
+        let leg = Color(gearHex: "#2A313C")
+        func bench(_ x: CGFloat, _ w: CGFloat, legs: [CGFloat]) {
+            for lx in legs {
+                pen.fill(&c, Path(CGRect(x: lx, y: 155, width: 6, height: 29)), leg)
+            }
+            let top = Path(roundedRect: CGRect(x: x, y: 146, width: w, height: 9), cornerRadius: 3)
+            pen.fill(&c, top, pad)
+            pen.stroke(&c, top, edge, 1.5)
+        }
+        switch prop {
+        case .benchFlat: bench(44, 96, legs: [56, 122])
+        case .benchBack: bench(20, 62, legs: [30, 66])
+        case .benchFront: bench(112, 70, legs: [122, 166])
+        case .wall:
+            let r = Path(roundedRect: CGRect(x: 152, y: 20, width: 10, height: 166), cornerRadius: 2)
+            pen.fill(&c, r, Color(gearHex: "#2E3642"))
+            pen.stroke(&c, r, Color(gearHex: "#4A5566"), 1.5)
+        }
+    }
+
     fileprivate static func draw(_ c: inout GraphicsContext, size: CGSize, move: CharacterMove,
-                                 loadout: Loadout, t: CGFloat, p: CGFloat, showStats: Bool,
+                                 loadout: Loadout, t: CGFloat, phase: Double, showStats: Bool,
                                  bonusPower: Int = 0) {
         guard size.width > 1, size.height > 1 else { return }
         let pen = Pen(size: size)
-        let P = move.pose(p)
+        let P = move.pose(phase: phase)
         let O: CGFloat = 6
         let rr = loadout.topRarity
         let bonus = loadout.setBonus
@@ -248,12 +272,17 @@ enum CharacterRenderer {
         let fxSeries: Series? = fxItem.flatMap { GearCatalog.seriesById($0.series) }
 
         // 地面光暈
-        let groundX = P.an.x - 2
+        // 躺著、跪著的動作，光暈放在身體中間
+        let groundX = move.spec == nil ? P.an.x - 2 : (P.an.x + P.hip.x) / 2
         let hasR = rr > 0
         pen.blur(&c, 5) { (l: inout GraphicsContext) in
             pen.ellipse(&l, pt(groundX, 186), 46, 7, fill: hasR ? rc.opacity(0.45) : lineGrey)
         }
         pen.ellipse(&c, pt(groundX, 186), 30, 3.5, fill: hasR ? rc.opacity(0.9) : lineGrey.opacity(0.8))
+
+        if let prop = move.prop {
+            drawProp(&c, pen, prop)
+        }
 
         // 後層特效
         if let it = fxItem, let se = fxSeries {

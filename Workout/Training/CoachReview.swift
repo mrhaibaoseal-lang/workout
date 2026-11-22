@@ -265,6 +265,9 @@ final class CoachLoader: ObservableObject {
 /// 練完成果之後的教練講評。
 struct CoachReviewView: View {
     @ObservedObject var loader: CoachLoader
+    /// 有給就多一顆「練後伸展」按鈕
+    var onStretch: (() -> Void)? = nil
+    var stretchMinutes = 4
     let onDone: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -311,8 +314,19 @@ struct CoachReviewView: View {
             }
 
             Spacer(minLength: 0)
-            Button("好") { onDone() }
+            if let onStretch {
+                Button(action: onStretch) {
+                    Label("練後伸展跟做（約 \(stretchMinutes) 分鐘）", systemImage: "figure.cooldown")
+                        .frame(maxWidth: .infinity)
+                }
                 .buttonStyle(HotButtonStyle())
+                Button("不用，結束") { onDone() }
+                    .buttonStyle(GhostButtonStyle())
+                    .frame(maxWidth: .infinity)
+            } else {
+                Button("好") { onDone() }
+                    .buttonStyle(HotButtonStyle())
+            }
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

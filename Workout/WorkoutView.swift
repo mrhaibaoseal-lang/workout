@@ -120,6 +120,11 @@ struct WorkoutView: View {
     /// 剛做完那一組的判定和幽靈比較（休息頁顯示）
     @State private var lastResult: SetResult?
     @State private var sessionNote = ""
+    /// 練前動態熱身、練後伸展跟做
+    @State private var showWarmup = false
+    @State private var warmupDismissed = false
+    @State private var showStretch = false
+    @State private var stretchDone = false
     @EnvironmentObject private var inventory: InventoryStore
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
 
@@ -201,6 +206,9 @@ struct WorkoutView: View {
                                     .padding(14)
                                     .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.hotLine, lineWidth: 1))
+                            }
+                            if showWarmupCard {
+                                warmupCard
                             }
                             ForEach(Array(drafts.indices), id: \.self) { i in
                                 exerciseCard(i)
@@ -296,6 +304,25 @@ struct WorkoutView: View {
                 }
             }
             .overlay { finishOverlay }
+            .fullScreenCover(isPresented: $showWarmup) {
+                MobilityFlowView(kind: .warmup, steps: warmupSteps, doneLabel: "開始訓練") { _ in
+                    warmupDismissed = true
+                    showWarmup = false
+                }
+                .environmentObject(inventory)
+            }
+            .fullScreenCover(isPresented: $showStretch, onDismiss: {
+                if stretchDone {
+                    onFinish()
+                    dismiss()
+                }
+            }) {
+                MobilityFlowView(kind: .cooldown, steps: stretchSteps) { _ in
+                    stretchDone = true
+                    showStretch = false
+                }
+                .environmentObject(inventory)
+            }
             .overlay {
                 if readiness == nil {
                     ReadinessCheckView(onDone: { r in
@@ -314,7 +341,8 @@ struct WorkoutView: View {
     @ViewBuilder
     private var finishOverlay: some View {
         if showCoach, let c = coach {
-            CoachReviewView(loader: c) {
+            CoachReviewView(loader: c, onStretch: stretchSteps.isEmpty ? nil : { showStretch = true },
+                            stretchMinutes: Self.minutes(stretchSteps, kind: .cooldown)) {
                 onFinish()
                 dismiss()
             }
@@ -335,6 +363,64 @@ struct WorkoutView: View {
             }
             .transition(.opacity)
         }
+    }
+
+    // MARK: 熱身、伸展
+
+    private var warmupSteps: [MobilityStep] {
+        Mobility.warmup(patterns: drafts.map { $0.item.exercise.pattern })
+    }
+
+    /// 只看有做的動作
+    private var stretchSteps: [MobilityStep] {
+        Mobility.cooldown(patterns: drafts.filter { $0.sets.contains(where: \.done) }.map { $0.item.exercise.pattern })
+    }
+
+    static func minutes(_ steps: [MobilityStep], kind: MobilityKind) -> Int {
+        let s = steps.reduce(0.0) { $0 + Double($1.totalSeconds) + kind.gap + ($1.perSide ? MobilityPhase.switchSeconds : 0) }
+        return max(1, Int((s / 60).rounded()))
+    }
+
+    /// 還沒做任何一組、沒按過略過
+    private var showWarmupCard: Bool {
+        readiness != nil && !warmupDismissed && !drafts.isEmpty
+            && !drafts.contains { $0.sets.contains(where: \.done) }
+    }
+
+    private var warmupCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "figure.flexibility")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(Theme.hot)
+                .frame(width: 44, height: 44)
+                .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("先動態熱身 \(Self.minutes(warmupSteps, kind: .warmup)) 分鐘")
+                    .font(.headline.weight(.heavy))
+                    .foregroundStyle(Theme.fg)
+                Text("照今天的動作挑的，角色帶你做")
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+            Spacer(minLength: 0)
+            Button("開始") { showWarmup = true }
+                .font(.subheadline.weight(.heavy))
+                .foregroundStyle(Theme.onHot)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(Theme.hot, in: Capsule())
+            Button {
+                withAnimation { warmupDismissed = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.muted)
+                    .frame(width: 28, height: 28)
+            }
+            .accessibilityLabel("略過熱身")
+        }
+        .padding(12)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.hotLine, lineWidth: 1))
     }
 
     private func toCoach() {
