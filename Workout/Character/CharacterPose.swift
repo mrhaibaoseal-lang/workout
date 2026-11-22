@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// 關節名稱（側面、面向右；200 單位座標，y 向下，地面約 y=184）。
 enum JointName {
@@ -28,22 +29,90 @@ struct Joints {
         }
     }
 
+    /// 遠側的手腳另外擺（弓步、單腳站、伸展）。沒有就跟近側一樣，只往後錯開一點。
+    var farLimb: FarLimb? = nil
+
     /// 遠側肢體的位移。
     static let farOffset = CGPoint(x: -6, y: -1)
 
     func point(_ j: JointName, far: Bool) -> CGPoint {
+        if far, let f = farLimb {
+            switch j {
+            case .el: return f.el
+            case .ha: return f.ha
+            case .kn: return f.kn
+            case .an: return f.an
+            case .to: return f.to
+            default: break
+            }
+        }
         let p = self[j]
         if far { return CGPoint(x: p.x + Joints.farOffset.x, y: p.y + Joints.farOffset.y) }
         return p
+    }
+
+    /// 遠側手腳實際的位置（有沒有另外擺都一樣算）
+    var resolvedFar: FarLimb {
+        farLimb ?? FarLimb(el: point(.el, far: true), ha: point(.ha, far: true), kn: point(.kn, far: true),
+                           an: point(.an, far: true), to: point(.to, far: true))
     }
 
     static func lerp(_ a: Joints, _ b: Joints, _ t: CGFloat) -> Joints {
         func l(_ p: CGPoint, _ q: CGPoint) -> CGPoint {
             CGPoint(x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t)
         }
-        return Joints(head: l(a.head, b.head), sh: l(a.sh, b.sh), el: l(a.el, b.el), ha: l(a.ha, b.ha),
-                      hip: l(a.hip, b.hip), kn: l(a.kn, b.kn), an: l(a.an, b.an), to: l(a.to, b.to))
+        var out = Joints(head: l(a.head, b.head), sh: l(a.sh, b.sh), el: l(a.el, b.el), ha: l(a.ha, b.ha),
+                         hip: l(a.hip, b.hip), kn: l(a.kn, b.kn), an: l(a.an, b.an), to: l(a.to, b.to))
+        if a.farLimb != nil || b.farLimb != nil {
+            let fa = a.resolvedFar, fb = b.resolvedFar
+            out.farLimb = FarLimb(el: l(fa.el, fb.el), ha: l(fa.ha, fb.ha), kn: l(fa.kn, fb.kn),
+                                  an: l(fa.an, fb.an), to: l(fa.to, fb.to))
+        }
+        return out
     }
+
+    /// 產生的動作資料用：head, sh, el, ha, hip, kn, an, to 各兩個數字；far 是遠側 el, ha, kn, an, to。
+    static func j(_ v: [CGFloat], far f: [CGFloat]? = nil) -> Joints {
+        func p(_ a: [CGFloat], _ i: Int) -> CGPoint { CGPoint(x: a[i * 2], y: a[i * 2 + 1]) }
+        var out = Joints(head: p(v, 0), sh: p(v, 1), el: p(v, 2), ha: p(v, 3),
+                         hip: p(v, 4), kn: p(v, 5), an: p(v, 6), to: p(v, 7))
+        if let f {
+            out.farLimb = FarLimb(el: p(f, 0), ha: p(f, 1), kn: p(f, 2), an: p(f, 3), to: p(f, 4))
+        }
+        return out
+    }
+}
+
+struct FarLimb {
+    var el: CGPoint
+    var ha: CGPoint
+    var kn: CGPoint
+    var an: CGPoint
+    var to: CGPoint
+}
+
+/// 畫在角色後面的道具（200 單位座標，和 scripts/art/moves.js 的 PROPS 一致）
+enum MoveProp {
+    /// 平躺用的椅子（臥推、仰臥三頭）
+    case benchFlat
+    /// 椅子在身體後方（分腿蹲後腳、臀推靠背）
+    case benchBack
+    /// 椅子在身體前方（登階）
+    case benchFront
+    /// 牆（推牆伸展）
+    case wall
+}
+
+/// 由 scripts/art/moves.js 產生的動作（`MoveFrames.swift`）
+struct MoveSpec {
+    let title: String
+    let gear: GearKind
+    /// true：照影格順序繞圈（手臂繞圈）；false：來回
+    let loop: Bool
+    /// 一個來回（或一圈）幾秒
+    let period: Double
+    let prop: MoveProp?
+    let frames: [Joints]
 }
 
 enum GearKind {
@@ -57,6 +126,14 @@ enum CharacterMove: String, CaseIterable, Identifiable {
     case pushup, row, pulldown, lunge, bridge, calf, curl, triceps, lateral, rearFly, plank
     /// 休息頁用：彎腰扶膝喘氣、喝水、最後 3 秒的準備姿勢
     case breathe, drink, ready
+    // 以下由 scripts/art/moves.js 產生資料（MoveFrames.swift）
+    // 練前動態熱身
+    case armCircle, hipHinge, bwSquat, lungeStep, armSwing, wallSlide, legSwing, bwBridge
+    // 練後伸展
+    case chestStretch, crossBody, tricepsStretch, childPose, quadStretch, seatedFold, kneeHug, calfStretch, hipFlexor, cobra
+    // 比依動作模式套用更貼近的訓練示範
+    case splitSquat, reverseLunge, stepUp, hipThrust, benchPress, floorPress, skullCrusher, pullover, kickback
+    case pikePushup, reverseCrunch, deadBug, slRdl, legCurl
 
     var id: String { rawValue }
 
@@ -85,8 +162,49 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         }
     }
 
+    /// 有專屬示範的動作
+    static let byExercise: [String: CharacterMove] = [
+        "db_split_squat": .splitSquat, "split_squat": .splitSquat,
+        "db_reverse_lunge": .reverseLunge, "reverse_lunge": .reverseLunge,
+        "db_step_up": .stepUp,
+        "bb_hip_thrust": .hipThrust, "db_hip_thrust": .hipThrust,
+        "db_glute_bridge": .bridge, "sl_glute_bridge": .bwBridge,
+        "bb_bench": .benchPress, "db_bench": .benchPress, "db_neutral_press": .benchPress,
+        "bb_floor_press": .floorPress, "db_floor_press": .floorPress,
+        "db_skull": .skullCrusher, "db_pullover": .pullover,
+        "db_kickback": .kickback, "pike_pushup": .pikePushup,
+        "reverse_crunch": .reverseCrunch, "dead_bug": .deadBug,
+        "db_sl_rdl": .slRdl, "sl_rdl": .slRdl,
+        "db_leg_curl": .legCurl, "squat": .bwSquat,
+    ]
+
     static func forExercise(_ e: Exercise) -> CharacterMove {
-        forPattern(e.pattern)
+        byExercise[e.id] ?? forPattern(e.pattern)
+    }
+
+    var spec: MoveSpec? { CharacterMove.generated[rawValue] }
+
+    /// 動作的影格（舊動作是起點、終點兩格）
+    var frames: [Joints] { spec?.frames ?? [start, end] }
+    var period: Double { spec?.period ?? 2.6 }
+    var prop: MoveProp? { spec?.prop }
+
+    /// phase：0～1 是一個週期。來回的動作 0→1→0（餘弦緩動），繞圈的動作依序走完每一格。
+    func pose(phase: Double) -> Joints {
+        let f = frames
+        guard f.count > 1 else { return f.first ?? start }
+        let ph = phase - floor(phase)
+        if spec?.loop == true {
+            let x = ph * Double(f.count)
+            let i = Int(x) % f.count
+            let t = x - floor(x)
+            let s = t * t * (3 - 2 * t)
+            return Joints.lerp(f[i], f[(i + 1) % f.count], CGFloat(s))
+        }
+        let p = 0.5 - 0.5 * cos(2 * Double.pi * ph)
+        let x = p * Double(f.count - 1)
+        let i = min(Int(x), f.count - 2)
+        return Joints.lerp(f[i], f[i + 1], CGFloat(x - Double(i)))
     }
 
     var title: String {
@@ -108,6 +226,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .breathe: return "喘氣"
         case .drink: return "喝水"
         case .ready: return "準備"
+        default: return spec?.title ?? rawValue
         }
     }
 
@@ -115,7 +234,8 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         switch self {
         case .squat: return .goblet
         case .pushup, .plank, .breathe, .drink, .ready: return .bare
-        default: return .db
+        case .press, .rdl, .row, .pulldown, .lunge, .bridge, .calf, .curl, .triceps, .lateral, .rearFly: return .db
+        default: return spec?.gear ?? .db
         }
     }
 
@@ -137,6 +257,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .plank: return ["torso"]
         case .breathe, .drink: return ["torso"]
         case .ready: return ["upper"]
+        default: return []
         }
     }
 
@@ -181,6 +302,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .drink: return CharacterMove.j([110, 38, 106, 60, 110, 88, 122, 70, 104, 110, 107, 146, 106, 182, 122, 184])
         // 準備：微蹲、雙拳舉在下巴前
         case .ready: return CharacterMove.j([112, 42, 108, 64, 114, 90, 126, 68, 104, 112, 112, 146, 106, 182, 122, 184])
+        default: return spec?.frames.first ?? CharacterMove.squat.start
         }
     }
 
@@ -217,6 +339,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         case .drink: return CharacterMove.j([108, 37, 106, 60, 124, 80, 121, 54, 104, 110, 107, 146, 106, 182, 122, 184])
         // 準備：往下彈一下
         case .ready: return CharacterMove.j([112, 45, 108, 67, 114, 93, 126, 71, 104, 115, 113, 148, 106, 182, 122, 184])
+        default: return spec?.frames.last ?? CharacterMove.squat.end
         }
     }
 
