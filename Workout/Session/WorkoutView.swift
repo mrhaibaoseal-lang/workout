@@ -180,10 +180,7 @@ struct WorkoutView: View {
                 }
             }
             .confirmationDialog("要放棄這次訓練嗎？", isPresented: $confirmQuit, titleVisibility: .visible) {
-                Button("放棄，不儲存", role: .destructive) {
-                    WorkoutResume.clear()
-                    dismiss()
-                }
+                Button("放棄，不儲存", role: .destructive) { quitWithoutSaving() }
                 Button("繼續練", role: .cancel) {}
             } message: {
                 Text("就算只做一組也值得按「完成」存起來。")
@@ -203,9 +200,7 @@ struct WorkoutView: View {
                 Text("你已經贏過想偷懶的自己了，這次也算數。還想再多做一點嗎？")
             }
             .onAppear {
-                if let r = resume, drafts.isEmpty { restoreState(r) }
-                buildDrafts()
-                if let r = resume { restoreSets(r) }
+                startOrResume()
                 RestAlerts.requestAuthorization()
                 AppCommands.shared.completeSet = { completeFromShortcut() }
             }
@@ -213,9 +208,6 @@ struct WorkoutView: View {
                 RestAlerts.stop()
                 AppCommands.shared.completeSet = nil
             }
-            // 進度存起來：每完成一組、切到背景（可能被系統關掉）時（`WorkoutResume`）
-            .onChange(of: doneSets) { saveProgress() }
-            .onChange(of: scenePhase) { _, phase in if phase != .active { saveProgress() } }
             .onChange(of: restActivity) { _, state in
                 if let state {
                     RestAlerts.start(day: day.name, state: state)
@@ -384,7 +376,17 @@ struct WorkoutView: View {
 
     // MARK: Top
 
+    /// 頂端列。進度存檔的 onChange 掛在這裡，不放在 body：body 的修飾太多，編譯器型別檢查會逾時。
     private var topBar: some View {
+        topBarContent
+            // 進度存起來：每完成一組、切到背景（可能被系統關掉）時（`WorkoutResume`）
+            .onChange(of: doneSets) { saveProgress() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { saveProgress() }
+            }
+    }
+
+    private var topBarContent: some View {
         HStack {
             Button { confirmQuit = true } label: {
                 Image(systemName: "xmark")
@@ -1027,6 +1029,18 @@ struct WorkoutView: View {
     }
 
     // MARK: 進度存檔（`WorkoutResume`）
+
+    /// 開始排課；接著上次的進度時，先還原練前狀態再排課，排完蓋上存的成績。
+    private func startOrResume() {
+        if let r = resume, drafts.isEmpty { restoreState(r) }
+        buildDrafts()
+        if let r = resume { restoreSets(r) }
+    }
+
+    private func quitWithoutSaving() {
+        WorkoutResume.clear()
+        dismiss()
+    }
 
     private func saveProgress() {
         guard summary == nil else { return }
