@@ -91,7 +91,30 @@ enum GoalEngine {
 
     // MARK: 訓練摘要
 
+    /// 上次算的結果。今天頁、分頁紅點、牌位每次重畫都要用，紀錄沒變就不重掃全部的組。
+    private static var factsCache: (sig: String, value: [SessionFact])?
+
+    /// 紀錄有沒有變：筆數、最早和最新的時間、最新一筆的組數、第一筆是哪個物件（同樣的筆數換一批紀錄也分得出來）。
+    /// 練完存檔、刪除紀錄都會改到其中一項（和 `TrainingHistory.sync` 同樣的做法）。
+    static func signature(_ sessions: [WorkoutSession]) -> String {
+        guard let first = sessions.first else { return "0" }
+        var lo = first, hi = first
+        for s in sessions {
+            if s.date < lo.date { lo = s }
+            if s.date > hi.date { hi = s }
+        }
+        return "\(sessions.count)|\(lo.date.timeIntervalSince1970)|\(hi.date.timeIntervalSince1970)|\(hi.entries.count)|\(ObjectIdentifier(first).hashValue)"
+    }
+
     static func facts(_ sessions: [WorkoutSession]) -> [SessionFact] {
+        let sig = signature(sessions)
+        if let c = factsCache, c.sig == sig { return c.value }
+        let value = computeFacts(sessions)
+        factsCache = (sig, value)
+        return value
+    }
+
+    private static func computeFacts(_ sessions: [WorkoutSession]) -> [SessionFact] {
         let ordered = sessions.sorted { $0.date < $1.date }
         var best: [String: PRBest] = [:]
         return ordered.map { s in

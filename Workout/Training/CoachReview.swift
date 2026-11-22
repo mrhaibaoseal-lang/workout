@@ -234,6 +234,8 @@ enum CoachAI {
 
 /// 練完就開始寫講評（看成果動畫的時間剛好拿來等模型）。
 @MainActor
+/// 在主執行緒更新 `reply`／`source`（畫面直接讀）；`init` 裡的 Task 也會跟著在主執行緒跑。
+@MainActor
 final class CoachLoader: ObservableObject {
     let facts: CoachFacts
     @Published private(set) var reply: CoachReply?

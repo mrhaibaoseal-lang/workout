@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 // The five pages behind the settings home. Contents are the same controls that used to
 // live in one long Form; they are only regrouped.
@@ -343,11 +344,36 @@ struct ScheduleSettingsView: View {
 
 struct DataSettingsView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var inventory: InventoryStore
     @State private var exportFiles: ExportFiles?
     @State private var exportError: String?
+    /// 完整備份：選好的檔案（確認後才匯入）
+    @State private var pendingImport: FullBackup.File?
+    @State private var showImporter = false
+    @State private var importDone = false
 
     var body: some View {
         Form {
+            Section {
+                Button {
+                    exportFull()
+                } label: {
+                    Label("匯出完整備份", systemImage: "externaldrive.badge.icloud")
+                }
+                .frame(minHeight: 44)
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("從備份還原", systemImage: "arrow.down.doc")
+                }
+                .frame(minHeight: 44)
+            } header: {
+                SectionLabel("完整備份")
+            } footer: {
+                SectionLabel("訓練紀錄、身體數據、角色背包、目標和所有設定存成一個檔，存到「檔案」App 或傳給自己。重裝 App、換憑證或換手機時用「從備份還原」拿回來。建議每週存一次。")
+            }
+            .listRowBackground(Theme.surface)
+
             Section {
                 Button {
                     export()
@@ -365,10 +391,59 @@ struct DataSettingsView: View {
         .sheet(item: $exportFiles) { f in
             ShareSheet(items: f.urls)
         }
-        .alert("匯出失敗", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+            pickBackup(result)
+        }
+        .confirmationDialog("用備份取代目前的資料？", isPresented: Binding(get: { pendingImport != nil },
+                                                                   set: { if !$0 { pendingImport = nil } }),
+                            titleVisibility: .visible) {
+            Button("取代並還原", role: .destructive) { restore() }
+            Button("取消", role: .cancel) { pendingImport = nil }
+        } message: {
+            if let f = pendingImport {
+                Text("備份裡有 \(f.sessions.count) 次訓練、\(f.bodies.count) 筆身體數據（\(f.exportedAt.formatted(date: .abbreviated, time: .shortened)) 存的）。目前 App 裡的紀錄和設定會全部被取代，沒辦法復原。")
+            }
+        }
+        .alert("還原好了", isPresented: $importDone) {
+            Button("好") {}
+        } message: {
+            Text("建議把 App 完全關掉再打開一次，讓所有畫面重新讀取。")
+        }
+        .alert("沒辦法完成", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
             Button("好") {}
         } message: {
             Text(exportError ?? "")
+        }
+    }
+
+    private func exportFull() {
+        do {
+            exportFiles = ExportFiles(urls: [try FullBackup.exportFile(context: context)])
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func pickBackup(_ result: Result<URL, Error>) {
+        do {
+            let url = try result.get()
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            pendingImport = try FullBackup.decode(Data(contentsOf: url))
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func restore() {
+        guard let f = pendingImport else { return }
+        pendingImport = nil
+        do {
+            try FullBackup.restore(f, context: context)
+            inventory.reload()
+            importDone = true
+        } catch {
+            exportError = error.localizedDescription
         }
     }
 

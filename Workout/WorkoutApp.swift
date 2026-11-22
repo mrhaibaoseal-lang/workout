@@ -76,6 +76,7 @@ struct RootView: View {
         .onReceive(commands.$pendingStart) { if $0 { tab = 0 } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { sync() }
+            if phase != .active { SettingsBackup.flush() }
         }
     }
 
@@ -99,10 +100,6 @@ struct RootView: View {
         WidgetCenter.shared.reloadAllTimelines()
 
         let missed = GoalEngine.missedLastPlanned(dates: dates)
-        let on = reminderOn
-        let lead = reminderLead
-        Task {
-            await Reminders.reschedule(enabled: on, plans: plans, leadMinutes: lead, missedLast: missed)
-        }
+        Reminders.schedule(enabled: reminderOn, plans: plans, leadMinutes: reminderLead, missedLast: missed)
     }
 }

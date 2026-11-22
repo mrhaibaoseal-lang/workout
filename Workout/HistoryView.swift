@@ -3,6 +3,7 @@ import SwiftData
 
 struct HistoryView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var inventory: InventoryStore
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @Query(sort: \IntervalLog.date, order: .reverse) private var intervals: [IntervalLog]
 
@@ -41,7 +42,11 @@ struct HistoryView: View {
                             }
                         }
                         .onDelete { offsets in
-                            for i in offsets { context.delete(sessions[i]) }
+                            for i in offsets {
+                                // 那次發的碎片、升級一起收回（`SessionGrants`）
+                                SessionGrants.revoke(for: sessions[i].date, inventory: inventory)
+                                context.delete(sessions[i])
+                            }
                         }
                         }
                         if !intervals.isEmpty {

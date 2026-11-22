@@ -52,11 +52,13 @@ enum SharedStore {
 
     // MARK: - Week math (Monday-first weeks)
 
-    static let calendar: Calendar = {
+    /// 每次都用目前的時區（`static let` 會停在第一次用的時區，出國後日期邊界會偏）。
+    static var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.firstWeekday = 2
+        cal.timeZone = .current
         return cal
-    }()
+    }
 
     static func weekStart(_ date: Date) -> Date {
         calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? date
@@ -72,10 +74,11 @@ enum SharedStore {
         Set(dates.map { calendar.startOfDay(for: $0) }).count
     }
 
-    /// Consecutive weeks (ending this week or last week) with at least `minPerWeek` sessions.
+    /// Consecutive weeks (ending this week or last week) with at least `minPerWeek` training days.
+    /// 算天數不算次數：同一天練兩次算 1 天，和 `trainingDays`、App 裡的週目標一致。
     static func weekStreak(_ dates: [Date], minPerWeek: Int = 2, now: Date = .now) -> Int {
         var counts: [Date: Int] = [:]
-        for d in dates { counts[weekStart(d), default: 0] += 1 }
+        for day in Set(dates.map { calendar.startOfDay(for: $0) }) { counts[weekStart(day), default: 0] += 1 }
 
         var week = weekStart(now)
         if (counts[week] ?? 0) < minPerWeek {

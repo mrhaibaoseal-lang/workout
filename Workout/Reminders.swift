@@ -9,18 +9,33 @@ enum Reminders {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
     }
 
+    @MainActor private static var latest: Task<Void, Never>?
+
+    /// 重排提醒：取消還在跑的上一次、等它收手再排，兩次不會同時改通知（不然可能留下已經不在計畫裡的舊提醒）。
+    @MainActor
+    static func schedule(enabled: Bool, plans: [DayPlan], leadMinutes: Int, missedLast: Bool) {
+        let previous = latest
+        previous?.cancel()
+        latest = Task {
+            await previous?.value
+            guard !Task.isCancelled else { return }
+            await reschedule(enabled: enabled, plans: plans, leadMinutes: leadMinutes, missedLast: missedLast)
+        }
+    }
+
     static func reschedule(enabled: Bool, plans: [DayPlan], leadMinutes: Int, missedLast: Bool) async {
         let center = UNUserNotificationCenter.current()
         // 只清掉訓練提醒，休息結束的通知（RestAlerts）要留著
         let old = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix("train-") }
         center.removePendingNotificationRequests(withIdentifiers: old)
         guard enabled else { return }
-        guard await requestAuthorization() else { return }
+        guard await requestAuthorization(), !Task.isCancelled else { return }
 
         let cal = Calendar.current
         var first = true
         for (i, p) in plans.enumerated() {
             guard !p.done, let length = p.length, let start = p.start else { continue }
+            if Task.isCancelled { return }
             let fire = start.addingTimeInterval(TimeInterval(-leadMinutes * 60))
             guard fire > .now else { continue }
 
