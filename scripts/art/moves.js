@@ -25,15 +25,11 @@ function fk(s) {
   const limb = (o, a, l1, l2) => { const m = step(o, a[0], l1); return [m, step(m, a[1], l2)]; };
   const [el, ha] = limb(sh, s.arm, LEN.upper, LEN.fore);
   const [kn, an] = limb(hip, s.leg, LEN.thigh, LEN.shin);
-  const to = step(an, s.leg[2] ?? 5, LEN.foot);
-  const P = { head, sh, el, ha, hip, kn, an, to };
+  const P = { head, sh, el, ha, hip, kn, an };
   const fsh = [sh[0] + FAR[0], sh[1] + FAR[1]];
   const fhip = [hip[0] + FAR[0], hip[1] + FAR[1]];
   if (s.farArm) { const [e, h] = limb(fsh, s.farArm, LEN.upper, LEN.fore); P.fel = e; P.fha = h; }
-  if (s.farLeg) {
-    const [k, a] = limb(fhip, s.farLeg, LEN.thigh, LEN.shin);
-    P.fkn = k; P.fan = a; P.fto = step(a, s.farLeg[2] ?? 5, LEN.foot);
-  }
+  if (s.farLeg) { const [k, a] = limb(fhip, s.farLeg, LEN.thigh, LEN.shin); P.fkn = k; P.fan = a; }
   const get = (j) => {
     if (P[j]) return P[j];
     if (j[0] === 'f') { const b = P[j.slice(1)]; return [b[0] + FAR[0], b[1] + FAR[1]]; }
@@ -42,15 +38,33 @@ function fk(s) {
   const [aj, ax, ay] = s.anchor || ['an', 106, 182];
   const a = get(aj);
   const dx = ax - a[0], dy = ay - a[1];
-  for (const k in P) P[k] = [+(P[k][0] + dx).toFixed(1), +(P[k][1] + dy).toFixed(1)];
+  for (const k in P) P[k] = [P[k][0] + dx, P[k][1] + dy];
+  // 腳掌：有寫角度就照寫的；沒寫的話，踩在地上就平貼地面、腳尖朝膝蓋那一側，
+  // 懸空就跟小腿垂直、朝身體正面（翻面的仰躺動作正面在另一側）。
+  const foot = (knee, ankle, given) => {
+    let ang = given;
+    if (ang === undefined) {
+      if (ankle[1] >= 176) {
+        const d = knee[0] - ankle[0];
+        ang = Math.abs(d) > 4 ? (d > 0 ? 0 : 180) : (s.mirror ? 180 : 0);
+      } else {
+        const shin = Math.atan2(ankle[1] - knee[1], ankle[0] - knee[0]) * 180 / Math.PI;
+        ang = shin + (s.mirror ? 90 : -90);
+      }
+    }
+    return step(ankle, ang, LEN.foot);
+  };
+  P.to = foot(P.kn, P.an, s.leg[2]);
+  if (s.farLeg) P.fto = foot(P.fkn, P.fan, s.farLeg[2]);
+  for (const k in P) P[k] = [+P[k][0].toFixed(1), +P[k][1].toFixed(1)];
   return P;
 }
 
 // 共用的站姿
-const stand = { torso: -92, neck: -86, arm: [92, 90], leg: [88, 92, 5], anchor: ['an', 106, 182] };
+const stand = { torso: -92, neck: -86, arm: [92, 90], leg: [88, 92], anchor: ['an', 106, 182] };
 const S = (o) => ({ ...stand, ...o });
 // 仰躺：頭在右、腳在左（和臀橋一樣）
-const lie = (o) => ({ torso: -2, neck: -6, arm: [100, 95], leg: [178, 182, -88], anchor: ['hip', 92, 170], ...o });
+const lie = (o) => ({ mirror: true, torso: -2, neck: -6, arm: [100, 95], leg: [178, 182], anchor: ['hip', 92, 170], ...o });
 
 const MOVES = {
   // ───── 練前動態熱身 ─────
@@ -62,21 +76,21 @@ const MOVES = {
     title: '徒手早安式', gear: 'bare', period: 2.8,
     frames: [
       S({ arm: [60, -150] }),
-      { torso: -18, neck: -6, arm: [125, -60], leg: [72, 100, 5], anchor: ['an', 108, 182] },
+      { torso: -18, neck: -6, arm: [125, -60], leg: [72, 100], anchor: ['an', 108, 182] },
     ],
   },
   bwSquat: {
     title: '徒手深蹲', gear: 'bare', period: 2.6,
     frames: [
       S({ arm: [92, 90] }),
-      { torso: -68, neck: -78, arm: [0, 0], leg: [12, 112, 5], anchor: ['an', 108, 182] },
+      { torso: -68, neck: -78, arm: [0, 0], leg: [12, 112], anchor: ['an', 108, 182] },
     ],
   },
   lungeStep: {
     title: '後跨弓步', gear: 'bare', period: 3,
     frames: [
-      S({ arm: [100, -120], farLeg: [88, 92, 5] }),
-      { torso: -90, neck: -86, arm: [100, -120], leg: [8, 92, 5], farLeg: [128, 178, 70], anchor: ['an', 128, 182] },
+      S({ arm: [100, -120], farLeg: [88, 92] }),
+      { torso: -90, neck: -86, arm: [100, -120], leg: [8, 92], farLeg: [128, 178], anchor: ['an', 128, 182] },
     ],
   },
   armSwing: {
@@ -90,15 +104,15 @@ const MOVES = {
   legSwing: {
     title: '前後擺腿', gear: 'bare', period: 2.2,
     frames: [
-      S({ arm: [10, -10], farArm: [80, 85], leg: [30, 40, -40], farLeg: [90, 90, 5], anchor: ['fan', 106, 182] }),
-      S({ arm: [10, -10], farArm: [80, 85], leg: [125, 125, 70], farLeg: [90, 90, 5], anchor: ['fan', 106, 182] }),
+      S({ arm: [10, -10], farArm: [80, 85], leg: [30, 40], farLeg: [90, 90], anchor: ['fan', 106, 182] }),
+      S({ arm: [10, -10], farArm: [80, 85], leg: [125, 125], farLeg: [90, 90], anchor: ['fan', 106, 182] }),
     ],
   },
   bwBridge: {
     title: '臀橋', gear: 'bare', period: 2.6,
     frames: [
-      lie({ torso: 0, neck: -4, leg: [-140, 120, 5], arm: [178, 180], anchor: ['an', 62, 182] }),
-      lie({ torso: 30, neck: 5, leg: [-178, 96, 5], arm: [165, 175], anchor: ['an', 62, 182] }),
+      lie({ torso: 0, neck: -4, leg: [-140, 120], arm: [178, 180], anchor: ['an', 62, 182] }),
+      lie({ torso: 30, neck: 5, leg: [-178, 96], arm: [165, 175], anchor: ['an', 62, 182] }),
     ],
   },
 
@@ -131,8 +145,8 @@ const MOVES = {
   quadStretch: {
     title: '站姿大腿前側伸展', gear: 'bare', period: 5,
     frames: [
-      S({ arm: [110, 105], farArm: [10, 0], leg: [100, -115, -40], farLeg: [90, 90, 5], anchor: ['fan', 108, 182] }),
-      S({ arm: [112, 106], farArm: [6, -4], leg: [104, -112, -40], farLeg: [90, 90, 5], anchor: ['fan', 108, 182] }),
+      S({ arm: [110, 105], farArm: [10, 0], leg: [100, -115, -150], farLeg: [90, 90], anchor: ['fan', 108, 182] }),
+      S({ arm: [112, 106], farArm: [6, -4], leg: [104, -112, -150], farLeg: [90, 90], anchor: ['fan', 108, 182] }),
     ],
   },
   seatedFold: {
@@ -145,22 +159,22 @@ const MOVES = {
   kneeHug: {
     title: '仰躺抱膝', gear: 'bare', period: 5,
     frames: [
-      lie({ torso: 0, arm: [-150, 150], leg: [-125, 110, 20], anchor: ['hip', 96, 172] }),
-      lie({ torso: 0, arm: [-145, 150], leg: [-130, 108, 20], anchor: ['hip', 96, 172] }),
+      lie({ torso: 0, arm: [-150, 150], leg: [-125, 110], anchor: ['hip', 96, 172] }),
+      lie({ torso: 0, arm: [-145, 150], leg: [-130, 108], anchor: ['hip', 96, 172] }),
     ],
   },
   calfStretch: {
     title: '推牆小腿伸展', gear: 'bare', period: 5, prop: 'wall',
     frames: [
-      { torso: -62, neck: -55, arm: [-20, -2], leg: [118, 118, 5], farLeg: [65, 105, 5], anchor: ['an', 60, 182] },
-      { torso: -58, neck: -52, arm: [-16, 2], leg: [120, 120, 5], farLeg: [62, 108, 5], anchor: ['an', 58, 182] },
+      { torso: -62, neck: -55, arm: [-20, -2], leg: [118, 118], farLeg: [65, 105], anchor: ['an', 60, 182] },
+      { torso: -58, neck: -52, arm: [-16, 2], leg: [120, 120], farLeg: [62, 108], anchor: ['an', 58, 182] },
     ],
   },
   hipFlexor: {
     title: '跪姿髖屈肌伸展', gear: 'bare', period: 5,
     frames: [
-      { torso: -92, neck: -86, arm: [80, 40], leg: [100, 180, 178], farLeg: [0, 92, 5], anchor: ['kn', 98, 178] },
-      { torso: -90, neck: -86, arm: [80, 40], leg: [106, 180, 178], farLeg: [-4, 96, 5], anchor: ['kn', 94, 178] },
+      { torso: -92, neck: -86, arm: [80, 40], leg: [100, 180, 178], farLeg: [0, 92], anchor: ['kn', 98, 178] },
+      { torso: -90, neck: -86, arm: [80, 40], leg: [106, 180, 178], farLeg: [-4, 96], anchor: ['kn', 94, 178] },
     ],
   },
   cobra: {
@@ -175,99 +189,99 @@ const MOVES = {
   splitSquat: {
     title: '保加利亞分腿蹲', gear: 'db', period: 2.8, prop: 'benchBack',
     frames: [
-      { ...stand, arm: [92, 90], leg: [70, 106, 5], farLeg: [118, 154, 10], anchor: ['an', 132, 182] },
-      { torso: -88, neck: -84, arm: [92, 90], leg: [12, 100, 5], farLeg: [100, 168, 10], anchor: ['an', 132, 182] },
+      { ...stand, arm: [92, 90], leg: [70, 106], farLeg: [118, 154, 175], anchor: ['an', 132, 182] },
+      { torso: -88, neck: -84, arm: [92, 90], leg: [12, 100], farLeg: [100, 168, 175], anchor: ['an', 132, 182] },
     ],
   },
   reverseLunge: {
     title: '後跨弓步', gear: 'db', period: 3,
     frames: [
-      S({ farLeg: [88, 92, 5] }),
-      { torso: -90, neck: -86, arm: [92, 90], leg: [8, 92, 5], farLeg: [128, 178, 70], anchor: ['an', 128, 182] },
+      S({ farLeg: [88, 92] }),
+      { torso: -90, neck: -86, arm: [92, 90], leg: [8, 92], farLeg: [128, 178], anchor: ['an', 128, 182] },
     ],
   },
   stepUp: {
     title: '登階', gear: 'db', period: 3, prop: 'benchFront',
     frames: [
-      { torso: -80, neck: -80, arm: [92, 90], leg: [-20, 105, 5], farLeg: [95, 92, 5], anchor: ['fan', 96, 182] },
-      { torso: -90, neck: -86, arm: [92, 90], leg: [88, 92, 5], farLeg: [88, 92, 5], anchor: ['an', 128, 144] },
+      { torso: -80, neck: -80, arm: [92, 90], leg: [-20, 105], farLeg: [95, 92], anchor: ['fan', 96, 182] },
+      { torso: -90, neck: -86, arm: [92, 90], leg: [88, 92], farLeg: [88, 92], anchor: ['an', 128, 144] },
     ],
   },
   hipThrust: {
     title: '臀推', gear: 'db', period: 2.8, prop: 'benchBack',
     frames: [
-      { torso: -150, neck: -170, arm: [-20, 0], leg: [-20, 95, 5], anchor: ['an', 124, 182] },
-      { torso: -178, neck: 175, arm: [10, -30], leg: [0, 90, 5], anchor: ['an', 124, 182] },
+      { torso: -150, neck: -170, arm: [-20, 0], leg: [-20, 95], anchor: ['an', 124, 182] },
+      { torso: -178, neck: 175, arm: [10, -30], leg: [0, 90], anchor: ['an', 124, 182] },
     ],
   },
   benchPress: {
     title: '臥推', gear: 'db', period: 2.6, prop: 'benchFlat',
     frames: [
-      lie({ torso: -2, neck: -4, arm: [-88, -90], leg: [175, 95, 5], anchor: ['hip', 84, 144] }),
-      lie({ torso: -2, neck: -4, arm: [140, -80], leg: [175, 95, 5], anchor: ['hip', 84, 144] }),
+      lie({ torso: -2, neck: -4, arm: [-88, -90], leg: [175, 95], anchor: ['hip', 84, 144] }),
+      lie({ torso: -2, neck: -4, arm: [140, -80], leg: [175, 95], anchor: ['hip', 84, 144] }),
     ],
   },
   floorPress: {
     title: '地板臥推', gear: 'db', period: 2.6,
     frames: [
-      lie({ torso: -2, neck: -4, arm: [-88, -90], leg: [-150, 112, 5], anchor: ['an', 62, 182] }),
-      lie({ torso: -2, neck: -4, arm: [160, -85], leg: [-150, 112, 5], anchor: ['an', 62, 182] }),
+      lie({ torso: -2, neck: -4, arm: [-88, -90], leg: [-150, 112], anchor: ['an', 62, 182] }),
+      lie({ torso: -2, neck: -4, arm: [160, -85], leg: [-150, 112], anchor: ['an', 62, 182] }),
     ],
   },
   skullCrusher: {
     title: '仰臥三頭伸展', gear: 'db', period: 2.6, prop: 'benchFlat',
     frames: [
-      lie({ torso: -2, neck: -4, arm: [-78, -80], leg: [175, 95, 5], anchor: ['hip', 84, 144] }),
-      lie({ torso: -2, neck: -4, arm: [-78, 30], leg: [175, 95, 5], anchor: ['hip', 84, 144] }),
+      lie({ torso: -2, neck: -4, arm: [-78, -80], leg: [175, 95], anchor: ['hip', 84, 144] }),
+      lie({ torso: -2, neck: -4, arm: [-78, 30], leg: [175, 95], anchor: ['hip', 84, 144] }),
     ],
   },
   pullover: {
     title: '仰臥拉舉', gear: 'goblet', period: 3, prop: 'benchFlat',
     frames: [
-      lie({ torso: -2, neck: -4, arm: [-85, -88], leg: [175, 95, 5], anchor: ['hip', 84, 144] }),
-      lie({ torso: -2, neck: -4, arm: [-15, -10], leg: [175, 95, 5], anchor: ['hip', 84, 144] }),
+      lie({ torso: -2, neck: -4, arm: [-85, -88], leg: [175, 95], anchor: ['hip', 84, 144] }),
+      lie({ torso: -2, neck: -4, arm: [-15, -10], leg: [175, 95], anchor: ['hip', 84, 144] }),
     ],
   },
   kickback: {
     title: '三頭後踢', gear: 'db', period: 2.4,
     frames: [
-      { torso: -28, neck: -14, arm: [135, 75], farArm: [70, 85], leg: [72, 102, 5], anchor: ['an', 108, 182] },
-      { torso: -28, neck: -14, arm: [138, 145], farArm: [70, 85], leg: [72, 102, 5], anchor: ['an', 108, 182] },
+      { torso: -28, neck: -14, arm: [135, 75], farArm: [70, 85], leg: [72, 102], anchor: ['an', 108, 182] },
+      { torso: -28, neck: -14, arm: [138, 145], farArm: [70, 85], leg: [72, 102], anchor: ['an', 108, 182] },
     ],
   },
   pikePushup: {
     title: '屈體伏地挺身', gear: 'bare', period: 2.6,
     frames: [
-      { torso: 25, neck: 60, arm: [65, 75], leg: [105, 105, 20], anchor: ['an', 58, 182] },
-      { torso: 50, neck: 95, arm: [20, 77], leg: [105, 105, 20], anchor: ['an', 58, 182] },
+      { torso: 25, neck: 60, arm: [65, 75], leg: [105, 105], anchor: ['an', 58, 182] },
+      { torso: 50, neck: 95, arm: [20, 77], leg: [105, 105], anchor: ['an', 58, 182] },
     ],
   },
   reverseCrunch: {
     title: '反向捲腹', gear: 'bare', period: 2.6,
     frames: [
-      lie({ torso: -2, arm: [178, 178], leg: [-90, 180, -90], anchor: ['hip', 92, 172] }),
-      lie({ torso: 8, arm: [178, 178], leg: [-45, 150, -100], anchor: ['hip', 96, 168] }),
+      lie({ torso: -2, arm: [178, 178], leg: [-90, 180], anchor: ['hip', 92, 172] }),
+      lie({ torso: 8, arm: [178, 178], leg: [-45, 150], anchor: ['hip', 96, 168] }),
     ],
   },
   deadBug: {
     title: '死蟲式', gear: 'bare', period: 3,
     frames: [
-      lie({ torso: -2, arm: [-90, -90], leg: [-90, 180, -90], anchor: ['hip', 92, 172] }),
-      lie({ torso: -2, arm: [-20, -15], farArm: [-90, -90], leg: [-90, 180, -90], farLeg: [-176, -178, -90], anchor: ['hip', 92, 172] }),
+      lie({ torso: -2, arm: [-90, -90], leg: [-90, 180], anchor: ['hip', 92, 172] }),
+      lie({ torso: -2, arm: [-20, -15], farArm: [-90, -90], leg: [-90, 180], farLeg: [-176, -178], anchor: ['hip', 92, 172] }),
     ],
   },
   slRdl: {
     title: '單腳羅馬尼亞硬舉', gear: 'db', period: 3,
     frames: [
-      S({ leg: [92, 92, 5], farLeg: [88, 92, 5], anchor: ['fan', 106, 182] }),
-      { torso: -8, neck: 0, arm: [92, 90], leg: [176, 178, 100], farLeg: [80, 98, 5], anchor: ['fan', 106, 182] },
+      S({ leg: [92, 92], farLeg: [88, 92], anchor: ['fan', 106, 182] }),
+      { torso: -8, neck: 0, arm: [92, 90], leg: [176, 178], farLeg: [80, 98], anchor: ['fan', 106, 182] },
     ],
   },
   legCurl: {
     title: '俯臥腿後彎舉', gear: 'goblet', period: 2.6, prop: 'benchFlat',
     frames: [
-      { torso: 0, neck: -10, arm: [60, 90], leg: [180, 182, 180], anchor: ['hip', 96, 136] },
-      { torso: 0, neck: -10, arm: [60, 90], leg: [180, -60, -30], anchor: ['hip', 96, 136] },
+      { torso: 0, neck: -10, arm: [60, 90], leg: [180, 182], anchor: ['hip', 96, 136] },
+      { torso: 0, neck: -10, arm: [60, 90], leg: [180, -60], anchor: ['hip', 96, 136] },
     ],
   },
 };
@@ -276,6 +290,7 @@ const ORDER = ['head', 'sh', 'el', 'ha', 'hip', 'kn', 'an', 'to'];
 const FAR_ORDER = ['fel', 'fha', 'fkn', 'fan', 'fto'];
 
 function framesOf(id) { return MOVES[id].frames.map(fk); }
+function isMirror(m) { return m.frames.some((f) => f.mirror); }
 
 function toSwift() {
   const n = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, ''));
@@ -284,7 +299,7 @@ function toSwift() {
   s += 'extension CharacterMove {\n    /// rawValue → 動作資料\n    static let generated: [String: MoveSpec] = {\n        var d: [String: MoveSpec] = [:]\n';
   for (const id of Object.keys(MOVES)) {
     const m = MOVES[id];
-    s += `        d["${id}"] = MoveSpec(title: "${m.title}", gear: .${m.gear}, loop: ${!!m.loop}, period: ${m.period}, prop: ${m.prop ? '.' + m.prop : 'nil'}, frames: [\n`;
+    s += `        d["${id}"] = MoveSpec(title: "${m.title}", gear: .${m.gear}, loop: ${!!m.loop}, period: ${m.period}, prop: ${m.prop ? '.' + m.prop : 'nil'}, mirror: ${isMirror(m)}, frames: [\n`;
     for (const P of framesOf(id)) {
       const main = ORDER.flatMap((k) => P[k]).map(n).join(', ');
       const hasFar = FAR_ORDER.some((k) => P[k]);
@@ -325,7 +340,7 @@ async function preview(out, only) {
       const x = p * (fr.length - 1); const i = Math.min(Math.floor(x), fr.length - 2); const t = x - i;
       return lerpP(fr[i], fr[i + 1], t);
     });
-    data[id] = { title: m.title, gear: m.gear, prop: m.prop ? PROPS[m.prop] : '', poses: pick };
+    data[id] = { title: m.title, gear: m.gear, prop: m.prop ? PROPS[m.prop] : '', poses: pick, mirror: isMirror(m) };
   }
   const b = await chromium.launch();
   const page = await b.newPage({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 1 });
@@ -335,13 +350,21 @@ async function preview(out, only) {
     window.pt = function (P, j, far) { if (far && P['f' + j]) return P['f' + j]; return basePt(P, j, far); };
     // eslint-disable-next-line no-eval
     (0, eval)('pt = window.pt');
-    const src = drawGear.toString().replace('if(POSES[ex].gear==="goblet"){', 'if(POSES[ex].gear==="bare"){}else if(POSES[ex].gear==="goblet"){');
+    let src = drawGear.toString().replace('if(POSES[ex].gear==="goblet"){', 'if(POSES[ex].gear==="bare"){}else if(POSES[ex].gear==="goblet"){');
+    // 頭跟著脖子轉（和 CharacterCanvas.drawHead 一樣），仰躺翻面
+    src = src.replace('  // 頭\n', '  s+=headOpen(P,ex);\n').replace('  // 啞鈴\n', '  s+="</g>";\n');
+    window.headOpen = (P, ex) => {
+      const d = [P.head[0] - P.sh[0], P.head[1] - P.sh[1]];
+      const a = Math.atan2(d[1], d[0]) * 180 / Math.PI + 90;
+      const m = POSES[ex].mirror ? ' scale(-1 1)' : '';
+      return `<g transform="translate(${P.head[0]} ${P.head[1]}) rotate(${a})${m} translate(${-P.head[0]} ${-P.head[1]})">`;
+    };
     (0, eval)(src.replace('function drawGear(', 'window.drawGear=function('));
     const g = { head: 'none', top: 'none', bottom: 'none', feet: 'none', hands: 'none', back: 'none', bell: 'none', fx: 'none' };
     let h = '<div style="background:#0E1116;padding:8px;width:980px;font:13px sans-serif;color:#ccc">';
     for (const id in data) {
       const d = data[id];
-      POSES[id] = { muscles: [], gear: d.gear, a: d.poses[0], b: d.poses[0] };
+      POSES[id] = { muscles: [], gear: d.gear, a: d.poses[0], b: d.poses[0], mirror: d.mirror };
       h += `<div style="display:flex;align-items:center;gap:4px;margin:2px 0"><div style="width:120px">${id}<br>${d.title}</div>`;
       for (const P of d.poses) {
         let svg = '';

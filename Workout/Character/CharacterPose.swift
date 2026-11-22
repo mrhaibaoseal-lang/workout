@@ -112,6 +112,8 @@ struct MoveSpec {
     /// 一個來回（或一圈）幾秒
     let period: Double
     let prop: MoveProp?
+    /// 仰躺、頭在右邊的動作：身體是側面圖左右翻過來的，臉和腳掌要翻面
+    var mirror: Bool = false
     let frames: [Joints]
 }
 
@@ -188,6 +190,8 @@ enum CharacterMove: String, CaseIterable, Identifiable {
     var frames: [Joints] { spec?.frames ?? [start, end] }
     var period: Double { spec?.period ?? 2.6 }
     var prop: MoveProp? { spec?.prop }
+    /// 臉朝上（仰躺、頭在右）：頭和腳上的裝備要翻面
+    var mirrored: Bool { self == .bridge || spec?.mirror == true }
 
     /// phase：0～1 是一個週期。來回的動作 0→1→0（餘弦緩動），繞圈的動作依序走完每一格。
     func pose(phase: Double) -> Joints {

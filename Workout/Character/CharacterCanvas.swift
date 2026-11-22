@@ -40,6 +40,19 @@ private struct Pen {
         tf = CGAffineTransform(translationX: ox, y: oy).scaledBy(x: s, y: s).translatedBy(x: -20, y: 14)
     }
 
+    init(k: CGFloat, tf: CGAffineTransform) {
+        self.k = k
+        self.tf = tf
+    }
+
+    /// 以 p 為中心旋轉（弧度）；mirror 先左右翻再轉。畫頭用：頭跟著脖子的方向轉。
+    func turned(around p: CGPoint, by angle: CGFloat, mirror: Bool) -> Pen {
+        var local = CGAffineTransform(translationX: p.x, y: p.y).rotated(by: angle)
+        if mirror { local = local.scaledBy(x: -1, y: 1) }
+        local = local.translatedBy(x: -p.x, y: -p.y)
+        return Pen(k: k, tf: local.concatenating(tf))
+    }
+
     func map(_ p: CGPoint) -> CGPoint { p.applying(tf) }
 
     func fill(_ c: inout GraphicsContext, _ path: Path, _ col: Color) {
@@ -292,9 +305,10 @@ enum CharacterRenderer {
         // 裝備造型（GearArt）
         let gear = gearParts(loadout, kind: move.gearKind)
         let goblet = move.gearKind == .goblet
+        let mirrored = move.mirrored
 
         // 背部物件（身體後方）
-        drawParts(&c, pen, gear, z: .back, P: P, t: t, goblet: goblet)
+        drawParts(&c, pen, gear, z: .back, P: P, t: t, goblet: goblet, mirror: mirrored)
 
         // 光暈
         if rr >= 2 {
@@ -315,7 +329,7 @@ enum CharacterRenderer {
             defer {
                 if let an = anchorFor(sh.base) {
                     let set: Set<GearPart.Anchor> = an == .fore ? [.fore, .fist] : [an]
-                    drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, anchors: set,
+                    drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, mirror: mirrored, anchors: set,
                               side: sh.far ? .far : .near)
                 }
             }
@@ -370,10 +384,14 @@ enum CharacterRenderer {
         }
 
         // 疊在所有肢段上面的裝備（毛領、腰帶、法袍下襬…）
-        drawParts(&c, pen, gear, z: .over, P: P, t: t, goblet: goblet)
+        drawParts(&c, pen, gear, z: .over, P: P, t: t, goblet: goblet, mirror: mirrored)
 
         // 頭
-        drawHead(&c, pen, loadout.item(.head), P: P, t: t)
+        // 頭跟著脖子的方向轉（站直時不轉）；仰躺頭在右的動作要翻面，臉才會朝上
+        let neck = sub(P.head, P.sh)
+        let headAngle = atan2(neck.y, neck.x) + .pi / 2
+        drawHead(&c, pen.turned(around: P.head, by: headAngle, mirror: move.mirrored),
+                 loadout.item(.head), P: P, t: t)
 
         // 手舉過頭（肩推）時，手臂要壓在頭上面，跟啞鈴同一層
         // 只重畫近側手臂；上臂從中段開始，避免黑框切過軀幹。遠側手臂留在頭後面。
@@ -390,11 +408,11 @@ enum CharacterRenderer {
                 fillLimb(&c, pen, sh, stripe: stripe, glow: sglow)
                 if sh.w >= 11 { highlight(&c, pen, sh) }
             }
-            drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, anchors: [.fore, .fist], side: .near)
+            drawParts(&c, pen, gear, z: .limb, P: P, t: t, goblet: goblet, mirror: mirrored, anchors: [.fore, .fist], side: .near)
         }
 
         // 啞鈴
-        drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet)
+        drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet, mirror: mirrored)
 
         // 喝水的水壺：從手往嘴巴的方向
         if move == .drink {
@@ -468,7 +486,9 @@ enum CharacterRenderer {
     }
 
     /// 局部座標 → 200 單位座標。y 正向＝前面／上面。
-    private static func gearFrame(_ a: GearPart.Anchor, P: Joints, far: Bool, t: CGFloat, goblet: Bool) -> CGAffineTransform {
+    /// mirror：仰躺頭在右的動作，四肢上的裝備（鞋子、護腕…）翻面，不然腳尖和鞋底會畫反
+    private static func gearFrame(_ a: GearPart.Anchor, P: Joints, far: Bool, t: CGFloat, goblet: Bool,
+                                  mirror: Bool = false) -> CGAffineTransform {
         func q(_ j: JointName) -> CGPoint { P.point(j, far: far) }
         func unit(_ v: CGPoint) -> CGPoint {
             let l = hyp(v)
@@ -479,7 +499,8 @@ enum CharacterRenderer {
         }
         func seg(_ a: JointName, _ b: JointName, ccw: Bool) -> CGAffineTransform {
             let x = unit(sub(q(b), q(a)))
-            return make(q(a), x, ccw ? pt(x.y, -x.x) : pt(-x.y, x.x))
+            let side = mirror ? !ccw : ccw
+            return make(q(a), x, side ? pt(x.y, -x.x) : pt(-x.y, x.x))
         }
         switch a {
         case .torso: return seg(.hip, .sh, ccw: false)
@@ -502,21 +523,21 @@ enum CharacterRenderer {
     }
 
     private static func drawParts(_ c: inout GraphicsContext, _ pen: Pen, _ parts: [GearPart], z: GearPart.Z,
-                                  P: Joints, t: CGFloat, goblet: Bool,
+                                  P: Joints, t: CGFloat, goblet: Bool, mirror: Bool = false,
                                   anchors: Set<GearPart.Anchor>? = nil, side: PartSide = .both) {
         for part in parts where part.z == z {
             if let a = anchors, !a.contains(part.anchor) { continue }
             // 高腳杯深蹲只抱一顆啞鈴
             let wantFar = part.far && !(part.anchor == .grip && goblet) && side != .near
             if wantFar {
-                let tf = gearFrame(part.anchor, P: P, far: true, t: t, goblet: goblet).concatenating(pen.tf)
+                let tf = gearFrame(part.anchor, P: P, far: true, t: t, goblet: goblet, mirror: mirror).concatenating(pen.tf)
                 c.drawLayer { (l: inout GraphicsContext) in
                     l.addFilter(.colorMultiply(Color(white: 0.72)))
                     part.layers.draw(&l, transform: tf, scale: pen.k)
                 }
             }
             if side != .far {
-                let tf = gearFrame(part.anchor, P: P, far: false, t: t, goblet: goblet).concatenating(pen.tf)
+                let tf = gearFrame(part.anchor, P: P, far: false, t: t, goblet: goblet, mirror: mirror).concatenating(pen.tf)
                 part.layers.draw(&c, transform: tf, scale: pen.k)
             }
         }
