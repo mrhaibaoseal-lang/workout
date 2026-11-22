@@ -15,7 +15,7 @@ struct SetDraft: Identifiable {
     var target: Int = 0
     /// 做完後的判定（只有正式組）
     var grade: SetGrade? = nil
-    /// 左右平衡：單手輪流做（reps／rir 是弱的那手）
+    /// 左右平衡：兩邊分開做（reps／rir 是先做的那邊，`SideBalance.first`）
     var oneArm = false
     /// 另一手的次數（-1 = 和弱的那手一樣）、還剩幾下（-1 = 沒填）
     var otherReps = -1
@@ -885,7 +885,7 @@ struct WorkoutView: View {
                                              firstInRegion: firstInRegion, avoidKit: avoidKit ?? barbellKit,
                                              plateau: plateau)
         let s = planned.suggestion
-        let oneArm = SideBalance.oneArm(item.exercise)
+        let oneArm = SideBalance.sided(item.exercise)
         var sets = planned.sets.map {
             SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit, target: $0.reps,
                      oneArm: oneArm && $0.kind == .work)
@@ -998,7 +998,7 @@ struct WorkoutView: View {
                 let entry = SetEntry(exerciseId: d.item.exercise.id, setIndex: i,
                                      weight: d.item.exercise.loaded ? set.weight : 0,
                                      reps: set.reps, date: now, kind: set.kind, rir: set.rir)
-                if set.oneArm || set.kind == .weak { entry.side = SideBalance.weak.rawValue }
+                if set.oneArm || set.kind == .weak { entry.side = SideBalance.first(for: d.item.exercise).rawValue }
                 if set.oneArm {
                     entry.otherReps = set.otherReps < 0 ? set.reps : set.otherReps
                     entry.otherRir = set.otherRir
@@ -1510,7 +1510,7 @@ struct CompactSetRow: View {
 
     private var label: String {
         let reps = "\(set.reps) \(exercise.unit.label)"
-        let each = set.oneArm ? " 每手" : ""
+        let each = set.oneArm ? " 每邊" : ""
         guard exercise.loaded else { return reps + each }
         return "\(Progression.format(set.weight)) kg × \(set.reps)" + each
     }
@@ -1578,7 +1578,7 @@ struct ActiveSetEditor: View {
                 ghostRow(last)
             }
             if set.kind == .work {
-                rirPicker(set.oneArm ? "\(weak.hand)手還能再做幾下？" : "還能再做幾下？", value: $set.rir)
+                rirPicker(set.oneArm ? "\(weak.hand)\(noun)還能再做幾下？" : "還能再做幾下？", value: $set.rir)
                 gradePreview
             }
             if set.oneArm {
@@ -1654,11 +1654,14 @@ struct ActiveSetEditor: View {
         }
     }
 
-    private var weak: WeakSide { SideBalance.weak }
+    /// 先做的那邊（弱邊；沒設定就左邊）
+    private var weak: WeakSide { SideBalance.first(for: exercise) }
+    private var noun: String { Limb.of(exercise).noun }
 
     private var header: String {
         switch set.kind {
-        case .work: set.oneArm ? "第 \(tag) 組 · 單手，先做\(weak.hand)手" : "第 \(tag) 組"
+        case .work: set.oneArm ? "第 \(tag) 組 · 先做\(weak.hand)\(noun)" : "第 \(tag) 組"
+        case .weak: "加強組（只做\(weak.hand)\(noun)）"
         default: set.kind.title
         }
     }
@@ -1668,7 +1671,7 @@ struct ActiveSetEditor: View {
         let reps = set.otherReps < 0 ? set.reps : set.otherReps
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
-                Text("\(weak.otherHand)手：做到 \(set.reps) 下就停，不要多做")
+                Text("\(weak.otherHand)\(noun)：做到 \(set.reps) 下就停，不要多做")
                     .font(.caption.weight(.heavy))
                     .foregroundStyle(Theme.accentSoft)
                 InfoTip(item: .sides)
@@ -1676,7 +1679,7 @@ struct ActiveSetEditor: View {
             stepperBox(
                 minus: { set.otherReps = max(0, reps - repStep) },
                 plus: { set.otherReps = min(300, reps + repStep) },
-                minusLabel: "減少\(weak.otherHand)手次數", plusLabel: "增加\(weak.otherHand)手次數"
+                minusLabel: "減少\(weak.otherHand)\(noun)次數", plusLabel: "增加\(weak.otherHand)\(noun)次數"
             ) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(reps)").font(Theme.number(20)).foregroundStyle(Theme.fg)
@@ -1684,7 +1687,7 @@ struct ActiveSetEditor: View {
                 }
                 .frame(minWidth: 52)
             }
-            rirPicker("\(weak.otherHand)手還能再做幾下？", value: $set.otherRir)
+            rirPicker("\(weak.otherHand)\(noun)還能再做幾下？", value: $set.otherRir)
         }
         .padding(10)
         .background(Theme.sunken.opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

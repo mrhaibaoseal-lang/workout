@@ -49,7 +49,7 @@ final class SetEntry {
     /// 左右平衡（0.28.0）：單手做的組，reps／rir 是弱的那手，這兩個是另一手；-1 = 不是單手組或沒填。
     var otherReps: Int = -1
     var otherRir: Int = -1
-    /// 做的時候設定的弱邊（WeakSide.rawValue），空的 = 雙手一起做
+    /// 兩邊分開做的組：reps／rir 是哪一邊（WeakSide.rawValue，先做的那邊）；空的 = 兩邊一起做
     var side: String = ""
 
     init(exerciseId: String, setIndex: Int, weight: Double, reps: Int, date: Date,
@@ -159,6 +159,11 @@ enum Keys {
     static let weakExtra = "weakExtra"
     /// 「可以關掉加強組」按了「再練一陣子」的時間（秒）
     static let weakExtraSnooze = "weakExtraSnooze"
+    /// 左右平衡：哪一腳比較弱（WeakSide.rawValue）
+    static let weakLeg = "weakLeg"
+    /// 偵測到左右差、按了「先不要」的時間（秒），手、腳分開
+    static let sideSnoozeArm = "sideSnoozeArm"
+    static let sideSnoozeLeg = "sideSnoozeLeg"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60

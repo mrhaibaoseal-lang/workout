@@ -108,7 +108,7 @@ struct SessionDetailView: View {
                     ForEach(g.sets) { e in
                         let ex = ExerciseLibrary.byId(e.exerciseId)
                         HStack {
-                            Text(e.kind == SetKind.weak.rawValue ? "加強組（只做\(WeakSide(rawValue: e.side)?.hand ?? "左")手）" : "第 \(e.setIndex + 1) 組")
+                            Text(e.kind == SetKind.weak.rawValue ? "加強組（只做\(WeakSide(rawValue: e.side)?.hand ?? "左")\(ex.map(Limb.of)?.noun ?? "手")）" : "第 \(e.setIndex + 1) 組")
                             Spacer()
                             if ex?.loaded == true {
                                 Text("\(Progression.format(e.weight)) kg × ")

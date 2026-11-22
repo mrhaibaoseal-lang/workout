@@ -21,7 +21,7 @@ enum SetKind: String {
         case .warmup: "熱身組"
         case .work: "正式組"
         case .drop: "遞減組（不休息）"
-        case .weak: "加強組（只做\(SideBalance.weak.hand)手）"
+        case .weak: "加強組（只做弱的那邊）"
         }
     }
 }
@@ -368,7 +368,7 @@ enum WorkoutTimeEstimator {
             sets.append(p.sets.map { s in
                 let l: Loading? = ex.loaded && s.weight > 0 ? ladders[n].loading(s.weight, kit: s.kit) : nil
                 return Entry(name: ex.name, kind: s.kind, kit: s.kit, loading: l,
-                             oneArm: s.kind == .work && SideBalance.oneArm(ex))
+                             oneArm: s.kind == .work && SideBalance.sided(ex))
             })
         }
         // 照實際做的順序（超級組輪流做）

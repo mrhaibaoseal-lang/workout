@@ -83,6 +83,7 @@ struct SettingsView: View {
     @AppStorage(Keys.autoWarmup) private var autoWarmup = true
     @AppStorage(Keys.weakSide) private var weakSide = WeakSide.none.rawValue
     @AppStorage(Keys.weakExtra) private var weakExtra = true
+    @AppStorage(Keys.weakLeg) private var weakLeg = WeakSide.none.rawValue
     @AppStorage(Keys.limitBarbell) private var limitBarbell = true
     @AppStorage(Keys.customInAutoPick) private var customInAutoPick = false
     @AppStorage(Keys.autoSuperset) private var autoSuperset = false
@@ -205,11 +206,16 @@ struct SettingsView: View {
                     Picker(selection: $weakSide) {
                         ForEach(WeakSide.allCases) { Text($0.title).tag($0.rawValue) }
                     } label: {
-                        Label("左右力氣", systemImage: "hand.raised.fill")
+                        Label("手", systemImage: "hand.raised.fill")
                     }
-                    if weakSide != WeakSide.none.rawValue {
+                    Picker(selection: $weakLeg) {
+                        ForEach(WeakSide.allCases) { Text($0.title).tag($0.rawValue) }
+                    } label: {
+                        Label("腳", systemImage: "figure.walk")
+                    }
+                    if weakSide != WeakSide.none.rawValue || weakLeg != WeakSide.none.rawValue {
                         Toggle(isOn: $weakExtra) {
-                            Label("弱的那手多做一組加強組", systemImage: "plus.circle")
+                            Label("弱的那邊多做一組加強組", systemImage: "plus.circle")
                         }
                     }
                 } header: {
@@ -218,7 +224,7 @@ struct SettingsView: View {
                         InfoTip(item: .sides)
                     }
                 } footer: {
-                    SectionLabel("選了比較弱的那手，彎舉、側平舉、肩推、划船會改成單手做：弱的那手先做，另一手做到一樣的次數就停；彎舉、側平舉、肩推最後弱的那手多一組。兩手都填「還能再做幾下」，進步頁會算出兩手差幾下。")
+                    SectionLabel("不用自己判斷：單臂划船、分腿蹲這類一邊一邊做的動作，兩邊都填「還能再做幾下」，連續 3 次某一邊少 2 下以上，今天頁會問你要不要開。開了以後弱的那邊先做、另一邊做到一樣的次數就停；手弱時彎舉、側平舉、肩推也改單手。彎舉、側平舉、肩推、弓步類最後弱的那邊多一組。")
                 }
 
                 Section {

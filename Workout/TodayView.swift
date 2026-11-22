@@ -137,6 +137,7 @@ struct TodayView: View {
                     }
                     weeklySummaryCard
                     coachCards
+                    SideDetectCard(sessions: sessions)
                     specializationCard
                     let plans = self.plans
                     if pickedDay == nil, onLeave == nil, let offer = mergeOffer(plans) {
