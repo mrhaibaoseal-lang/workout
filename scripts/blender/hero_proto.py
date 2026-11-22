@@ -211,7 +211,7 @@ skinbody = skinmesh('skin', 'skin', P, E, lv=3)   # 細一級：背心是塗色�
 skinbody.data.materials.append(M['shirt']); skinbody.data.materials.append(M['shorts'])
 for f_ in skinbody.data.polygons:
     c = f_.center; ax = abs(c.x)
-    if (TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TOP and 1.03 < c.z < 1.44 and ax < 0.19):
+    if (TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TOP and ((1.03 < c.z < 1.44 and ax < 0.19) or (1.40 <= c.z < 1.56 and 0.075 < ax < 0.165))):   # 背心身體＋肩帶
         f_.material_index = 1
     elif c.z <= (1.0 if TOP else 1.03) and c.z > (0.12 if BOT else 0.72):
         f_.material_index = 2
