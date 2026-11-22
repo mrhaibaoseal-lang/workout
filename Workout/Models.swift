@@ -14,6 +14,8 @@ final class WorkoutSession {
     var exerciseNotes: String = ""
     /// 訓練前狀態「睡眠,痠痛,精神」各 1–5，空的 = 舊紀錄沒有
     var readiness: String = ""
+    /// 當時的週期（Phase.rawValue：rampUp／normal／deload）；空的 = 0.30.0 以前的舊紀錄，用週數推回來（`SessionPhase`）
+    var phase: String = ""
     @Relationship(deleteRule: .cascade, inverse: \SetEntry.session)
     var entries: [SetEntry] = []
 
@@ -51,6 +53,8 @@ final class SetEntry {
     var otherRir: Int = -1
     /// 兩邊分開做的組：reps／rir 是哪一邊（WeakSide.rawValue，先做的那邊）；空的 = 兩邊一起做
     var side: String = ""
+    /// 這組是刻意減輕的（練前狀態很差降一級、會痛減 20%）：下次加重不拿它當基準（`SessionPhase`）
+    var eased: Bool = false
 
     init(exerciseId: String, setIndex: Int, weight: Double, reps: Int, date: Date,
          kind: SetKind = .work, rir: Int = -1) {
@@ -119,6 +123,9 @@ enum Keys {
     static let autoWarmup = "autoWarmup"
     /// 身高（公分），身體數據用
     static let height = "height"
+    /// 最近一次量的體重（kg）和日期（秒），第一次做的動作推起始重量用（`StartWeight.noviceEstimate`）
+    static let bodyWeight = "bodyWeight"
+    static let bodyWeightDate = "bodyWeightDate"
     /// 槓鈴要自己用啞鈴組裝：在家少排槓鈴
     static let limitBarbell = "limitBarbell"
     /// 啞鈴組和槓片，JSON [WeightKit]

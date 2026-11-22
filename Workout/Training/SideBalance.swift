@@ -62,12 +62,14 @@ enum SideBalance {
         "db_row", "db_lean_lateral", "cable_lateral",
         "db_sl_rdl", "sl_rdl", "db_split_squat", "split_squat", "db_reverse_lunge", "reverse_lunge",
         "sl_glute_bridge", "db_calf_raise", "calf_raise",
+        "db_step_up", "db_concentration_curl",
     ]
 
     /// 設了弱的那隻手，才改成單手做的雙手啞鈴動作（單手用同一個重量）。
     /// 不放啞鈴過頭三頭伸展：那是兩手握一顆，改單手等於重量變兩倍。
     static let oneArmIds: Set<String> = [
         "db_curl", "db_hammer_curl", "db_lateral", "db_shoulder_press", "db_arnold", "db_rear_fly",
+        "db_incline_curl", "db_kickback", "db_chest_rear_fly",
     ]
 
     /// 會多排一組弱邊加強組的動作類型

@@ -138,7 +138,7 @@ enum RankEngine {
         var events: [RankEvent] = []
 
         // 每次訓練＋破紀錄加分。破紀錄的定義跟進步頁、角色里程碑一樣：
-        // 有負重的動作，重量超過這個動作以前的最高重量（第一次做不算）。
+        // 有負重的動作，重量超過以前的最高重量，或用最高重量做更多下（`PRRule`，第一次做不算）。
         for f in facts {
             events.append(RankEvent(date: f.date, delta: points(for: f.length), reason: "完成訓練（\(f.length.title)）"))
             if f.prs > 0 {

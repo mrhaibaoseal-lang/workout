@@ -6,7 +6,7 @@ options:
     iOS: "17.0"
 settings:
   base:
-    MARKETING_VERSION: "0.29.0"
+    MARKETING_VERSION: "0.30.0"
     CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
@@ -15,7 +15,8 @@ targets:
     type: application
     platform: iOS
     sources: [Workout, Shared]
-    scheme: {}
+    scheme:
+      testTargets: [WorkoutTests]
     dependencies:
       - target: WorkoutWidget
     entitlements:
@@ -35,6 +36,17 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: 練壯會讀取行事曆裡的活動，自動避開有事的時間來排訓練。
+
+  WorkoutTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [WorkoutTests]
+    dependencies:
+      - target: Workout
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.mrhaibaoseal.workout.tests
 
   WorkoutWidget:
     type: app-extension

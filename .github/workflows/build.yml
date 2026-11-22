@@ -30,6 +30,18 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Unit tests (simulator)
+        run: |
+          # 排課、加重、破紀錄的邏輯測試；沒過就不打包、不發佈
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "Simulator $UDID"
+          xcodebuild test \
+            -project Workout.xcodeproj \
+            -scheme Workout \
+            -destination "id=$UDID" \
+            -derivedDataPath build-test \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Build (unsigned)
         run: |
           xcodebuild \

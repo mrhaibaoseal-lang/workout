@@ -212,12 +212,12 @@ enum CustomPrograms {
         return nil
     }
 
-    /// 複製內建課表：組數、休息換成內建完整版實際排的（重點動作 +1 組、休息 120 秒）。
+    /// 複製內建課表：組數、休息換成內建完整版實際排的（主項 +1 組、重點動作休息 120 秒）。
     static func copyOfBuiltIn(name: String) -> CustomProgram {
         let days = ProgramBuilder.builtInDays.map { d in
             CustomDay(id: newId(), name: d.name, focus: d.focus, slots: d.slots.map { s in
                 CustomSlot(id: newId(), pattern: s.pattern.rawValue, exerciseId: nil,
-                           sets: s.sets + (s.essential ? 1 : 0), low: s.low, high: s.high,
+                           sets: s.sets + (ProgramBuilder.isMainSlot(s, in: d) ? 1 : 0), low: s.low, high: s.high,
                            rest: s.essential ? 120 : 60, essential: s.essential, keepBarbell: s.keepBarbell)
             })
         }

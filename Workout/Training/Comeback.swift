@@ -105,7 +105,8 @@ enum Comeback {
         let after = sessions[..<split]
         let beforeSessions = sessions[split...]
         var before: [String: Double] = [:]
-        for s in beforeSessions {
+        // 減量週的重量比較輕，不當停練前的重量（`SessionPhase`）
+        for s in beforeSessions where !SessionPhase.isDeload(s) {
             for e in s.entries where e.isWork && e.weight > 0 && before[e.exerciseId] == nil {
                 before[e.exerciseId] = s.entries.filter { $0.exerciseId == e.exerciseId && $0.isWork }.map(\.weight).max()
             }
@@ -116,6 +117,14 @@ enum Comeback {
     }
 
     /// 停 21 天以上：回來那一週（從回來第一次訓練算 7 天）當適應期。
+    /// 剛停練 14 天以上回來（回來 14 天內）：休息已經夠了，排到的減量週照一般進步週練。
+    static var restedRecently: Bool {
+        guard let s = TrainingHistory.comeback, s.gapDays >= 14 else { return false }
+        guard let r = s.returned else { return true }
+        let end = Calendar.current.date(byAdding: .day, value: 14, to: Calendar.current.startOfDay(for: r)) ?? r
+        return Date.now < end
+    }
+
     static var rampUpActive: Bool {
         guard let s = TrainingHistory.comeback, s.level == 2 else { return false }
         guard let r = s.returned else { return true }

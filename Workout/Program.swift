@@ -38,7 +38,7 @@ struct DayTemplate: Identifiable {
     }
 }
 
-enum Phase {
+enum Phase: String {
     case rampUp, normal, deload
 
     var title: String {
@@ -53,7 +53,7 @@ enum Phase {
         switch self {
         case .rampUp: "前兩週練輕一點，每組留 3 下的力氣。先養成習慣，不要練到爆痠。"
         case .normal: "每組做到還剩 1–2 下的力氣就停。每組都做到次數上限，下次就加重。"
-        case .deload: "這週組數減少、重量減輕，讓身體恢復。下週會換一批動作。"
+        case .deload: "這週組數減半、重量減輕一成，讓身體恢復。下週回到原本的重量繼續進步；小肌群的動作會換一批。"
         }
     }
 }
@@ -99,6 +99,8 @@ struct PlannedExercise: Identifiable {
     var sharedKit: String? = nil
     /// 中階排法：這天的主要動作練重還是輕（`Graduation`）；新手、自訂課表是 nil。
     var intensity: Intensity? = nil
+    /// 器材到頂自動升級（`Upgrade`）：原本的動作名稱。
+    var upgradedFrom: String? = nil
 
     var id: String { exercise.id }
     var baseLow: Int { base?.lowerBound ?? low }
@@ -205,8 +207,8 @@ enum ProgramBuilder {
             Slot(pattern: .vPull, sets: 3, low: 10, high: 12, essential: false),
             Slot(pattern: .lateral, sets: 4, low: 12, high: 20, essential: false),
             Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
-            Slot(pattern: .biceps, sets: 3, low: 10, high: 15, essential: false),
-            Slot(pattern: .triceps, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false),
         ]),
         DayTemplate(id: "lowerB", name: "下半身 B", focus: "臀、大腿後側", variant: 1, slots: [
             Slot(pattern: .hinge, sets: 3, low: 6, high: 10, essential: true),
@@ -229,7 +231,8 @@ enum ProgramBuilder {
         if Comeback.rampUpActive { return .rampUp }
         if week <= 2 { return .rampUp }
         // 減量週照區塊時鐘：預設每 6 週，疲勞高可以提早、狀態好可以延後（`BlockClock`、`Fatigue`）
-        if BlockClock.locate(week: week).deload == week { return .deload }
+        // 剛停練兩週以上回來，等於已經休息過，不再減量
+        if BlockClock.locate(week: week).deload == week && !Comeback.restedRecently { return .deload }
         return .normal
     }
 
@@ -253,9 +256,16 @@ enum ProgramBuilder {
             let noBar = options.filter { !$0.requires.contains(.barbell) }
             if !noBar.isEmpty { options = noBar + options.filter { $0.requires.contains(.barbell) } }
         }
+        // 重點動作（主項）不用平衡受限的單腳版本、擺盪：放到最後，沒別的才用
+        if slot.essential {
+            let main = options.filter { !ExerciseLibrary.notMain.contains($0.id) }
+            if !main.isEmpty { options = main + options.filter { ExerciseLibrary.notMain.contains($0.id) } }
+        }
         // 有負重的動作優先輪替（避免 B 日掉到徒手版）
         let loaded = options.filter(\.loaded)
-        return Array((loaded.isEmpty ? options : loaded).prefix(2))
+        // 單關節動作每個區塊輪替，候選多一點才有變化；複合動作只在前兩個之間選
+        let width = slot.pattern.region == nil ? 4 : 2
+        return Array((loaded.isEmpty ? options : loaded).prefix(width))
     }
 
     /// 同一類動作在另一天（同為上半身或下半身）也有，B 日才換第二個；一週只練一次的用首選。
@@ -307,7 +317,7 @@ enum ProgramBuilder {
             }
             let top = topChoices(slot: slot, equipment: equipment, limitBarbell: limitBarbell, used: usedIds)
             guard !top.isEmpty else { return nil }
-            let exercise: Exercise
+            var exercise: Exercise
             if slot.keepBarbell {
                 exercise = top[0]
             } else {
@@ -318,9 +328,17 @@ enum ProgramBuilder {
                                   shift: PatternShift.value(day: src.id, pattern: slot.pattern), count: top.count)
                 exercise = top[i]
             }
+            // 在家啞鈴到頂、已經升級過的動作，換成更難的版本（`Upgrade`）
+            var upgradedFrom: String? = nil
+            if let up = Upgrade.replacement(for: exercise, equipment: equipment, used: usedIds) {
+                upgradedFrom = exercise.name
+                exercise = up
+            }
             usedIds.insert(exercise.id)
             slotOf.append(n)
-            return planned(exercise, slot: slot, day: day, phase: phase, length: length, replaced: replaced)
+            var item = planned(exercise, slot: slot, day: day, phase: phase, length: length, replaced: replaced)
+            item.upgradedFrom = upgradedFrom
+            return item
         }
         return RawPlan(items: items, slotOf: slotOf)
     }
@@ -389,12 +407,27 @@ enum ProgramBuilder {
     }
 
     /// 這一格排出的正式組數：重點動作完整版 +1、「重量跳太大」多 1 組、適應期／減量週 −1。
+    /// 0.30.0：只有每天第一個重點動作（主項）+1，其他重點動作照課表，一次不要練太多組。
+    /// 減量週組數減半（至少 1 組）；適應期少 1 組（至少 2 組）。
     static func slotSets(_ slot: Slot, day: DayTemplate, phase: Phase, length: WorkoutLength, extra: Bool) -> Int {
         var sets = slot.sets
-        if length == .full && slot.essential && !day.custom { sets += 1 }
+        if length == .full && !day.custom && isMainSlot(slot, in: day) { sets += 1 }
         if extra { sets += 1 }
-        if phase != .normal { sets = max(2, sets - 1) }
+        switch phase {
+        case .deload: sets = max(1, (sets + 1) / 2)
+        case .rampUp: sets = max(2, sets - 1)
+        case .normal: break
+        }
         return sets
+    }
+
+    /// 這天的主項：第一個重點動作（全身日的格子看原本那一天）。
+    static func isMainSlot(_ slot: Slot, in day: DayTemplate) -> Bool {
+        guard slot.essential else { return false }
+        if let src = slot.source, let origin = template(id: src) {
+            return origin.slots.first(where: \.essential)?.pattern == slot.pattern
+        }
+        return day.slots.first(where: \.essential)?.pattern == slot.pattern
     }
 
     private static func planned(_ exercise: Exercise, slot: Slot, day: DayTemplate, phase: Phase,
@@ -536,12 +569,18 @@ struct Suggestion {
 enum Progression {
     /// Sets from the most recent session that included this exercise.
     /// `sessions` must be sorted newest first.
+    /// 減量週、刻意減輕的那一次（練前狀態很差、會痛先減輕）不算基準，不然減量完會卡在減輕的重量（`SessionPhase`）。
+    /// 找不到正常的那一次，才退回用最近一次。
     static func lastSets(for exerciseId: String, in sessions: [WorkoutSession]) -> [SetEntry] {
+        var fallback: [SetEntry] = []
         for session in sessions {
             let sets = session.entries.filter { $0.exerciseId == exerciseId && $0.isWork }
-            if !sets.isEmpty { return sets.sorted { $0.setIndex < $1.setIndex } }
+            if sets.isEmpty { continue }
+            let sorted = sets.sorted { $0.setIndex < $1.setIndex }
+            if SessionPhase.isBaseline(session, sets: sorted) { return sorted }
+            if fallback.isEmpty { fallback = sorted }
         }
-        return []
+        return fallback
     }
 
     /// ladder：這個動作裝得出來的重量（沒有設定器材時用固定級距）。
@@ -555,6 +594,11 @@ enum Progression {
                 return Suggestion(weight: w, reps: item.high,
                                   note: "第一次做：參考「\(est.reference.name)」推估。第一組做完填還剩幾下，後面會自動校準",
                                   tip: .startWeight)
+            }
+            if let w = StartWeight.noviceEstimate(item, ladder: ladder) {
+                let note = StartWeight.bodyWeight > 0 ? "第一次做：依你的體重推估一個保守的重量" : "第一次做：先用一個保守的重量（到「身體」記體重會推得更準）"
+                return Suggestion(weight: phase == .deload ? ladder.snap(w * 0.8) : w, reps: item.high,
+                                  note: note + "。第一組做完填還剩幾下，後面會自動校準", tip: .startWeight)
             }
             return Suggestion(weight: 0, reps: item.high,
                               note: "第一次做：選一個能輕鬆做 \(item.high) \(ex.unit.label)的重量，第一組做完填還剩幾下，後面會自動校準",
@@ -576,8 +620,8 @@ enum Progression {
 
         switch phase {
         case .deload:
-            return Suggestion(weight: ex.loaded ? ladder.snap(lastWeight * 0.8) : lastWeight, reps: item.low,
-                              note: "減量週：重量減輕約兩成，輕鬆做完")
+            return Suggestion(weight: ex.loaded ? ladder.snap(lastWeight * 0.9) : lastWeight, reps: item.low,
+                              note: "減量週：組數減半、重量減輕約一成，輕鬆做完")
         case .rampUp:
             return Suggestion(weight: lastWeight, reps: min(bestReps, item.high),
                               note: "適應期：用上次的重量，別拚到力竭")
@@ -597,9 +641,18 @@ enum Progression {
                 }
             }
             if allHitTop {
+                // 全部達標但每組都做到力竭：先用同重量做得輕鬆一點，下次再加
+                if ex.loaded && RIRCheck.grinding(top) {
+                    return Suggestion(weight: lastWeight, reps: item.high,
+                                      note: "上次每組都做到力竭才達標：這次同重量，做到還剩 1 下就好，做得輕鬆再加重")
+                }
                 if ex.loaded {
                     let next = ladder.up(lastWeight)
                     if next <= lastWeight + 0.01 {
+                        if let up = Upgrade.next(for: ex), Upgrade.store.load()[ex.id] == nil {
+                            return Suggestion(weight: lastWeight, reps: item.high,
+                                              note: "已經是你器材最重的了：這次全部做到 \(item.high) 下，下次自動換成更難的「\(up.name)」")
+                        }
                         if item.intensity == .heavy {
                             return Suggestion(weight: lastWeight, reps: item.high,
                                               note: "器材最重了：重日改慢速（下放 3 秒、最低點停 1 秒）做 \(item.low)–\(item.high) 下，或按「換一個動作」換單側版本")
@@ -680,8 +733,8 @@ enum Stats {
         GoalEngine.streak(dates: sessions.map(\.date))
     }
 
-    static func week(since start: Date) -> Int {
-        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: .now)).day ?? 0
+    static func week(since start: Date, at date: Date = .now) -> Int {
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: date)).day ?? 0
         return max(1, days / 7 + 1)
     }
 

@@ -116,6 +116,7 @@ enum ExerciseLibrary {
         Exercise(id: "cable_pulldown", name: "高位下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "寬握長槓，挺胸，拉到上胸，不要往後倒"),
         Exercise(id: "cable_close_pulldown", name: "窄握下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "換上兩個橡膠把手，手肘往下往後拉到身側"),
         Exercise(id: "cable_straight_arm", name: "直臂下拉", pattern: .vPull, requires: [.cable], loaded: true, tip: "用直槓或三頭繩，手臂打直往下壓到大腿，感覺背在出力"),
+        Exercise(id: "db_pullover", name: "啞鈴仰臥拉舉", pattern: .vPull, requires: [.dumbbell, .bench], loaded: true, tip: "躺椅上雙手捧一顆啞鈴，手肘微彎往頭後放到感覺背側拉開，再拉回胸口上方"),
         Exercise(id: "pullup", name: "引體向上", pattern: .vPull, requires: [.pullupBar], loaded: false, tip: "做不到就跳上去，花 3-5 秒慢慢放下"),
         Exercise(id: "chinup", name: "反手引體向上", pattern: .vPull, requires: [.pullupBar], loaded: false, tip: "掌心朝自己，下巴過槓"),
         Exercise(id: "band_pulldown", name: "彈力帶下拉", pattern: .vPull, requires: [.band], loaded: false, tip: "彈力帶掛高處，手肘往下往後拉"),
@@ -126,6 +127,8 @@ enum ExerciseLibrary {
         Exercise(id: "leg_press", name: "腿推機", pattern: .squat, requires: [.machine], loaded: true, tip: "下背貼緊椅墊，膝蓋對齊腳尖，不要鎖死膝蓋"),
         Exercise(id: "goblet_squat", name: "高腳杯深蹲", pattern: .squat, requires: [.dumbbell], loaded: true, tip: "啞鈴抱胸前，蹲到大腿至少平行地面"),
         Exercise(id: "db_squat", name: "啞鈴深蹲", pattern: .squat, requires: [.dumbbell], loaded: true, tip: "兩手各拿啞鈴垂在身側，挺胸下蹲"),
+        Exercise(id: "heel_goblet", name: "腳跟墊高高腳杯深蹲", pattern: .squat, requires: [.dumbbell], loaded: true, tip: "腳跟踩在槓片上，上身可以更直、蹲更深，更練大腿前側"),
+        Exercise(id: "goblet_15", name: "1.5 次高腳杯深蹲", pattern: .squat, requires: [.dumbbell], loaded: true, tip: "蹲到底→站起一半→再蹲到底→站直，算 1 下。啞鈴不夠重時，同樣重量練得更夠"),
         Exercise(id: "squat", name: "徒手深蹲", pattern: .squat, requires: [], loaded: false, tip: "最低點停 2 秒，增加難度"),
 
         // 髖鉸鏈
@@ -138,6 +141,7 @@ enum ExerciseLibrary {
         // 弓步
         Exercise(id: "db_split_squat", name: "啞鈴保加利亞分腿蹲", pattern: .lunge, requires: [.dumbbell], loaded: true, tip: "後腳放椅子上，前膝對齊腳尖（每邊做）"),
         Exercise(id: "db_reverse_lunge", name: "啞鈴後跨弓步", pattern: .lunge, requires: [.dumbbell], loaded: true, tip: "往後跨一大步，後膝輕碰地（每邊做）"),
+        Exercise(id: "db_step_up", name: "啞鈴登階", pattern: .lunge, requires: [.dumbbell, .bench], loaded: true, tip: "一腳踩在椅子上，用前腳把身體推上去，後腳不要蹬地（每邊做）"),
         Exercise(id: "split_squat", name: "保加利亞分腿蹲", pattern: .lunge, requires: [], loaded: false, tip: "後腳放椅子上，慢慢下（每邊做）"),
         Exercise(id: "reverse_lunge", name: "後跨弓步", pattern: .lunge, requires: [], loaded: false, tip: "往後跨一大步，上身挺直（每邊做）"),
 
@@ -164,6 +168,8 @@ enum ExerciseLibrary {
         Exercise(id: "bb_curl", name: "槓鈴彎舉", pattern: .biceps, requires: [.barbell], loaded: true, tip: "手肘固定在身側，不要用腰甩"),
         Exercise(id: "db_hammer_curl", name: "錘式彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "掌心相對，手肘固定"),
         Exercise(id: "db_curl", name: "啞鈴彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "手肘固定在身側，不要甩"),
+        Exercise(id: "db_incline_curl", name: "上斜椅啞鈴彎舉", pattern: .biceps, requires: [.dumbbell, .bench], loaded: true, tip: "椅背調斜躺著，手臂自然垂在身體後方，手肘不往前跑"),
+        Exercise(id: "db_concentration_curl", name: "集中彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "坐著，手肘靠在大腿內側，慢慢彎到頂、慢慢放（每邊做）"),
         Exercise(id: "cable_curl", name: "低位滑輪彎舉", pattern: .biceps, requires: [.machine], loaded: true, tip: "手肘貼身，彎到頂停一秒"),
         Exercise(id: "band_curl", name: "彈力帶彎舉", pattern: .biceps, requires: [.band], loaded: false, tip: "腳踩彈力帶，手肘固定"),
 
@@ -171,6 +177,8 @@ enum ExerciseLibrary {
         Exercise(id: "cable_pushdown", name: "繩索三頭下壓", pattern: .triceps, requires: [.cable], loaded: true, tip: "用三頭繩，手肘貼身，壓到底時把繩子往兩邊拉開"),
         Exercise(id: "cable_overhead_ext", name: "繩索過頭三頭伸展", pattern: .triceps, requires: [.cable], loaded: true, tip: "背對滑輪，手肘朝前，往前上方伸直"),
         Exercise(id: "db_overhead_ext", name: "啞鈴過頭三頭伸展", pattern: .triceps, requires: [.dumbbell], loaded: true, tip: "雙手握一顆啞鈴，手肘朝前不外開"),
+        Exercise(id: "db_skull", name: "啞鈴仰臥三頭伸展", pattern: .triceps, requires: [.dumbbell, .bench], loaded: true, tip: "躺椅上，上臂垂直地面不動，只彎手肘把啞鈴放到耳朵旁再伸直"),
+        Exercise(id: "db_kickback", name: "啞鈴三頭後踢", pattern: .triceps, requires: [.dumbbell], loaded: true, tip: "上身前傾，上臂貼身體不動，把啞鈴往後踢到手臂打直，停 1 秒"),
         Exercise(id: "band_pushdown", name: "彈力帶三頭下壓", pattern: .triceps, requires: [.band], loaded: false, tip: "彈力帶掛高處，手肘貼身往下壓"),
         Exercise(id: "bench_dip", name: "椅子撐體", pattern: .triceps, requires: [], loaded: false, tip: "手撐椅緣，肩膀不要聳起"),
 
@@ -184,6 +192,7 @@ enum ExerciseLibrary {
         Exercise(id: "cable_face_pull", name: "繩索面拉", pattern: .rear, requires: [.cable], loaded: true, tip: "坐著用三頭繩拉向臉，手肘外開，對肩膀健康很好"),
         Exercise(id: "machine_rear_delt", name: "反向飛鳥機", pattern: .rear, requires: [.machine], loaded: true, tip: "手臂微彎，往後打開到身體兩側"),
         Exercise(id: "db_rear_fly", name: "啞鈴反向飛鳥", pattern: .rear, requires: [.dumbbell], loaded: true, tip: "上身前傾，手臂微彎往兩側打開，用輕重量"),
+        Exercise(id: "db_chest_rear_fly", name: "胸靠椅反向飛鳥", pattern: .rear, requires: [.dumbbell, .bench], loaded: true, tip: "胸口趴在斜椅上，手臂微彎往兩側打開，身體不會晃，比較好專心練後肩"),
         Exercise(id: "band_pull_apart", name: "彈力帶拉開", pattern: .rear, requires: [.band], loaded: false, tip: "手臂伸直，把彈力帶往兩邊拉到胸前"),
 
         // 核心
@@ -191,8 +200,13 @@ enum ExerciseLibrary {
         Exercise(id: "decline_crunch", name: "下斜捲腹", pattern: .core, requires: [.bench], loaded: false, tip: "腳勾住健身椅的滾筒，背不用碰到底"),
         Exercise(id: "hanging_knee", name: "懸垂舉膝", pattern: .core, requires: [.pullupBar], loaded: false, tip: "吊在單槓上，膝蓋抬到胸前，不要晃"),
         Exercise(id: "dead_bug", name: "死蟲式", pattern: .core, requires: [], loaded: false, tip: "下背貼地，對側手腳慢慢伸直"),
+        Exercise(id: "reverse_crunch", name: "反向捲腹", pattern: .core, requires: [], loaded: false, tip: "躺著，用腹部把骨盆捲起來、膝蓋帶向胸口，慢慢放下，不要甩"),
         Exercise(id: "plank", name: "棒式", pattern: .core, requires: [], loaded: false, unit: .seconds, range: 30...60, tip: "身體一直線，夾臀收腹"),
     ]
+
+    /// 不當主項（課表的重點動作）的動作：單腳版本受平衡限制、擺盪練的是爆發，重量進步不穩定。
+    /// 還是可以當輔助動作，或在家啞鈴到頂時升級用（`Upgrade`）。
+    static let notMain: Set<String> = ["db_sl_rdl", "sl_rdl", "kb_swing", "sl_glute_bridge"]
 
     /// 刪除的自訂動作也找得到：舊紀錄、PR 還要顯示它的名字。
     static func byId(_ id: String) -> Exercise? {

@@ -426,6 +426,7 @@ struct BodyEntrySheet: View {
         }
         if log == nil { context.insert(target) }
         try? context.save()
+        StartWeight.noteBodyWeight(target.weight, date: target.date)
         dismiss()
     }
 }

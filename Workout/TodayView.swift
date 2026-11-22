@@ -538,6 +538,11 @@ struct TodayView: View {
                                         .font(.caption2)
                                         .foregroundStyle(Theme.accentSoft)
                                 }
+                                if let from = r.item.upgradedFrom {
+                                    Text("「\(from)」到頂了，升級成這個")
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(Theme.gold)
+                                }
                             }
                             Spacer(minLength: 8)
                             VStack(alignment: .trailing, spacing: 3) {

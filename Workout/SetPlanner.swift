@@ -54,7 +54,7 @@ enum SetScheme: String, CaseIterable, Identifiable {
 
     var explain: String {
         switch self {
-        case .auto: "新手期用固定重量；單關節動作在進步期最後一組加 Drop set。"
+        case .auto: "新手用固定重量；升中階後，單關節動作在進步期最後一組加 Drop set。"
         case .straight: "每組同樣的重量，最適合新手練動作、穩定進步。"
         case .pyramid: "從輕到重：每組加重、次數變少，最後一組最重。"
         case .reverse: "先做最重的一組，之後每組減重約 10%、多做 2 下。"
@@ -104,7 +104,10 @@ enum SetPlanner {
     static func resolve(_ scheme: SetScheme, exercise: Exercise, phase: Phase, grouped: Bool = false) -> SetScheme {
         guard exercise.loaded else { return .straight }
         guard scheme == .auto else { return scheme }
-        if phase == .normal && isolation.contains(exercise.pattern) && !grouped { return .dropset }
+        // 新手用固定重量就會一直進步；Drop set 疲勞多、效益小，升中階後才自動排
+        if phase == .normal && Graduation.intermediateActive && isolation.contains(exercise.pattern) && !grouped {
+            return .dropset
+        }
         return .straight
     }
 

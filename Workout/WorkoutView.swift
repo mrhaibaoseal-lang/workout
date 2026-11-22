@@ -20,6 +20,8 @@ struct SetDraft: Identifiable {
     /// 另一手的次數（-1 = 和弱的那手一樣）、還剩幾下（-1 = 沒填）
     var otherReps = -1
     var otherRir = -1
+    /// 刻意減輕的組（練前狀態很差、會痛減輕）：下次加重不拿它當基準
+    var eased = false
 }
 
 struct ExerciseDraft: Identifiable {
@@ -42,6 +44,8 @@ struct ExerciseDraft: Identifiable {
     var note: String = ""
     /// 上次寫的動作備註
     var lastNote: String? = nil
+    /// 同一個關節最近會痛的提醒（`Joint.caution`）
+    var caution: String? = nil
     /// 最近幾次的推估最大力量（休息頁小圖）
     var trend: [Double] = []
     /// 第一次做的動作：第一個正式組是試重組，做完依「還剩幾下」校準後面的組（`StartWeight`）
@@ -84,7 +88,7 @@ struct WorkoutView: View {
     @State private var showNothingDone = false
     @State private var askMore = false
     /// 每個動作以前的最高重量（破紀錄判斷用），開始訓練時算一次。
-    @State private var bests: [String: Double] = [:]
+    @State private var bests: [String: PRBest] = [:]
     @State private var prMoment: PRMoment?
     @State private var prCount: Set<String> = []
     @State private var summary: WorkoutSummary?
@@ -561,6 +565,12 @@ struct WorkoutView: View {
                 }
             }
             autoAdjust(exerciseIndex, after: s)
+            // 「還剩幾下」填得太保守：同重量下一組掉很多下就提醒（`RIRCheck`）
+            let prevWork = d.sets[..<s].last { $0.kind == .work && $0.done }
+            if let p = prevWork, let hint = RIRCheck.hint(prevReps: p.reps, prevRir: p.rir, prevWeight: p.weight,
+                                                          curReps: done.reps, curWeight: done.weight) {
+                showToast(hint)
+            }
         } else {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
@@ -845,6 +855,7 @@ struct WorkoutView: View {
         let ladder = drafts[i].ladder
         for k in drafts[i].sets.indices where !drafts[i].sets[k].done && drafts[i].sets[k].weight > 0 {
             drafts[i].sets[k].weight = ladder.snap(drafts[i].sets[k].weight * 0.8)
+            drafts[i].sets[k].eased = true
         }
         Avoid.logPain(drafts[i].item.exercise.id)
         showToast("這個動作剩下的組減輕約兩成，不舒服就停下來")
@@ -905,6 +916,7 @@ struct WorkoutView: View {
         draft.plateauReset = plateau != nil
         draft.trial = last.isEmpty && item.exercise.loaded && length != .minimal
         draft.lastNote = ExerciseNotes.last(for: item.exercise.id, in: sessions)?.note
+        draft.caution = Joint.caution(for: item.exercise, pain: Joint.recentPain())
         draft.trend = ExerciseTrend.points(for: item.exercise.id, loaded: item.exercise.loaded, in: sessions)
         return draft
     }
@@ -917,17 +929,19 @@ struct WorkoutView: View {
         guard level == .veryLow, loaded else { return }
         for k in sets.indices where sets[k].kind != .warmup && sets[k].weight > 0 {
             sets[k].weight = ladder.down(sets[k].weight)
+            sets[k].eased = true
         }
     }
 
-    /// 破個人紀錄：有負重的動作，重量超過以前的最高重量（第一次做不算，和牌位的定義一樣）。
+    /// 破個人紀錄：有負重的動作，重量超過以前的最高重量，或用最高重量做更多下（`PRRule`，第一次做不算，和牌位的定義一樣）。
     @discardableResult
     private func checkRecord(_ d: ExerciseDraft, set: SetDraft) -> Bool {
         let ex = d.item.exercise
-        guard ex.loaded, set.weight > 0, let old = bests[ex.id], set.weight > old else { return false }
-        bests[ex.id] = set.weight
+        guard ex.loaded, set.kind == .work, set.weight > 0, let old = bests[ex.id],
+              let kind = PRRule.check(weight: set.weight, reps: set.reps, best: old) else { return false }
+        bests[ex.id] = PRRule.merge(old, weight: set.weight, reps: set.reps)
         prCount.insert(ex.id)
-        let m = PRMoment(name: ex.name, weight: set.weight, old: old)
+        let m = PRMoment(name: ex.name, weight: set.weight, kind: kind, reps: set.reps)
         prMoment = m
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + PRMoment.duration + 0.1) {
@@ -938,13 +952,7 @@ struct WorkoutView: View {
 
     private func buildDrafts() {
         guard drafts.isEmpty, readiness != nil else { return }
-        var b: [String: Double] = [:]
-        for s in sessions {
-            for e in s.entries where e.weight > 0 {
-                b[e.exerciseId] = max(b[e.exerciseId] ?? 0, e.weight)
-            }
-        }
-        bests = b
+        bests = PRRule.bests(sessions)
         let plan = ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length, limitBarbell: lessBarbell,
                                        gym: isGym)
         var seen = Set<String>()
@@ -992,12 +1000,14 @@ struct WorkoutView: View {
         session.note = sessionNote.trimmingCharacters(in: .whitespacesAndNewlines)
         session.exerciseNotes = ExerciseNotes.encode(Dictionary(drafts.map { ($0.item.exercise.id, $0.note) }, uniquingKeysWith: { a, _ in a }))
         session.readiness = readiness?.encoded ?? ""
+        session.phase = ProgramBuilder.phase(week: week).rawValue
         context.insert(session)
         for d in drafts {
             for (i, set) in d.sets.enumerated() where set.done {
                 let entry = SetEntry(exerciseId: d.item.exercise.id, setIndex: i,
                                      weight: d.item.exercise.loaded ? set.weight : 0,
                                      reps: set.reps, date: now, kind: set.kind, rir: set.rir)
+                entry.eased = set.eased
                 if set.oneArm || set.kind == .weak { entry.side = SideBalance.first(for: d.item.exercise).rawValue }
                 if set.oneArm {
                     entry.otherReps = set.otherReps < 0 ? set.reps : set.otherReps
@@ -1009,6 +1019,12 @@ struct WorkoutView: View {
         }
         try? context.save()
         recordJumpState(at: now)
+        // 在家啞鈴到頂、每組都做到上限：下次自動換成更難的版本（`Upgrade`）
+        for d in drafts where !isGym {
+            let work = d.sets.filter { $0.done && $0.kind == .work && !$0.eased }.map { (weight: $0.weight, reps: $0.reps) }
+            guard !work.isEmpty, ProgramBuilder.phase(week: week) == .normal else { continue }
+            Upgrade.record(item: d.item, work: work, ladder: d.ladder, equipment: equipment)
+        }
         coach = CoachLoader(facts: coachFacts(session: session))
         askMuscles = PersonalVolume.musclesToAsk(
             done: drafts.map { d in (exercise: d.item.exercise, sets: d.sets.filter { $0.done && $0.kind == .work }.count) },
@@ -1046,7 +1062,7 @@ struct WorkoutView: View {
         for d in drafts {
             let ex = d.item.exercise
             let work = d.sets.filter { $0.done && $0.kind == .work }
-            guard ex.loaded, !work.isEmpty else { continue }
+            guard ex.loaded, !work.isEmpty, !work.allSatisfy(\.eased) else { continue }
             let entries = work.enumerated().map { i, s in
                 SetEntry(exerciseId: ex.id, setIndex: i, weight: s.weight, reps: s.reps, date: date, rir: s.rir)
             }
@@ -1388,13 +1404,20 @@ struct ExerciseCard: View {
 
     /// 加重建議。重量跳太大時旁邊有 ⓘ 說明。
     private var suggestionLine: some View {
-        HStack(alignment: .top, spacing: 2) {
-            Text(draft.suggestion.note)
-                .font(.footnote.weight(.bold))
-                .foregroundStyle(draft.suggestion.note.contains("加重") ? Theme.hotText : Theme.accentSoft)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let tip = draft.suggestion.tip {
-                InfoTip(item: tip)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 2) {
+                Text(draft.suggestion.note)
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(draft.suggestion.note.contains("加重") ? Theme.hotText : Theme.accentSoft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let tip = draft.suggestion.tip {
+                    InfoTip(item: tip)
+                }
+            }
+            if let caution = draft.caution {
+                Label(caution, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.hotText)
             }
         }
     }

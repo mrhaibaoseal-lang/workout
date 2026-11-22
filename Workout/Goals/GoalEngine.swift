@@ -93,19 +93,18 @@ enum GoalEngine {
 
     static func facts(_ sessions: [WorkoutSession]) -> [SessionFact] {
         let ordered = sessions.sorted { $0.date < $1.date }
-        var best: [String: Double] = [:]
+        var best: [String: PRBest] = [:]
         return ordered.map { s in
             let work = s.entries.filter(\.isWork)
             var prs = 0
             let byExercise = Dictionary(grouping: work.filter { $0.weight > 0 }, by: \.exerciseId)
             for (id, sets) in byExercise {
                 guard ExerciseLibrary.byId(id)?.loaded == true else { continue }
-                let top = sets.map(\.weight).max() ?? 0
-                if let old = best[id] {
-                    if top > old { prs += 1; best[id] = top }
-                } else {
-                    best[id] = top
-                }
+                // 重量紀錄或次數紀錄（`PRRule`）
+                let r = PRRule.session(sets: sets.sorted { $0.setIndex < $1.setIndex }.map { (weight: $0.weight, reps: $0.reps) },
+                                       best: best[id])
+                if r.pr { prs += 1 }
+                best[id] = r.best
             }
             let volume = work.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
             return SessionFact(date: s.date, length: s.length, dayKey: s.dayKey,

@@ -7,10 +7,18 @@ struct PRMoment: Identifiable, Equatable {
     let id = UUID()
     let name: String
     let weight: Double
-    let old: Double
+    let kind: PRKind
+    var reps: Int = 0
     let start = Date()
 
     static let duration = 2.0
+
+    var detail: String {
+        switch kind {
+        case .weight(let old): "比之前多 \(Progression.format(weight - old)) kg"
+        case .reps(let old): "同重量做到 \(reps) 下，比之前多 \(reps - old) 下"
+        }
+    }
 }
 
 /// 破紀錄：金色光芒＋火花噴出，大字砸下來。不擋操作。
@@ -44,7 +52,7 @@ struct PRBurstView: View {
                             .font(.title3.weight(.heavy))
                             .foregroundStyle(.white)
                             .opacity(FXMath.seg(t, 0.35, 0.6))
-                        Text("比之前多 \(Progression.format(pr.weight - pr.old)) kg")
+                        Text(pr.detail)
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(Theme.gold)
                             .opacity(FXMath.seg(t, 0.5, 0.75))

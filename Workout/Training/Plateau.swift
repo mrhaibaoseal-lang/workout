@@ -59,7 +59,9 @@ enum Plateau {
     private static func perfs(sessions: [WorkoutSession], resets: [String: TimeInterval]) -> [String: [SessionPerf]] {
         var out: [String: [SessionPerf]] = [:]
         for s in sessions {
-            let work = s.entries.filter(\.isWork)
+            // 減量週、刻意減輕的組本來就比較輕，不算「沒進步」（`SessionPhase`）
+            if SessionPhase.isDeload(s) { continue }
+            let work = s.entries.filter { $0.isWork && !$0.eased }
             if work.isEmpty { continue }
             let byEx = Dictionary(grouping: work, by: \.exerciseId)
             for (id, sets) in byEx {

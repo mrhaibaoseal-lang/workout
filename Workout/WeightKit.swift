@@ -112,6 +112,7 @@ enum WeightKits {
     static let singleDumbbell: Set<String> = [
         "goblet_squat", "db_row", "db_overhead_ext", "db_hip_thrust", "db_glute_bridge",
         "db_calf_raise", "db_sl_rdl", "db_leg_curl", "db_lean_lateral",
+        "heel_goblet", "goblet_15", "db_pullover", "db_concentration_curl",
     ]
 
     /// 從 from 換成 to 大概要幾秒：拆裝鎖頭＋每片槓片＋（啞鈴↔槓鈴）組裝。

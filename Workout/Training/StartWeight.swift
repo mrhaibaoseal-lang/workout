@@ -38,6 +38,10 @@ enum StartWeight {
         "cable_face_pull": 0.3, "machine_rear_delt": 0.35, "db_rear_fly": 0.07,
         // 核心
         "cable_crunch": 0.5,
+        // 0.30.0 新增
+        "goblet_15": 0.33, "heel_goblet": 0.4, "db_step_up": 0.2, "db_pullover": 0.2,
+        "db_incline_curl": 0.12, "db_concentration_curl": 0.13, "db_skull": 0.15, "db_kickback": 0.07,
+        "db_chest_rear_fly": 0.07,
     ]
 
     /// 試重組的目標：還剩 2 下
@@ -74,6 +78,34 @@ enum StartWeight {
     /// 做到 reps 下、還剩 rir 下的重量（Epley 反推）
     static func weight(e1rm: Double, reps: Int, rir: Int) -> Double {
         e1rm / (1 + Double(reps + rir) / 30)
+    }
+
+    /// 最近一次量的體重（kg），0 = 沒量過。身體數據存檔時更新。
+    static var bodyWeight: Double { UserDefaults.standard.double(forKey: Keys.bodyWeight) }
+
+    static func noteBodyWeight(_ w: Double, date: Date) {
+        guard w > 0 else { return }
+        let d = UserDefaults.standard
+        let t = date.timeIntervalSince1970
+        guard t >= d.double(forKey: Keys.bodyWeightDate) else { return }
+        d.set(w, forKey: Keys.bodyWeight)
+        d.set(t, forKey: Keys.bodyWeightDate)
+    }
+
+    /// 完全沒做過相關動作時的起點：沒練過的新手，槓鈴臥推的推估最大力量約體重的一半（沒量體重用 60 kg）。
+    /// 這是保守的起點，第一組做完填還剩幾下會自動校準。
+    static let novicePressRatio = 0.5
+    static let defaultBodyWeight = 60.0
+
+    static func noviceEstimate(_ item: PlannedExercise, ladder: WeightLadder) -> Double? {
+        let ex = item.exercise
+        guard ex.loaded, let k = strength[ex.id] else { return nil }
+        let bw = bodyWeight > 0 ? bodyWeight : defaultBodyWeight
+        let e1 = bw * novicePressRatio * k * safety
+        let raw = weight(e1rm: e1, reps: item.high, rir: targetRIR)
+        guard raw > 0 else { return nil }
+        let w = ladder.snap(raw)
+        return w > 0 ? w : nil
     }
 
     static func estimate(_ item: PlannedExercise, ladder: WeightLadder) -> Estimate? {
