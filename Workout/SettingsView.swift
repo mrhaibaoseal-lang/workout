@@ -91,6 +91,8 @@ struct SettingsView: View {
     @AppStorage(Keys.increment) private var increment = 2.5
     @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
     @AppStorage(Keys.trainingLevel) private var levelRaw = TrainingLevel.beginner.rawValue
+    @AppStorage(Keys.focusMuscles) private var focusRaw = ""
+    @AppStorage(Keys.specialization) private var specRaw = ""
     @AppStorage(Keys.reminderOn) private var reminderOn = true
     @AppStorage(Keys.reminderLead) private var reminderLead = 0
     @AppStorage(Keys.commuteSchool) private var commuteSchool = 15
@@ -120,6 +122,19 @@ struct SettingsView: View {
     private var programStatus: String {
         _ = (activeProgram, programsRaw, builtInRaw)
         return ProgramBuilder.customName.map { "使用中：\($0)" } ?? "使用中：\(BuiltInProgram.current.title)"
+    }
+
+    private var focusStatus: String {
+        _ = (focusRaw, specRaw, activeProgram, builtInRaw)
+        var parts: [String] = []
+        let list = Focus.muscles
+        parts.append(list.isEmpty ? "沒有重點部位" : "重點：" + list.map(\.name).joined(separator: "、"))
+        switch Specialization.status(week: Plateau.currentWeek) {
+        case .scheduled(let w): parts.append("專項期第 \(w) 週開始")
+        case .running: parts.append("專項期進行中")
+        default: break
+        }
+        return parts.joined(separator: "・")
     }
 
     private var reminderSummary: String {
@@ -207,6 +222,14 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Label("訓練課表", systemImage: "list.bullet.rectangle")
                             Text(programStatus).font(.caption).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    NavigationLink {
+                        FocusSettingsView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("重點部位與專項期", systemImage: "scope")
+                            Text(focusStatus).font(.caption).foregroundStyle(Theme.muted)
                         }
                     }
                     NavigationLink {

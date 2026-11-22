@@ -136,12 +136,14 @@ enum ProgramBuilder {
     /// 舊紀錄的 dayKey 找回那一天（內建兩份、任何一份自訂課表、併成的全身日）。
     static func template(id: String) -> DayTemplate? {
         if id.hasPrefix(WeekFit.prefix) { return WeekFit.template(id: id) }
-        return (splitDays + fullBodyDays).first { $0.id == id } ?? CustomPrograms.day(templateId: id)
+        return (builtInDays + splitDays + fullBodyDays).first { $0.id == id } ?? CustomPrograms.day(templateId: id)
     }
 
     /// 內建課表：選了「3 天全身」就用全身，不然用 4 天上下分化。
+    /// 手臂／肩膀專項期的進步週，各天多排手臂、肩膀的動作（`Specialization`）。
     static var builtInDays: [DayTemplate] {
-        BuiltInProgram.current == .fullBody3 ? fullBodyDays : splitDays
+        Specialization.augment(BuiltInProgram.current == .fullBody3 ? fullBodyDays : splitDays,
+                               week: Plateau.currentWeek)
     }
 
     /// 內建 3 天全身（0.25.0）：每個部位一週練 3 次、每次組數少一點，每週總組數和分化差不多（再由 `VolumePlan` 平衡）。
@@ -339,8 +341,8 @@ enum ProgramBuilder {
                      sets: slotSets(day.slots[i], day: day, phase: phase, length: .full, extra: false))
                 })
         }
-        // 個人組數＋中階的區塊加組（`Graduation.offsets`）
-        let result = VolumePlan.balance(days: inputs, phase: phase, personal: Graduation.offsets(week: week))
+        // 個人組數＋中階的區塊加組＋重點部位＋專項期（`Focus.offsets`）
+        let result = VolumePlan.balance(days: inputs, phase: phase, personal: Focus.offsets(week: week))
         return zip(raws, result).map { raw, counts in
             var items = raw.items
             for i in items.indices where i < counts.count { items[i].sets = counts[i] }
