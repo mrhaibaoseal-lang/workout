@@ -69,13 +69,22 @@ enum Nutrition {
 
     /// 最近 n 天（含今天）有記錄的日子的平均；沒記錄的天不算。
     static func average(_ log: [String: Int], days n: Int, now: Date = .now) -> Int? {
+        stats(log, days: n, endingOn: now)?.avg
+    }
+
+    /// endingOn 那天往前 n 天（含那天）：有記錄的日子的平均、記了幾天。
+    /// 沒記錄的天不算進平均，所以要一起看記了幾天（只記一天 150 g 不代表整週都吃夠）。
+    static func stats(_ log: [String: Int], days n: Int, endingOn end: Date) -> (avg: Int, logged: Int)? {
         let cal = Calendar.current
         let vals = (0..<n).compactMap { i -> Int? in
-            guard let d = cal.date(byAdding: .day, value: -i, to: now) else { return nil }
+            guard let d = cal.date(byAdding: .day, value: -i, to: end) else { return nil }
             return log[key(d)]
         }.filter { $0 > 0 }
-        return vals.isEmpty ? nil : vals.reduce(0, +) / vals.count
+        return vals.isEmpty ? nil : (vals.reduce(0, +) / vals.count, vals.count)
     }
+
+    /// 週總結要記滿幾天，才拿平均給建議
+    static let minLoggedDays = 4
 
     // MARK: 增重速度
 
@@ -165,8 +174,8 @@ struct NutritionCard: View {
             HStack {
                 Text("增肌飲食").font(.subheadline.weight(.bold)).foregroundStyle(Theme.fg)
                 Spacer()
-                if let avg = Nutrition.average(log, days: 7) {
-                    Text("7 天平均 \(avg) g").font(.caption).foregroundStyle(Theme.muted)
+                if let st = Nutrition.stats(log, days: 7, endingOn: .now) {
+                    Text("7 天記了 \(st.logged) 天，平均 \(st.avg) g").font(.caption).foregroundStyle(Theme.muted)
                 }
             }
             proteinRow
@@ -176,6 +185,8 @@ struct NutritionCard: View {
         }
         .themeCard()
         .sheet(isPresented: $showCustom) { customSheet }
+        // 從備份還原、或隔天回到這頁時重新讀
+        .onAppear { log = Nutrition.load() }
     }
 
     private var proteinRow: some View {

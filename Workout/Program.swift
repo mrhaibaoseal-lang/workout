@@ -652,7 +652,7 @@ enum Progression {
                 if ex.loaded {
                     let next = ladder.up(lastWeight)
                     if next <= lastWeight + 0.01 {
-                        if let up = Upgrade.next(for: ex), Upgrade.store.load()[ex.id] == nil {
+                        if let up = Upgrade.target(for: ex, equipment: Upgrade.currentEquipment) {
                             return Suggestion(weight: lastWeight, reps: item.high,
                                               note: "已經是你器材最重的了：這次全部做到 \(item.high) 下，下次自動換成更難的「\(up.name)」")
                         }
@@ -665,9 +665,10 @@ enum Progression {
                     }
                     return loadedJump(item, lastWeight: lastWeight, top: top, next: next, ladder: ladder)
                 }
-                if ex.unit == .reps, let up = Upgrade.next(for: ex), Upgrade.store.load()[ex.id] == nil {
+                // 徒手要連續 2 次都做到上限才升級（`Upgrade.ready`）：上次做到了，這次再做到就換
+                if ex.unit == .reps, let up = Upgrade.target(for: ex, equipment: Upgrade.currentEquipment) {
                     return Suggestion(weight: lastWeight, reps: item.high,
-                                      note: "這次每組都做到 \(item.high) 下，下次自動換成更難的「\(up.name)」")
+                                      note: "上次每組都做到 \(item.high) 下：這次再全部做到，下次自動換成更難的「\(up.name)」")
                 }
                 return Suggestion(weight: lastWeight, reps: item.high,
                                   note: "已經達標，下放放慢到 3 秒增加難度")

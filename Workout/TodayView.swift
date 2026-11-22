@@ -4,6 +4,8 @@ import SwiftData
 struct ActiveWorkout: Identifiable {
     let day: DayTemplate
     let length: WorkoutLength
+    /// 接著練上次沒按完成的訓練（`WorkoutResume`）
+    var resume: WorkoutSnapshot? = nil
     var id: String { day.id + "-" + length.rawValue }
 }
 
@@ -85,7 +87,12 @@ struct TodayView: View {
         let to: RankStep
     }
 
-    private var week: Int { Stats.week(since: Date(timeIntervalSince1970: startDate)) }
+    /// 停練暫停寫進去時重畫（`TrainingHistory.refresh` 會在畫面算完後才寫）
+    @AppStorage(Keys.trainingPauses) private var pausesRaw = ""
+    private var week: Int {
+        _ = pausesRaw
+        return Stats.week(since: Date(timeIntervalSince1970: startDate))
+    }
     private var phase: Phase {
         _ = deloadRaw
         return ProgramBuilder.phase(week: week)
@@ -116,6 +123,13 @@ struct TodayView: View {
         _ = (leavesRaw, planLogRaw, shieldBuysRaw, betsRaw)
         return .load()
     }
+    /// 上次沒按完成的訓練（`WorkoutResume`）
+    @State private var resumable: WorkoutSnapshot?
+    /// 接著練要用的那一天：照 id 找（併成全身日的那天也找得到）
+    private func resumeDay(_ r: WorkoutSnapshot) -> DayTemplate? {
+        if let d = ProgramBuilder.days.first(where: { $0.id == r.dayId }) { return d }
+        return day.id == r.dayId ? day : nil
+    }
     private var missed: Bool {
         GoalEngine.missedLastPlanned(dates: sessions.map(\.date), ctx: ctx)
     }
@@ -131,6 +145,17 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     header
+                    // 0. 上次練到一半（App 被關掉）：接著練
+                    if let r = resumable, active == nil {
+                        ResumeCard(snap: r, canResume: resumeDay(r) != nil, onResume: {
+                            if let d = resumeDay(r), let len = WorkoutLength(rawValue: r.length) {
+                                active = ActiveWorkout(day: d, length: len, resume: r)
+                            }
+                        }, onDiscard: {
+                            WorkoutResume.clear()
+                            withAnimation { resumable = nil }
+                        })
+                    }
                     // 1. 會改變今天要做什麼的：漏練、併成全身日
                     if missed && !trainedToday {
                         MissedCard(onStart: {
@@ -190,11 +215,13 @@ struct TodayView: View {
                 if phase == .active {
                     refresh += 1
                     checkRank()
+                    resumable = WorkoutResume.load()
                 }
             }
             .onAppear {
                 checkRank()
                 PersonalVolume.reviewIfNeeded(sessions: sessions)
+                resumable = WorkoutResume.load()
             }
             .fullScreenCover(isPresented: $showGraduation) {
                 GraduationCelebration { showGraduation = false }
@@ -232,8 +259,11 @@ struct TodayView: View {
                 let planned = plans.first.flatMap { $0.done ? nil : $0.length }
                 active = ActiveWorkout(day: day, length: planned ?? length)
             }
-            .fullScreenCover(item: $active, onDismiss: { checkRank() }) { a in
-                WorkoutView(day: a.day, length: a.length, week: week) {
+            .fullScreenCover(item: $active, onDismiss: {
+                checkRank()
+                resumable = WorkoutResume.load()
+            }) { a in
+                WorkoutView(day: a.day, length: a.length, week: week, resume: a.resume) {
                     pickedDay = nil
                 }
                 .environmentObject(inventory)
@@ -667,12 +697,15 @@ struct TodayView: View {
         if let w = WeeklySummary.pendingWeek(start: start, seen: summarySeen, sessions: sessions) {
             WeeklySummaryCard(week: w, hasReview: PersonalVolume.review(endingWeek: w) != nil) {
                 var facts = WeeklySummary.facts(week: w, start: start, sessions: sessions, goal: weeklyGoal)
-                let weights = bodyLogs.filter { $0.weight > 0 }.map { (date: $0.date, weight: $0.weight) }
+                // 用被總結的那一週算，不是今天（週總結可能過幾天才打開）
+                let weekEnd = PersonalVolume.weekStart(w + 1, start: start)
+                let lastDay = Stats.calendar.date(byAdding: .day, value: -1, to: weekEnd) ?? weekEnd
+                let weights = bodyLogs.filter { $0.weight > 0 && $0.date < weekEnd }.map { (date: $0.date, weight: $0.weight) }
                 let bw = weights.last?.weight ?? StartWeight.bodyWeight
-                facts.weeklyGain = Nutrition.weeklyChange(weights)
+                facts.weeklyGain = Nutrition.weeklyChange(weights, now: weekEnd)
                 facts.pace = Nutrition.pace(weeklyChange: facts.weeklyGain, bodyWeight: bw)
-                if bw > 0, let avg = Nutrition.average(Nutrition.load(), days: 7) {
-                    facts.protein = (avg, Nutrition.target(bodyWeight: bw))
+                if bw > 0, let st = Nutrition.stats(Nutrition.load(), days: 7, endingOn: lastDay) {
+                    facts.protein = (st.avg, Nutrition.target(bodyWeight: bw), st.logged)
                 }
                 weeklyFacts = WeeklyFactsItem(facts: facts)
             }
@@ -706,6 +739,43 @@ struct TodayView: View {
 }
 
 // MARK: - Cards
+
+/// 上次的訓練沒按「完成」就被關掉（`WorkoutResume`）。
+struct ResumeCard: View {
+    let snap: WorkoutSnapshot
+    /// 課表改過、找不到那一天就不能接著練，只能放棄
+    let canResume: Bool
+    let onResume: () -> Void
+    let onDiscard: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("上次的訓練還沒結束", systemImage: "arrow.uturn.backward.circle.fill")
+                .font(.headline)
+                .foregroundStyle(Theme.accentSoft)
+            Text("\(snap.dayName) · 已經做完 \(snap.doneSets) 組 · \(Date(timeIntervalSince1970: snap.savedAt).formatted(date: .omitted, time: .shortened)) 存的")
+                .font(.subheadline)
+                .foregroundStyle(Theme.fg)
+            if canResume {
+                Button(action: onResume) { Text("接著練") }
+                    .buttonStyle(HotButtonStyle(height: 48))
+            } else {
+                Text("課表改過了，找不到那一天，沒辦法接著練。")
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+            Button(action: onDiscard) {
+                Label("放棄這次（不儲存）", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(GhostButtonStyle())
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
+    }
+}
 
 struct MissedCard: View {
     let onStart: () -> Void

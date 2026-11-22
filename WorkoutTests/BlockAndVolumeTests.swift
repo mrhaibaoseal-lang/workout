@@ -158,13 +158,44 @@ final class BlockAndVolumeTests: XCTestCase {
 
     // MARK: TrainingPause
 
-    func testPauseLengthSkipsFirstRestWeek() {
-        let last = day(.now, -40)
-        XCTAssertNil(TrainingPause.pause(lastBefore: last, until: day(last, 13)))
-        let p14 = TrainingPause.pause(lastBefore: last, until: day(last, 14))
+    func testPauseStartsAfterTwoWeeks() {
+        let last = day(.now, -60)
+        XCTAssertNil(TrainingPause.pause(lastBefore: last, until: day(last, 13), ongoing: true))
+        // 還沒回來：蓋到這一週結尾
+        let p14 = TrainingPause.pause(lastBefore: last, until: day(last, 14), ongoing: true)
         XCTAssertEqual(p14?.days, 7)
-        XCTAssertEqual(p14?.from, day(last, 7).timeIntervalSince1970)
-        XCTAssertEqual(TrainingPause.pause(lastBefore: last, until: day(last, 30))?.days, 21)
+        XCTAssertEqual(p14?.from, day(last, 14).timeIntervalSince1970)
+        XCTAssertEqual(TrainingPause.pause(lastBefore: last, until: day(last, 21), ongoing: true)?.days, 14)
+        // 回來了：進位到 7 的倍數
+        XCTAssertNil(TrainingPause.pause(lastBefore: last, until: day(last, 14), ongoing: false))
+        XCTAssertEqual(TrainingPause.pause(lastBefore: last, until: day(last, 15), ongoing: false)?.days, 7)
+        XCTAssertEqual(TrainingPause.pause(lastBefore: last, until: day(last, 21), ongoing: false)?.days, 7)
+        XCTAssertEqual(TrainingPause.pause(lastBefore: last, until: day(last, 30), ongoing: false)?.days, 21)
+    }
+
+    /// 停練中每天重算暫停（像 `TrainingPause.record` 那樣），週數不能往回跳、滿 14 天後要停住；回來後連續往前走。
+    func testWeekNeverGoesBackDuringOngoingLayoff() {
+        let start = day(.now, -200)
+        for lastOffset in [20, 23, 26] {
+            let last = day(start, lastOffset)
+            for returnGap in [14, 15, 19, 21, 30, 44] {
+                var prev = 0
+                for g in 0...(returnGap + 30) {
+                    let date = day(last, g)
+                    let p = g < returnGap
+                        ? TrainingPause.pause(lastBefore: last, until: date, ongoing: true)
+                        : TrainingPause.pause(lastBefore: last, until: day(last, returnGap), ongoing: false)
+                    let w = TrainingPause.week(since: start, at: date, pauses: p.map { [$0] } ?? [])
+                    XCTAssertGreaterThanOrEqual(w, prev, "last \(lastOffset) return \(returnGap) gap \(g)")
+                    XCTAssertLessThanOrEqual(w - prev, prev == 0 ? w : 1)
+                    if g >= 14 && g < returnGap {
+                        let frozen = TrainingPause.week(since: start, at: day(last, 14), pauses: [])
+                        XCTAssertEqual(w, frozen, "停練中週數要停住：gap \(g)")
+                    }
+                    prev = w
+                }
+            }
+        }
     }
 
     func testWeekFreezesDuringPause() {
@@ -216,6 +247,26 @@ final class BlockAndVolumeTests: XCTestCase {
                                          upgrades: ["pike_pushup": "elevated_pike"]))
     }
 
+    func testBodyweightNeedsTwoSessionsInARow() {
+        let empty = WeightLadder(loadings: [], step: 1)
+        let hit: [(weight: Double, reps: Int)] = [(0, 12), (0, 12)]
+        let miss: [(weight: Double, reps: Int)] = [(0, 12), (0, 10)]
+        XCTAssertTrue(Upgrade.ready(ex("pushup"), high: 12, work: hit, previous: hit, ladder: empty))
+        XCTAssertFalse(Upgrade.ready(ex("pushup"), high: 12, work: hit, previous: miss, ladder: empty))
+        XCTAssertFalse(Upgrade.ready(ex("pushup"), high: 12, work: hit, previous: [], ladder: empty))
+        XCTAssertFalse(Upgrade.ready(ex("pushup"), high: 12, work: miss, previous: hit, ladder: empty))
+    }
+
+    func testUpgradeTargetChecksEquipmentAndHistory() {
+        // 屈體伏地挺身 → 腳抬高要椅子：沒有椅子就沒有目標，建議文字也不會答應
+        XCTAssertNil(Upgrade.target(for: ex("pike_pushup"), equipment: [], upgrades: [:]))
+        XCTAssertEqual(Upgrade.target(for: ex("pike_pushup"), equipment: [.bench], upgrades: [:])?.id, "elevated_pike")
+        // 已經升級過就不再升
+        XCTAssertNil(Upgrade.target(for: ex("pushup"), equipment: [], upgrades: ["pushup": "pause_pushup"]))
+        XCTAssertEqual(Upgrade.target(for: ex("pause_pushup"), equipment: [], upgrades: ["pushup": "pause_pushup"])?.id,
+                       "archer_pushup")
+    }
+
     func testBodyweightQualifiesOnRepsOnly() {
         let empty = WeightLadder(loadings: [], step: 1)
         XCTAssertTrue(Upgrade.qualifies(ex("pushup"), high: 12, work: [(0, 12), (0, 13), (0, 12)], ladder: empty))
@@ -251,12 +302,22 @@ final class BlockAndVolumeTests: XCTestCase {
     func testLevelTestLifts() {
         let r = LevelTest.Result(pushups: 20, gobletKg: 10, rowKg: nil, date: 0)
         let l = LevelTest.lifts(r, bodyWeight: 70)
-        XCTAssertEqual(l["bb_bench"] ?? 0, 70 * 0.64 * (1 + 20.0 / 30), accuracy: 0.01)
+        // 次數超過 15 下的當 15 下算（Epley 高次數會高估）
+        XCTAssertEqual(l["bb_bench"] ?? 0, 70 * 0.64 * (1 + 15.0 / 30), accuracy: 0.01)
         XCTAssertEqual(l["goblet_squat"] ?? 0, 10 * (1 + 12.0 / 30), accuracy: 0.01)
         XCTAssertNil(l["db_row"])
         let eq = LevelTest.benchEquivalent(LevelTest.Result(pushups: 20, gobletKg: nil, rowKg: nil, date: 0), bodyWeight: 70)
         XCTAssertEqual(eq ?? 0, l["bb_bench"] ?? -1, accuracy: 0.01)
         XCTAssertNil(LevelTest.benchEquivalent(LevelTest.Result(pushups: nil, gobletKg: nil, rowKg: nil, date: 0), bodyWeight: 70))
+    }
+
+    func testLevelTestPushupsCapAndOwnBodyWeight() {
+        // 80 下不能推成好幾倍體重
+        let many = LevelTest.lifts(LevelTest.Result(pushups: 80, gobletKg: nil, rowKg: nil, date: 0), bodyWeight: 60)
+        XCTAssertLessThanOrEqual(many["bb_bench"] ?? 0, 60 * 0.64 * 1.5 + 0.01)
+        // 測試時有填體重，就用那個體重，不用目前記的
+        let own = LevelTest.Result(pushups: 10, gobletKg: nil, rowKg: nil, date: 0, bodyWeight: 45)
+        XCTAssertEqual(LevelTest.lifts(own, bodyWeight: 60)["bb_bench"] ?? 0, 45 * 0.64 * (1 + 10.0 / 30), accuracy: 0.01)
     }
 
     func testLevelTestReferencesExist() {
@@ -310,6 +371,8 @@ final class BlockAndVolumeTests: XCTestCase {
             XCTAssertNotNil(DemoVideos.byExercise[base], base)
         }
         XCTAssertFalse(DemoVideos.isValidId("abc\"><x"))
+        XCTAssertFalse(DemoVideos.isValidId("abcdefghij中"))
+        XCTAssertFalse(DemoVideos.isValidId("abcdefghij１"))
         let url = DemoVideos.searchURL(for: ExerciseLibrary.byId("db_kickback")!)
         XCTAssertEqual(url.host, "www.youtube.com")
     }

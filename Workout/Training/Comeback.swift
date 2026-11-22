@@ -42,7 +42,11 @@ enum TrainingHistory {
         }
         lifts = out
         comeback = Comeback.detect(sessions, now: now)
-        if let c = comeback { TrainingPause.record(lastBefore: c.lastBefore, returned: c.returned, now: now) }
+        // 寫入延到這次畫面算完之後：sync 是在畫面計算途中呼叫的，不在那時候改 UserDefaults
+        // （今天頁用 @AppStorage 看著 trainingPauses，寫進去後會重畫、週數跟著更新）
+        if let c = comeback {
+            DispatchQueue.main.async { TrainingPause.record(lastBefore: c.lastBefore, returned: c.returned, now: now) }
+        }
     }
 }
 

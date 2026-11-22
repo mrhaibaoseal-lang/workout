@@ -36,7 +36,24 @@ enum SettingsBackup {
         save()
         observer = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
-        ) { _ in save() }
+        ) { _ in scheduleSave() }
+    }
+
+    private static var pending: DispatchWorkItem?
+
+    /// UserDefaults 每改一次都會通知；2 秒內的變動合併成一次備份（練習中會連續寫很多次）。
+    private static func scheduleSave() {
+        pending?.cancel()
+        let item = DispatchWorkItem { save() }
+        pending = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: item)
+    }
+
+    /// App 要進背景時馬上存，不等合併（可能來不及等 2 秒就被系統關掉）。
+    static func flush() {
+        pending?.cancel()
+        pending = nil
+        save()
     }
 
     /// A fresh install has no `onboarded` value; fill it from the Keychain copy.

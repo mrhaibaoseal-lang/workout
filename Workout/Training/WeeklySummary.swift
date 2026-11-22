@@ -33,8 +33,8 @@ struct WeeklyFacts {
     var pace: Nutrition.Pace = .unknown
     /// 每週體重變化（kg）
     var weeklyGain: Double? = nil
-    /// 最近 7 天平均蛋白質（g）和目標
-    var protein: (avg: Int, target: Int)? = nil
+    /// 那一週有記錄的日子平均蛋白質（g）、目標、記了幾天
+    var protein: (avg: Int, target: Int, logged: Int)? = nil
 
     func range(_ m: Muscle) -> ClosedRange<Double>? {
         custom ? VolumePlan.range(for: m) : PersonalVolume.range(for: m)
@@ -71,7 +71,9 @@ struct WeeklyFacts {
         if let g = weeklyGain, pace != .unknown {
             lines.append("體重每週 \(g >= 0 ? "+" : "")\(String(format: "%.2f", g)) kg，增重速度\(pace.title)。")
         }
-        if let p = protein { lines.append("最近 7 天平均每天蛋白質 \(p.avg) g（目標 \(p.target) g）。") }
+        if let p = protein {
+            lines.append("這週記了 \(p.logged) 天蛋白質，有記的日子平均 \(p.avg) g（目標 \(p.target) g）。")
+        }
         if let review {
             let changes = review.changes
             if changes.isEmpty {
@@ -194,7 +196,13 @@ enum WeeklySummary {
         case .fast: next.append("體重長太快，每天少吃一點")
         default: break
         }
-        if let p = f.protein, p.avg < p.target * 8 / 10 { next.append("蛋白質平均 \(p.avg) g，離 \(p.target) g 還差一些") }
+        if let p = f.protein {
+            if p.logged < Nutrition.minLoggedDays {
+                next.append("蛋白質這週只記了 \(p.logged) 天，多記幾天才看得出夠不夠")
+            } else if p.avg < p.target * 8 / 10 {
+                next.append("蛋白質平均 \(p.avg) g，離 \(p.target) g 還差一些")
+            }
+        }
         if next.isEmpty { next.append("照課表練，每組都做到次數上限就加重") }
 
         return CoachReply(headline: headline,

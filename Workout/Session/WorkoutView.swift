@@ -5,9 +5,12 @@ struct WorkoutView: View {
     let day: DayTemplate
     let length: WorkoutLength
     let week: Int
+    /// 接著練上次沒按完成的訓練（`WorkoutResume`）
+    var resume: WorkoutSnapshot? = nil
     var onFinish: () -> Void = {}
 
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @AppStorage(Keys.equipment) private var equipmentRaw = ""
@@ -177,7 +180,7 @@ struct WorkoutView: View {
                 }
             }
             .confirmationDialog("要放棄這次訓練嗎？", isPresented: $confirmQuit, titleVisibility: .visible) {
-                Button("放棄，不儲存", role: .destructive) { dismiss() }
+                Button("放棄，不儲存", role: .destructive) { quitWithoutSaving() }
                 Button("繼續練", role: .cancel) {}
             } message: {
                 Text("就算只做一組也值得按「完成」存起來。")
@@ -197,7 +200,7 @@ struct WorkoutView: View {
                 Text("你已經贏過想偷懶的自己了，這次也算數。還想再多做一點嗎？")
             }
             .onAppear {
-                buildDrafts()
+                startOrResume()
                 RestAlerts.requestAuthorization()
                 AppCommands.shared.completeSet = { completeFromShortcut() }
             }
@@ -373,7 +376,17 @@ struct WorkoutView: View {
 
     // MARK: Top
 
+    /// 頂端列。進度存檔的 onChange 掛在這裡，不放在 body：body 的修飾太多，編譯器型別檢查會逾時。
     private var topBar: some View {
+        topBarContent
+            // 進度存起來：每完成一組、切到背景（可能被系統關掉）時（`WorkoutResume`）
+            .onChange(of: doneSets) { saveProgress() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { saveProgress() }
+            }
+    }
+
+    private var topBarContent: some View {
         HStack {
             Button { confirmQuit = true } label: {
                 Image(systemName: "xmark")
@@ -1015,6 +1028,63 @@ struct WorkoutView: View {
         }
     }
 
+    // MARK: 進度存檔（`WorkoutResume`）
+
+    /// 開始排課；接著上次的進度時，先還原練前狀態再排課，排完蓋上存的成績。
+    private func startOrResume() {
+        if let r = resume, drafts.isEmpty { restoreState(r) }
+        buildDrafts()
+        if let r = resume { restoreSets(r) }
+    }
+
+    private func quitWithoutSaving() {
+        WorkoutResume.clear()
+        dismiss()
+    }
+
+    private func saveProgress() {
+        guard summary == nil else { return }
+        guard doneSets > 0 else {
+            WorkoutResume.clear()
+            return
+        }
+        WorkoutResume.save(WorkoutSnapshot(
+            dayId: day.id, dayName: day.name, length: length.rawValue,
+            startedAt: startedAt.timeIntervalSince1970, savedAt: Date().timeIntervalSince1970,
+            readiness: readiness?.encoded ?? "", sessionNote: sessionNote,
+            combo: combo, bestCombo: bestCombo, onTimeRests: onTimeRests, scoredRests: scoredRests,
+            exercises: drafts.map { WorkoutSnapshot.ExerciseSnap(exerciseId: $0.item.exercise.id, note: $0.note, sets: $0.sets.map(\.snapshot)) }))
+    }
+
+    /// 排課前：練前狀態、開始時間、備註、連擊（有練前狀態就不會再問一次）。
+    private func restoreState(_ r: WorkoutSnapshot) {
+        readiness = Readiness.decode(r.readiness) ?? readiness
+        startedAt = Date(timeIntervalSince1970: r.startedAt)
+        sessionNote = r.sessionNote
+        combo = r.combo
+        bestCombo = r.bestCombo
+        onTimeRests = r.onTimeRests
+        scoredRests = r.scoredRests
+    }
+
+    /// 排課後：依順序把存的動作和每組成績蓋上去。動作不一樣就換過去（訓練中換過），多出來的接在後面（加練的）。
+    private func restoreSets(_ r: WorkoutSnapshot) {
+        guard !drafts.isEmpty, !drafts.contains(where: { $0.sets.contains(where: \.done) }) else { return }
+        for (i, e) in r.exercises.enumerated() {
+            guard i <= drafts.count, let ex = ExerciseLibrary.byId(e.exerciseId) else { continue }
+            if i == drafts.count {
+                guard var item = drafts.last?.item.swapped(to: ex) else { continue }
+                item.group = nil
+                drafts.append(makeDraft(item, firstInRegion: isFirstInRegion(ex, before: i)))
+            } else if drafts[i].item.exercise.id != ex.id {
+                rebuild(i, item: drafts[i].item.swapped(to: ex), scheme: SchemeStore.scheme(for: ex.id))
+            }
+            drafts[i].note = e.note
+            if !e.sets.isEmpty { drafts[i].sets = e.sets.map { SetDraft($0) } }
+        }
+        showToast("接著上次的進度：已經做完 \(r.doneSets) 組")
+    }
+
     private func addSet() {
         guard var lastDraft = drafts.last,
               let lastSet = lastDraft.sets.last(where: { $0.kind == .work }) ?? lastDraft.sets.last else { return }
@@ -1032,6 +1102,8 @@ struct WorkoutView: View {
     }
 
     private func finish() {
+        // 已經存過了（成果畫面淡入時連點「完成」）：不能再存一筆、再發一次碎片
+        guard summary == nil else { return }
         guard doneSets > 0 else {
             showNothingDone = true
             return
@@ -1066,13 +1138,21 @@ struct WorkoutView: View {
             }
         }
         try? context.save()
+        WorkoutResume.clear()
         recordJumpState(at: now)
+        // 這次發了什麼：刪掉這筆紀錄時收回（`SessionGrants`）
+        var grant = SessionGrants.Grant(shards: shards + bonus.total)
         // 在家啞鈴到頂（或徒手動作）、每組都做到上限：下次自動換成更難的版本（`Upgrade`）
         for d in drafts where !isGym || !d.item.exercise.loaded {
             let work = d.sets.filter { $0.done && $0.kind == .work && !$0.eased }.map { (weight: $0.weight, reps: $0.reps) }
             guard !work.isEmpty, ProgramBuilder.phase(week: week) == .normal else { continue }
-            Upgrade.record(item: d.item, work: work, ladder: d.ladder, equipment: equipment)
+            let previous = Progression.lastSets(for: d.item.exercise.id, in: sessions.filter { $0 !== session })
+                .filter { !$0.eased }.map { (weight: $0.weight, reps: $0.reps) }
+            if let up = Upgrade.record(item: d.item, work: work, previous: previous, ladder: d.ladder, equipment: equipment) {
+                grant.upgrades[d.item.exercise.id] = up.id
+            }
         }
+        SessionGrants.record(grant, for: session.date)
         let facts = coachFacts(session: session)
         coach = CoachLoader(facts: facts)
         shareData = ShareCardData(facts: facts,

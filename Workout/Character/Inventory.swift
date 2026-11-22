@@ -164,6 +164,16 @@ final class InventoryStore: ObservableObject {
         }
     }
 
+    /// 從完整備份匯入後重新讀（記憶體裡的舊狀態不然會在下次存檔時蓋掉匯入的）。
+    func reload() {
+        guard let raw = UserDefaults.standard.string(forKey: InventoryStore.key),
+              let decoded = try? JSONDecoder().decode(InventoryState.self, from: Data(raw.utf8)) else {
+            state = InventoryState.starter()
+            return
+        }
+        state = decoded
+    }
+
     private func save() {
         guard let data = try? JSONEncoder().encode(state),
               let raw = String(data: data, encoding: .utf8) else { return }

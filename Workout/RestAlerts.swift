@@ -33,7 +33,9 @@ enum RestAlerts {
         content.title = "休息結束，下一組！"
         content.body = s.next + " · " + s.detail + (s.change.map { "\n" + $0 } ?? "")
         content.sound = .default
-        content.interruptionLevel = .timeSensitive
+        // 不用 .timeSensitive：那要 time-sensitive entitlement，FlareStore 憑證沒列（只有 App Groups），系統會默默降級。
+        // 專注模式下要收到，請在「專注模式 › App」把練壯加進允許清單。
+        content.interruptionLevel = .active
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: wait, repeats: false)
         center.add(UNNotificationRequest(identifier: notificationId, content: content, trigger: trigger))
     }
