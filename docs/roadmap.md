@@ -22,8 +22,7 @@
 0.30.0 大整理、0.31.0 熱身跟做都已推上 main（編譯成功、單元測試通過）。使用者還沒實測，要繼續把 App 修好。接著做：
 
 1. ~~設定頁拆分頁~~（0.32.0 完成：`Workout/Settings/`，主頁＝摘要卡＋5 個入口，每列有一行目前狀態）。
-2. **`WorkoutView.swift` 拆檔**（約 1900 行）：先把獨立的 struct（`ExerciseCard`、`ActiveSetEditor`、`CompactSetRow`、休息卡等）搬到各自的檔案；
-   主畫面的 private 成員不動。拆完一定要等 CI 編譯通過。
+2. ~~`WorkoutView.swift` 拆檔~~（0.32.0 完成：搬到 `Workout/Session/`，主畫面還有約 1280 行，private 成員沒動）。
 3. ~~會痛時選關節~~（0.32.0 完成，見 `docs/training-system.md` ③）。
 4. **其他畫面再檢查一輪**：行程頁（`Schedule/AgendaView.swift`，約 700 行）、休息頁（`RestScreen.swift`）、牌位頁、目標頁（`Goals/GoalViews.swift`）、
    角色頁的版面，標準同 0.30.0：直觀、不擁擠、現代；只改版面，不加新系統。
@@ -107,7 +106,7 @@
     訓練卡的排法只顯示短名稱、備註框按了才開；進步頁去掉重複的牌位卡並分成力量／部位／訓練量；設定頁說明縮短。
   - 想到但沒做：
     - 設定頁整個改成分頁（器材、訓練、課表、排程、資料各一頁）；目前只縮短說明。
-    - `WorkoutView.swift`（約 1900 行）拆檔：沒有本機編譯器，拆 private 成員風險高，等有需要再拆。
+    - `WorkoutView.swift` 拆檔：0.32.0 已把獨立的 struct 拆到 `Workout/Session/`；主畫面的 private 成員還在同一檔。
     - 「進度預期」（告訴新手接下來一個月大概會怎麼進步）：需要先有實測資料校準，等使用者練一陣子再做。
     - 會痛時讓使用者選是哪個關節（現在由動作類型推）。
 

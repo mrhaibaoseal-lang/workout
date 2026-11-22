@@ -49,7 +49,7 @@ Workout/
   ExerciseLibrary.swift     動作庫
   Program.swift             課表、週期、加重建議、統計
   TodayView.swift           今天練什麼
-  WorkoutView.swift         訓練中畫面（記錄、休息計時）
+  Session/                  訓練中畫面：WorkoutView（主畫面）、ExerciseCard、SetRows（組的列與編輯）、RestCard、WorkoutDrafts
   Reminders.swift           練習提醒通知
   Schedule/                 課表、班表讀取、自動排程、課表截圖辨識
   ProgressScreen.swift      進步圖表（右上角可開訓練紀錄）
