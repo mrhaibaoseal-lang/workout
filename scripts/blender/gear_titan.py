@@ -133,19 +133,20 @@ for s, sx in (('L', 1), ('R', -1)):
         cyl(f'hand.{s}', 'glow', c + Vector((0, -0.048 * sy, 0)), 0.065, 0.012, (0, 1, 0), 8)   # 發光環
         cyl(f'hand.{s}', 'glow', c + Vector((0, 0.072 * sy, 0)), 0.025, 0.01, (0, 1, 0), 8)     # 端蓋
 
-# ---------- 全像掃描（獨立物件，不跟骨架） ----------
-for i, ph in enumerate((0, 24)):
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.48, minor_radius=0.005, major_segments=64, location=(0, 0, 0.05))
-    ring = bpy.context.object; ring.data.materials.append(M['glow'])
-    bpy.ops.mesh.primitive_circle_add(vertices=64, radius=0.48, fill_type='NGON', location=(0, 0, 0))
-    disc = bpy.context.object; disc.parent = ring
-    dm = bpy.data.materials.new(f'holo{i}'); dm.use_nodes = True; nt = dm.node_tree; nt.nodes.clear()
-    o_ = nt.nodes.new('ShaderNodeOutputMaterial'); em_ = nt.nodes.new('ShaderNodeEmission'); tr_ = nt.nodes.new('ShaderNodeBsdfTransparent')
-    mx_ = nt.nodes.new('ShaderNodeMixShader'); mx_.inputs[0].default_value = 0.12
-    em_.inputs['Color'].default_value = (*hexc('#31F2D4'), 1); em_.inputs['Strength'].default_value = 2
-    nt.links.new(tr_.outputs[0], mx_.inputs[1]); nt.links.new(em_.outputs[0], mx_.inputs[2]); nt.links.new(mx_.outputs[0], o_.inputs[0])
-    dm.blend_method = 'BLEND'; dm.shadow_method = 'NONE'; disc.data.materials.append(dm)
-    for f in range(0, 49, 4):
-        t = ((f + ph) % 48) / 48
-        z = 0.05 + 1.9 * (t * 2 if t < 0.5 else 2 - t * 2)
-        ring.location.z = z; ring.keyframe_insert('location', frame=f)
+# ---------- 全像掃描（獨立物件，不跟骨架）：示範影片不放，FX=1 才加 ----------
+if os.environ.get('FX') == '1':
+  for i, ph in enumerate((0, 24)):
+      bpy.ops.mesh.primitive_torus_add(major_radius=0.48, minor_radius=0.005, major_segments=64, location=(0, 0, 0.05))
+      ring = bpy.context.object; ring.data.materials.append(M['glow'])
+      bpy.ops.mesh.primitive_circle_add(vertices=64, radius=0.48, fill_type='NGON', location=(0, 0, 0))
+      disc = bpy.context.object; disc.parent = ring
+      dm = bpy.data.materials.new(f'holo{i}'); dm.use_nodes = True; nt = dm.node_tree; nt.nodes.clear()
+      o_ = nt.nodes.new('ShaderNodeOutputMaterial'); em_ = nt.nodes.new('ShaderNodeEmission'); tr_ = nt.nodes.new('ShaderNodeBsdfTransparent')
+      mx_ = nt.nodes.new('ShaderNodeMixShader'); mx_.inputs[0].default_value = 0.12
+      em_.inputs['Color'].default_value = (*hexc('#31F2D4'), 1); em_.inputs['Strength'].default_value = 2
+      nt.links.new(tr_.outputs[0], mx_.inputs[1]); nt.links.new(em_.outputs[0], mx_.inputs[2]); nt.links.new(mx_.outputs[0], o_.inputs[0])
+      dm.blend_method = 'BLEND'; dm.shadow_method = 'NONE'; disc.data.materials.append(dm)
+      for f in range(0, 49, 4):
+          t = ((f + ph) % 48) / 48
+          z = 0.05 + 1.9 * (t * 2 if t < 0.5 else 2 - t * 2)
+          ring.location.z = z; ring.keyframe_insert('location', frame=f)

@@ -63,8 +63,8 @@ def flat(name, color, strength=1.0):
 
 M = {
     'skin': toon('skin', (0.50, 0.53, 0.58)),
-    'shirt': toon('shirt', (0.10, 0.14, 0.24)),
-    'shorts': toon('shorts', (0.95, 0.38, 0.14)),
+    'shirt': toon('shirt', hexc('#FF6B35'), 0.62),   # 品牌橘背心
+    'shorts': toon('shorts', hexc('#1F2A44'), 0.6),  # 深藍灰短褲
     'shoe': toon('shoe', (0.92, 0.92, 0.95)),
     'sole': toon('sole', (0.95, 0.38, 0.14)),
     'hair': toon('hair', (0.08, 0.08, 0.10)),
@@ -72,7 +72,7 @@ M = {
     'grip': toon('grip', (0.62, 0.64, 0.68)),
     'eye': flat('eye', (0.02, 0.02, 0.03)),
     'eyehi': flat('eyehi', (1, 1, 1), 1.5),
-    'band': toon('band', (0.95, 0.38, 0.14)),
+    'band': toon('band', hexc('#1F2A44'), 0.6),
     # 鈦甲 c1 #8C98A8／c2 #31F2D4／c3 #2A3340
     'ti': toon('ti', hexc('#B4BFCC'), 0.5, spec=True),
     'tidk': toon('tidk', hexc('#5A6676'), 0.5, spec=True),
@@ -198,20 +198,23 @@ skinbody = skinmesh('skin', 'skin', P, E)
 skinbody.data.materials.append(M['shirt']); skinbody.data.materials.append(M['shorts'])
 for f_ in skinbody.data.polygons:
     c = f_.center; ax = abs(c.x)
-    if 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > (0.92 if TI else 1.26)):
+    if (TI and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TI and 1.0 < c.z < 1.44 and ax < 0.19):
         f_.material_index = 1
     elif c.z <= 1.0 and c.z > (0.12 if TI else 0.72):
         f_.material_index = 2
-# 上衣：腰到肩、短袖
+# 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣
 SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09))]
 SE = [(0, 1), (1, 2)]
 for sx in (1, -1):
+    if not TI:
+        SP += [((0.15 * sx, -0.005, 1.47), (0.045, 0.07))]; SE += [(1, len(SP) - 1)]
+        continue
     SP += [((0.23 * sx, 0, 1.42), (0.095, 0.09)), ((0.28 * sx, -0.005, 1.30), (0.075, 0.073))]
     SE += [(1, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
     if TI:
         SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
         SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TI else 1.15)
+shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TI else 1.06)
 HP = [((0, 0, 0.95), (0.155, 0.105)), ((0, 0, 1.07), (0.135, 0.10))]
 HE = [(0, 1)]
 for sx in (1, -1):
@@ -234,8 +237,14 @@ for o in (shirt, shorts):  # 衣服沿用身體的權重，彎曲時才不會穿
 for o in (skinbody, shirt, shorts): parts.append(o)
 # 頭
 H = (0, -0.01, 1.70)
-ellipsoid('head', 'skin', H, (0.155, 0.165, 0.18))
-if not TI: ellipsoid('head', 'skin', (0, -0.06, 1.61), (0.12, 0.11, 0.09))  # 下巴
+# 頭：一顆蛋形（下半部收窄成下巴，不另外加零件）
+bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=20, location=H)
+_h = bpy.context.object; _h.scale = (0.152, 0.162, 0.182); bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+for v in _h.data.vertices:
+    if v.co.z < 0:
+        k = 1 - 0.28 * (-v.co.z / 0.182) ** 1.5; v.co.x *= k; v.co.y *= k
+        v.co.y -= 0.025 * (-v.co.z / 0.182)   # 下巴略往前
+finish(_h, 'head', 'skin', 1)
 # 刺蝟短髮：幾束尖錐
 bpy.ops.object.select_all(action='DESELECT')
 def base_head():
