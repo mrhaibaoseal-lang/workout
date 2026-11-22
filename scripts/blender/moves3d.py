@@ -89,6 +89,60 @@ def keyall(f):
     for p_ in pb:
         p_.keyframe_insert('rotation_quaternion', frame=f); p_.keyframe_insert('location', frame=f)
 
+# ---------- 使用者的器材：多功能啞鈴椅＋高位下拉架（一體） ----------
+# 角色面向 -Y。立柱在椅子前端（-Y），頂部滑輪盒；立柱兩側各兩層槓片收納柱；
+# 椅子：座墊、可調靠背（角度 back_deg＝離垂直往後倒幾度）、頭枕＋把手、前端腳踝滾筒（腳勾在下面）。
+# 前後兩支底座。不畫商標、不畫彈力繩（使用者不用）。
+POST_Y, POST_TOP = -0.62, 2.0
+SEAT_Z, SEAT_Y0, SEAT_Y1 = 0.47, -0.30, 0.13
+HINGE = Vector((0, 0.15, 0.46))
+PM['red'] = toon('red', hexc('#D3302F'), 0.55)
+def pori(mat, c, s, d, bevel=0.012, roll=0.0):
+    bpy.ops.mesh.primitive_cube_add(location=c); ob = bpy.context.object; ob.scale = s
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    ob.rotation_mode = 'QUATERNION'; ob.rotation_quaternion = UP.rotation_difference(Vector(d)) @ Matrix.Rotation(roll, 4, 'Z').to_quaternion()
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False); return prop(ob, mat, True, bevel)
+def tube(a, b, w=0.025, mat='frame'):
+    a, b = Vector(a), Vector(b); return pori(mat, (a + b) / 2, (w, w, (b - a).length / 2), b - a, 0.006)
+def build_bench(back_deg):
+    # 底座：前（立柱下）、後各一支橫腳，中間一支縱樑
+    pbox('frame', (0, POST_Y, 0.03), (0.17, 0.04, 0.03), 0.008)
+    pbox('frame', (0, 0.60, 0.03), (0.26, 0.04, 0.03), 0.008)
+    for x_ in (-0.15, 0.15): pbox('rubber', (x_, POST_Y, 0.008), (0.03, 0.05, 0.008), 0.003)
+    for x_ in (-0.24, 0.24): pbox('rubber', (x_, 0.60, 0.008), (0.03, 0.05, 0.008), 0.003)
+    tube((0, POST_Y, 0.06), (0, -0.30, 0.30), 0.028)              # 前斜樑
+    tube((0, -0.30, 0.30), (0, 0.15, 0.38), 0.028)               # 座下主樑
+    tube((0, 0.15, 0.38), (0, 0.60, 0.06), 0.028)                # 後斜腿
+    tube((0, -0.10, 0.33), (0, -0.10, SEAT_Z - 0.04), 0.022)     # 座墊支柱
+    # 座墊
+    pbox('pad', (0, (SEAT_Y0 + SEAT_Y1) / 2, SEAT_Z - 0.035), (0.15, (SEAT_Y1 - SEAT_Y0) / 2, 0.035), 0.025)
+    # 靠背＋頭枕＋把手
+    a = D(back_deg); dv = Vector((0, math.sin(a), math.cos(a))); nv = Vector((0, -math.cos(a), math.sin(a)))
+    pori('pad', HINGE + dv * 0.36 + nv * 0.0, (0.15, 0.04, 0.34), dv, 0.025)
+    pori('frame', HINGE + dv * 0.30 - nv * 0.05, (0.03, 0.02, 0.28), dv, 0.006)
+    hr = HINGE + dv * 0.80
+    pori('pad', hr + nv * 0.02, (0.13, 0.045, 0.07), dv, 0.03)
+    for sx in (1, -1): tube(hr - nv * 0.03 + Vector((0.09 * sx, 0, 0)), hr - nv * 0.03 + dv * 0.13 + Vector((0.09 * sx, 0, 0)), 0.01)
+    tube(hr - nv * 0.03 + dv * 0.13 + Vector((-0.095, 0, 0)), hr - nv * 0.03 + dv * 0.13 + Vector((0.095, 0, 0)), 0.012)
+    # 靠背調整支架（梯形孔架）
+    tube((0, 0.42, 0.21), HINGE + dv * 0.25 - nv * 0.05, 0.02)
+    # 前端腳踝滾筒（兩顆）＋橫桿
+    pcyl('chrome', (0, -0.47, 0.22), 0.012, 0.42, (1, 0, 0), n=12)
+    tube((0, -0.47, 0.10), (0, -0.47, 0.22), 0.02)
+    for sx in (1, -1): pcyl('pad', (0.12 * sx, -0.47, 0.22), 0.055, 0.17, (1, 0, 0), bevel=0.012)
+    # 立柱＋頂部滑輪盒
+    pbox('frame', (0, POST_Y, POST_TOP / 2), (0.032, 0.032, POST_TOP / 2), 0.006)
+    pbox('frame', (0, POST_Y + 0.02, POST_TOP - 0.03), (0.05, 0.085, 0.07), 0.02)
+    for sx in (1, -1): pcyl('frame', (0.05 * sx, POST_Y + 0.02, POST_TOP - 0.03), 0.07, 0.01, (1, 0, 0), n=32)
+    pcyl('chrome', (0, POST_Y + 0.02, POST_TOP - 0.03), 0.02, 0.11, (1, 0, 0), n=12)
+    # 槓片收納柱：兩側、兩層，各掛兩片槓片＋紅色星形螺帽
+    for z_ in (0.98, 0.66):
+        for sx in (1, -1):
+            pcyl('frame', (0.11 * sx, POST_Y, z_), 0.018, 0.16, (1, 0, 0), n=12)
+            for i_, x_ in enumerate((0.075, 0.105)):
+                pcyl('plate', (x_ * sx, POST_Y, z_), 0.115 - i_ * 0.012, 0.028, (1, 0, 0), n=32, bevel=0.006)
+            pcyl('red', (0.15 * sx, POST_Y, z_), 0.032, 0.04, (1, 0, 0), n=6, bevel=0.004)
+
 MOVE = os.environ.get('MOVE', 'squat')
 CAM = dict(loc=(4.2, -3.9, 1.7), tgt=(0, 0, 0.95), lens=70, stage=(0, 0, 0.62))
 
@@ -161,54 +215,41 @@ elif MOVE == 'pushup':
     CAM = dict(loc=(3.8, -1.3, 0.95), tgt=(0, 0.02, 0.32), lens=52, stage=(0, 0.15, 0.95))
 
 # ======================= 高位下拉 =======================
-# 坐在椅子上、大腿卡在護膝滾筒下；寬握直槓從頭上拉到上胸，手肘往下往後、上身微微後仰。
+# 坐在使用者的啞鈴椅上、面向前端立柱，腳踝勾在滾筒下；寬握直槓從前上方拉到上胸，手肘往下往後、上身後仰靠向靠背。
 elif MOVE == 'pulldown':
     N = 48
-    HIP_Z, HIP_Y = 0.53, 0.04
-    GX = 0.40                              # 握距（手腕 x）
-    PULLEY = Vector((0, -0.10, 2.26)); FRONT = Vector((0, -0.82, 2.30))
+    HIP_Z, HIP_Y = SEAT_Z + 0.085, 0.0
+    GX = 0.40                                         # 握距（手腕 x）
+    WHEEL = Vector((0, POST_Y + 0.09, POST_TOP - 0.03))  # 滑輪靠使用者那一側
+    build_bench(24)                                    # 靠背往後倒 24 度，拉到底時背剛好靠上
     def lower(_t):
         for s, sx in SX:
             hj = Vector((HIPX[s], HIP_Y, HIP_Z))
-            kn = hj + Vector((0.02 * sx, -blen[f'thigh.{s}'], -0.03))
-            dz = kn.z - 0.11; dy = math.sqrt(max(blen[f'shin.{s}'] ** 2 - dz * dz, 0))
-            an = Vector((kn.x, kn.y - dy, 0.11))
-            leg_to(s, hj, an, Vector((0, -1, 0.3)))
+            kn = hj + Vector((0.015 * sx, -blen[f'thigh.{s}'] * 0.985, -0.06))
+            an = Vector((kn.x, -0.40, 0.12))                # 腳踝勾在滾筒後下方
+            leg_to(s, hj, an, Vector((0, -1, 0.4)), Vector((0, -1, -0.15)))
         return Vector((0, HIP_Y, HIP_Z))
-    def lean(t): return D(-8) + D(-16) * t
-    def grip_path(t):
+    def lean(t): return D(-6) + D(-18) * t
+    def upper(t):
         hm = lower(t); lam = lean(t)
-        chest_pt, sh = trunk(hm + Vector((0, 0, 0.04)), lam * 0.5, lam, lam - D(18) * (1 - t))
-        return chest_pt, sh
-    # 起點：手臂幾乎打直；終點：握把碰到上胸前方
-    cp0, sh0 = grip_path(0.0)
-    dx = GX - sh0['L'].x; reach = (blen['upper_arm.L'] + blen['forearm.L']) * 0.97
-    BAR_Y0 = -0.16
+        return trunk(hm + Vector((0, 0, 0.04)), lam * 0.5, lam, lam - D(20) * (1 - t))
+    # 起點：手臂幾乎打直、往前上方（立柱在前面，鋼索斜斜的）；終點：槓子到上胸
+    cp0, sh0 = upper(0.0)
+    reach = (blen['upper_arm.L'] + blen['forearm.L']) * 0.97
+    BAR_Y0 = -0.27
+    dx = GX - sh0['L'].x
     z0 = sh0['L'].z + math.sqrt(max(reach ** 2 - dx * dx - (BAR_Y0 - sh0['L'].y) ** 2, 0)) + 0.065
     P0 = Vector((0, BAR_Y0, z0))
-    cp1, sh1 = grip_path(1.0)
+    cp1, sh1 = upper(1.0)
     P1 = cp1((0, -0.17, 1.33)) + Vector((0, -0.06, 0.0))   # 上胸（鎖骨下方）
-    # ---- 器材：椅子、護膝滾筒、立柱、橫樑、滑輪、槓片、鋼索、下拉槓 ----
-    pbox('pad', (0, -0.06, 0.40), (0.17, 0.25, 0.035), 0.02)
-    pbox('frame', (0, -0.06, 0.19), (0.03, 0.03, 0.18))
-    pbox('frame', (0, -0.42, 0.025), (0.035, 0.42, 0.025))
-    pbox('frame', (0, -0.06, 0.025), (0.22, 0.035, 0.025))
-    pbox('frame', (0, -0.30, 0.38), (0.025, 0.025, 0.36))
-    for sx in (1, -1):
-        pcyl('pad', (0.13 * sx, -0.30, 0.70), 0.052, 0.17, (1, 0, 0), bevel=0.01)
-    pcyl('chrome', (0, -0.30, 0.70), 0.012, 0.12, (1, 0, 0))
-    pbox('frame', (0, -0.82, 1.18), (0.035, 0.035, 1.18))
-    pbox('frame', (0, -0.82, 0.03), (0.30, 0.06, 0.03))
-    pbox('frame', (0, (PULLEY.y + FRONT.y) / 2, 2.33), (0.03, abs(FRONT.y - PULLEY.y) / 2 + 0.04, 0.03))
-    for pt in (PULLEY, FRONT):
-        pcyl('chrome', pt, 0.045, 0.03, (1, 0, 0))
-    # 槓片掛在立柱前面的插銷上
-    pin = pcyl('chrome', (0, -0.93, 0.30), 0.016, 0.42, n=12)
-    plates = bpy.data.objects.new('plates', None); sc.collection.objects.link(plates)
-    for i, (r, dz) in enumerate(((0.14, 0.0), (0.14, 0.035), (0.12, 0.07), (0.10, 0.10))):
-        p_ = pcyl('plate', (0, -0.93, 0.15 + dz), r, 0.028, n=32, bevel=0.006); p_.parent = plates
-    for o_ in (pin,): o_.parent = plates
-    cab1 = stretch('cable', 0.006); cab2 = stretch('cable', 0.006); cab3 = stretch('cable', 0.006)
+    # 配重：立柱前面（-Y）吊一支插銷掛槓片，拉下時升起
+    load = bpy.data.objects.new('load', None); sc.collection.objects.link(load)
+    LOAD_Y, LOAD_Z = POST_Y - 0.09, 0.22
+    pcyl('chrome', (0, LOAD_Y, LOAD_Z + 0.16), 0.014, 0.40, n=12).parent = load
+    for i, (r, dz) in enumerate(((0.115, 0.0), (0.115, 0.032), (0.10, 0.064))):
+        pcyl('plate', (0, LOAD_Y, LOAD_Z + dz), r, 0.026, n=32, bevel=0.006).parent = load
+    pcyl('red', (0, LOAD_Y, LOAD_Z + 0.095), 0.03, 0.03, n=6, bevel=0.004).parent = load
+    cab1 = stretch('cable', 0.006); cab3 = stretch('cable', 0.006)
     # 下拉槓：中段直、兩端往下彎，握把包膠
     bar = bpy.data.objects.new('bar', None); sc.collection.objects.link(bar)
     parts_bar = [pcyl('chrome', (0, 0, 0), 0.014, 0.86, (1, 0, 0), n=12)]
@@ -218,10 +259,8 @@ elif MOVE == 'pulldown':
     parts_bar.append(pcyl('chrome', (0, 0, 0.03), 0.02, 0.06, n=12))
     for o_ in parts_bar: o_.parent = bar
     def pose(t):
-        P = P0.lerp(P1, t)
-        P = P + Vector((0, -0.05 * math.sin(math.pi * t), 0))       # 路徑微微往前繞過臉
-        hm = lower(t); lam = lean(t)
-        _, sh = trunk(hm + Vector((0, 0, 0.04)), lam * 0.5, lam, lam - D(18) * (1 - t))
+        P = P0.lerp(P1, t) + Vector((0, -0.04 * math.sin(math.pi * t), 0))
+        _, sh = upper(t)
         for s, sx in SX:
             wrist = Vector((GX * sx, P.y + 0.01, P.z - 0.065))
             arm_to(s, sh[s], wrist, Vector((sx * 1.0, 0.55, -0.7)), Vector((0, -0.12, 1)))
@@ -230,10 +269,9 @@ elif MOVE == 'pulldown':
         sc.frame_set(f); t = profile(f, N, 14, 6, 22); P = pose(t); keyall(f)
         bar.location = P; bar.keyframe_insert('location', frame=f)
         rise = P0.z - P.z
-        plates.location = (0, 0, rise); plates.keyframe_insert('location', frame=f)
-        key_stretch(cab1, PULLEY - Vector((0, 0, 0.045)), P + Vector((0, 0, 0.06)), f)
-        key_stretch(cab2, PULLEY + Vector((0, 0, 0.045)), FRONT + Vector((0, 0, 0.045)), f)
-        key_stretch(cab3, FRONT + Vector((-0.0, -0.045, 0)), Vector((0, -0.93, 0.52 + rise)), f)
-    CAM = dict(loc=(4.1, -2.7, 1.6), tgt=(0, -0.32, 1.12), lens=50, stage=(0, -0.3, 0.95))
+        load.location = (0, 0, rise); load.keyframe_insert('location', frame=f)
+        key_stretch(cab1, WHEEL + Vector((0, 0.06, 0)), P + Vector((0, 0, 0.06)), f)
+        key_stretch(cab3, WHEEL + Vector((0, -0.17, 0.0)), Vector((0, LOAD_Y, LOAD_Z + 0.36 + rise)), f)
+    CAM = dict(loc=(4.0, -2.2, 1.45), tgt=(0, -0.12, 1.02), lens=58, stage=(0, -0.05, 1.0))
 
 sc.frame_start, sc.frame_end = 0, N - 1
