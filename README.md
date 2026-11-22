@@ -55,7 +55,7 @@ Workout/
   ProgressScreen.swift      進步圖表（右上角可開訓練紀錄）
   HistoryView.swift         訓練紀錄
   Character/                角色與裝備：骨架動作、裝備目錄、Canvas 繪製、背包、角色分頁、開箱、碎片兌換
-  SettingsView.swift        設定、第一次開啟引導
+  Settings/                 設定主頁與五個分頁（器材、訓練、課表與動作、排程與提醒、資料）、第一次開啟引導、Keychain 備份
 Shared/SharedStore.swift    App 與小工具共用的資料（App Group）
 WorkoutWidget/              主畫面小工具
 ```
