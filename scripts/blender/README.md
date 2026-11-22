@@ -8,4 +8,10 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   `xvfb-run -a blender -b -P scripts/blender/hero_proto.py -- <輸出資料夾> 0 12 24`
 - `export_glb.py`：`blender -b <輸出資料夾>/hero.blend -P scripts/blender/export_glb.py` → 帶骨架和動畫的 GLB。
 
-已知問題：衣服和皮膚的自動權重不同，深蹲時皮膚會穿出衣服（正式做法：衣服用 Data Transfer 複製身體權重）。
+- `gear_titan.py`：鈦甲系列 3D 測試版（`GEAR=titan`），頭盔、胸甲、腹甲、能量核心、肩甲、機械手甲、大腿甲、護膝、
+  推進靴、雙筒噴射背包、能量膠囊啞鈴、全像掃描環。硬殼零件用倒角不細分，剛性綁在骨頭上。
+
+穿模處理：衣服用 Data Transfer 複製身體權重；衣服底下的身體面直接塗成衣服色。
+預覽：`docs/art/blender/`（`squat_basic.gif`、`squat_titan.gif`、`cmp.png`）。
+
+用途定位（使用者 2026-11-22）：3D 主要用在**訓練中的動作示範**；角色換裝 3D 只是測試。

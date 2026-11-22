@@ -1,11 +1,16 @@
 """原型：程序化 3D 角色（玩具公仔風）+ 骨架 + 啞鈴深蹲動畫，EEVEE 卡通著色。
-blender -b -P hero.py -- <outdir> [frames...]"""
+GEAR=titan xvfb-run -a blender -b -P hero_proto.py -- <outdir> [frames...]
+GEAR：basic（示範用）或 titan（鈦甲測試）"""
 import bpy, bmesh, math, sys, os
 from mathutils import Vector, Matrix
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = argv[0] if argv else '/tmp/out'
 FRAMES = [int(a) for a in argv[1:]]
+GEAR = os.environ.get('GEAR', 'basic')
+TI = GEAR == 'titan'
+def hexc(h):
+    h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))
 os.makedirs(OUT, exist_ok=True)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -37,7 +42,16 @@ def toon(name, color, shade=0.55, spec=False):
     nt.links.new(rr.outputs['Color'], add.inputs['Color'])
     mix = nt.nodes.new('ShaderNodeAddShader')
     nt.links.new(em.outputs[0], mix.inputs[0]); nt.links.new(add.outputs[0], mix.inputs[1])
-    nt.links.new(mix.outputs[0], out.inputs[0])
+    last = mix
+    if spec:  # 金屬：一塊硬邊高光
+        gl = nt.nodes.new('ShaderNodeBsdfGlossy'); gl.inputs['Roughness'].default_value = 0.25
+        g2 = nt.nodes.new('ShaderNodeShaderToRGB'); gr = nt.nodes.new('ShaderNodeValToRGB')
+        gr.color_ramp.interpolation = 'CONSTANT'; gr.color_ramp.elements[1].position = 0.55
+        gr.color_ramp.elements[0].color = (0, 0, 0, 1); gr.color_ramp.elements[1].color = (1, 1, 1, 1)
+        ge = nt.nodes.new('ShaderNodeEmission'); ge.inputs['Strength'].default_value = 0.7
+        nt.links.new(gl.outputs[0], g2.inputs[0]); nt.links.new(g2.outputs['Color'], gr.inputs[0]); nt.links.new(gr.outputs['Color'], ge.inputs['Color'])
+        a2 = nt.nodes.new('ShaderNodeAddShader'); nt.links.new(mix.outputs[0], a2.inputs[0]); nt.links.new(ge.outputs[0], a2.inputs[1]); last = a2
+    nt.links.new(last.outputs[0], out.inputs[0])
     return m
 
 def flat(name, color, strength=1.0):
@@ -59,7 +73,15 @@ M = {
     'eye': flat('eye', (0.02, 0.02, 0.03)),
     'eyehi': flat('eyehi', (1, 1, 1), 1.5),
     'band': toon('band', (0.95, 0.38, 0.14)),
+    # 鈦甲 c1 #8C98A8／c2 #31F2D4／c3 #2A3340
+    'ti': toon('ti', hexc('#B4BFCC'), 0.5, spec=True),
+    'tidk': toon('tidk', hexc('#5A6676'), 0.5, spec=True),
+    'tisuit': toon('tisuit', hexc('#2A3340'), 0.6),
+    'glow': flat('glow', hexc('#31F2D4'), 3.0),
+    'flame': flat('flame', hexc('#BFFFF4'), 5.0),
 }
+if TI:
+    M['shirt'] = M['shorts'] = M['tisuit']
 OUTLINE = flat('outline', (0.01, 0.01, 0.02))
 OUTLINE.use_backface_culling = True
 MAT_ORDER = list(M.keys())
@@ -172,65 +194,93 @@ for sx in (1, -1):
               ((0.12 * sx, -0.01, 0.52), (0.062, 0.062)), ((0.12 * sx, 0.005, 0.38), (0.068, 0.066)),
               ((0.12 * sx, 0.01, 0.12), (0.042, 0.042))], 0)
 skinbody = skinmesh('skin', 'skin', P, E)
+# 衣服底下的身體直接塗成衣服色：彎曲時就算皮膚穿出來也看不到
+skinbody.data.materials.append(M['shirt']); skinbody.data.materials.append(M['shorts'])
+for f_ in skinbody.data.polygons:
+    c = f_.center; ax = abs(c.x)
+    if 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > (0.92 if TI else 1.26)):
+        f_.material_index = 1
+    elif c.z <= 1.0 and c.z > (0.12 if TI else 0.72):
+        f_.material_index = 2
 # 上衣：腰到肩、短袖
 SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09))]
 SE = [(0, 1), (1, 2)]
 for sx in (1, -1):
     SP += [((0.23 * sx, 0, 1.42), (0.095, 0.09)), ((0.28 * sx, -0.005, 1.30), (0.075, 0.073))]
     SE += [(1, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-shirt = skinmesh('shirt', 'shirt', SP, SE, 1.16)
+    if TI:
+        SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
+        SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
+shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TI else 1.15)
 HP = [((0, 0, 0.95), (0.155, 0.105)), ((0, 0, 1.07), (0.135, 0.10))]
 HE = [(0, 1)]
 for sx in (1, -1):
     HP += [((0.11 * sx, 0, 0.92), (0.105, 0.105)), ((0.118 * sx, -0.01, 0.75), (0.10, 0.098))]
     HE += [(0, len(HP) - 2), (len(HP) - 2, len(HP) - 1)]
-shorts = skinmesh('shorts', 'shorts', HP, HE, 1.16)
+    if TI:
+        HP += [((0.12 * sx, -0.01, 0.52), (0.066, 0.066)), ((0.12 * sx, 0.005, 0.38), (0.071, 0.069)), ((0.12 * sx, 0.01, 0.14), (0.048, 0.048))]
+        HE += [(len(HP) - 4, len(HP) - 3), (len(HP) - 3, len(HP) - 2), (len(HP) - 2, len(HP) - 1)]
+shorts = skinmesh('shorts', 'shorts', HP, HE, 1.08 if TI else 1.15)
 bpy.ops.object.select_all(action='DESELECT')
-for o in (skinbody, shirt, shorts): o.select_set(True)
+skinbody.select_set(True)
 rig.select_set(True); bpy.context.view_layer.objects.active = rig
 bpy.ops.object.parent_set(type='ARMATURE_AUTO')
-for o in (skinbody, shirt, shorts):
-    o.parent = None; o.modifiers.clear(); parts.append(o)
+skinbody.parent = None; skinbody.modifiers.clear()
+for o in (shirt, shorts):  # 衣服沿用身體的權重，彎曲時才不會穿模
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    dt = o.modifiers.new('dt', 'DATA_TRANSFER'); dt.object = skinbody; dt.use_vert_data = True
+    dt.data_types_verts = {'VGROUP_WEIGHTS'}; dt.vert_mapping = 'POLYINTERP_NEAREST'
+    bpy.ops.object.datalayout_transfer(modifier='dt'); bpy.ops.object.modifier_apply(modifier='dt')
+for o in (skinbody, shirt, shorts): parts.append(o)
 # 頭
 H = (0, -0.01, 1.70)
 ellipsoid('head', 'skin', H, (0.155, 0.165, 0.18))
-ellipsoid('head', 'skin', (0, -0.06, 1.61), (0.12, 0.11, 0.09))  # 下巴
+if not TI: ellipsoid('head', 'skin', (0, -0.06, 1.61), (0.12, 0.11, 0.09))  # 下巴
 # 刺蝟短髮：幾束尖錐
 bpy.ops.object.select_all(action='DESELECT')
-ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))
-for i, (ax, ay, az) in enumerate([(0, -0.07, 1.86), (0.08, -0.05, 1.85), (-0.08, -0.05, 1.85), (0.04, 0.05, 1.89), (-0.05, 0.04, 1.89), (0.12, 0.03, 1.83), (-0.12, 0.03, 1.83)]):
-    base = Vector((ax * 0.6, ay * 0.4 + 0.01, 1.80)); tip = Vector((ax * 1.25, ay * 1.3, az + 0.03))
-    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.07, depth=(tip - base).length, location=(base + tip) / 2)
-    ob = bpy.context.object; ob.rotation_mode = 'QUATERNION'
-    ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(tip - base)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True); finish(ob, 'head', 'hair', 1)
-# 頭帶
-bpy.ops.mesh.primitive_torus_add(major_radius=0.162, minor_radius=0.018, location=(0, -0.005, 1.77), rotation=(math.radians(-8), 0, 0))
-finish(bpy.context.object, 'head', 'band', 1)
-# 眼睛：專注的斜眼
-for sx in (1, -1):
-    ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
-    ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
-    ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))  # 眉毛
+def base_head():
+  pass
+  ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))
+  for i, (ax, ay, az) in enumerate([(0, -0.07, 1.86), (0.08, -0.05, 1.85), (-0.08, -0.05, 1.85), (0.04, 0.05, 1.89), (-0.05, 0.04, 1.89), (0.12, 0.03, 1.83), (-0.12, 0.03, 1.83)]):
+      base = Vector((ax * 0.6, ay * 0.4 + 0.01, 1.80)); tip = Vector((ax * 1.25, ay * 1.3, az + 0.03))
+      bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.07, depth=(tip - base).length, location=(base + tip) / 2)
+      ob = bpy.context.object; ob.rotation_mode = 'QUATERNION'
+      ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(tip - base)
+      bpy.ops.object.transform_apply(location=False, rotation=True, scale=True); finish(ob, 'head', 'hair', 1)
+  # 頭帶
+  bpy.ops.mesh.primitive_torus_add(major_radius=0.162, minor_radius=0.018, location=(0, -0.005, 1.77), rotation=(math.radians(-8), 0, 0))
+  finish(bpy.context.object, 'head', 'band', 1)
+  # 眼睛：專注的斜眼
+  for sx in (1, -1):
+      ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
+      ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
+      ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))  # 眉毛
+if not TI: base_head()
 for s, sx in (('L', 1), ('R', -1)):
     ua, fa, ha = B[f'upper_arm.{s}'], B[f'forearm.{s}'], B[f'hand.{s}']
-    box(f'hand.{s}', 'skin', ha[0] + Vector((0, 0, -0.065)), (0.042, 0.06, 0.055))
-    # 護腕
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.056, depth=0.06, location=fa[1] + (fa[0] - fa[1]) * 0.18)
-    finish(bpy.context.object, f'forearm.{s}', 'band', 1)
     th, sh, ft = B[f'thigh.{s}'], B[f'shin.{s}'], B[f'foot.{s}']
-    # 球鞋：鞋身 + 鞋底 + 鞋舌
-    box(f'foot.{s}', 'shoe', (0.12 * sx, -0.06, 0.075), (0.065, 0.13, 0.055))
-    box(f'foot.{s}', 'sole', (0.12 * sx, -0.06, 0.02), (0.07, 0.14, 0.02), subd=1)
-    box(f'foot.{s}', 'shoe', (0.12 * sx, -0.02, 0.13), (0.05, 0.06, 0.04))
-    # 啞鈴（握把沿 Y 軸，兩頭各兩片槓片）
     hc = ha[0] + Vector((0, 0, -0.07))
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.018, depth=0.30, location=hc, rotation=(math.radians(90), 0, 0))
-    finish(bpy.context.object, f'hand.{s}', 'grip', 0)
-    for dy, rr, dp in ((0.10, 0.085, 0.035), (0.135, 0.07, 0.03), (-0.10, 0.085, 0.035), (-0.135, 0.07, 0.03)):
-        bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=rr, depth=dp, location=hc + Vector((0, dy, 0)), rotation=(math.radians(90), 0, 0))
-        ob = bpy.context.object; bev = ob.modifiers.new('b', 'BEVEL'); bev.width = 0.008; bev.segments = 2
-        finish(ob, f'hand.{s}', 'iron', 0)
+    if not TI:
+        box(f'hand.{s}', 'skin', ha[0] + Vector((0, 0, -0.065)), (0.042, 0.06, 0.055))
+        # 護腕
+        bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.056, depth=0.06, location=fa[1] + (fa[0] - fa[1]) * 0.18)
+        finish(bpy.context.object, f'forearm.{s}', 'band', 1)
+        # 球鞋：鞋身 + 鞋底 + 鞋舌
+        box(f'foot.{s}', 'shoe', (0.12 * sx, -0.06, 0.075), (0.065, 0.13, 0.055))
+        box(f'foot.{s}', 'sole', (0.12 * sx, -0.06, 0.02), (0.07, 0.14, 0.02), subd=1)
+        box(f'foot.{s}', 'shoe', (0.12 * sx, -0.02, 0.13), (0.05, 0.06, 0.04))
+        # 啞鈴（握把沿 Y 軸，兩頭各兩片槓片）
+        hc = ha[0] + Vector((0, 0, -0.07))
+        bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.018, depth=0.30, location=hc, rotation=(math.radians(90), 0, 0))
+        finish(bpy.context.object, f'hand.{s}', 'grip', 0)
+        for dy, rr, dp in ((0.10, 0.085, 0.035), (0.135, 0.07, 0.03), (-0.10, 0.085, 0.035), (-0.135, 0.07, 0.03)):
+            bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=rr, depth=dp, location=hc + Vector((0, dy, 0)), rotation=(math.radians(90), 0, 0))
+            ob = bpy.context.object; bev = ob.modifiers.new('b', 'BEVEL'); bev.width = 0.008; bev.segments = 2
+            finish(ob, f'hand.{s}', 'iron', 0)
+
+
+if TI:
+    exec(open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1])), 'gear_titan.py')).read())
 
 # 合併成一個蒙皮網格
 bpy.ops.object.select_all(action='DESELECT')
@@ -240,7 +290,7 @@ bpy.ops.object.join(); body = bpy.context.object; body.name = 'hero'
 body.data.materials.append(OUTLINE)
 am = body.modifiers.new('rig', 'ARMATURE'); am.object = rig
 body.parent = rig
-sol = body.modifiers.new('outline', 'SOLIDIFY'); sol.thickness = -0.016; sol.use_flip_normals = True
+sol = body.modifiers.new('outline', 'SOLIDIFY'); sol.thickness = -0.014; sol.use_flip_normals = True
 sol.material_offset = len(body.data.materials) - 1; sol.use_rim = False
 
 # ---------- 動畫：啞鈴深蹲（關節座標 → 骨頭矩陣） ----------
