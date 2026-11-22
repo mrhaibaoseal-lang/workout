@@ -195,7 +195,8 @@ enum ProgramBuilder {
         DayTemplate(id: "lowerA", name: "下半身 A", focus: "大腿前側、臀", slots: [
             Slot(pattern: .squat, sets: 3, low: 8, high: 12, essential: true),
             Slot(pattern: .hinge, sets: 3, low: 8, high: 12, essential: true),
-            Slot(pattern: .lunge, sets: 3, low: 8, high: 12, essential: true),
+            // 分腿蹲左右各做、很花時間：下半身 A 只當輔助 2 組（0.33.0），重點在下半身 B
+            Slot(pattern: .lunge, sets: 2, low: 8, high: 12, essential: false),
             Slot(pattern: .quadIso, sets: 3, low: 12, high: 15, essential: false),
             Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
             Slot(pattern: .core, sets: 3, low: 10, high: 15, essential: false),
@@ -596,7 +597,9 @@ enum Progression {
                                   tip: .startWeight)
             }
             if let w = StartWeight.noviceEstimate(item, ladder: ladder) {
-                let note = StartWeight.bodyWeight > 0 ? "第一次做：依你的體重推估一個保守的重量" : "第一次做：先用一個保守的重量（到「身體」記體重會推得更準）"
+                let note = LevelTest.current != nil ? "第一次做：依你的程度評估推估一個保守的重量"
+                    : StartWeight.bodyWeight > 0 ? "第一次做：依你的體重推估一個保守的重量（設定裡做程度評估會更準）"
+                    : "第一次做：先用一個保守的重量（設定裡做程度評估會推得更準）"
                 return Suggestion(weight: phase == .deload ? ladder.snap(w * 0.8) : w, reps: item.high,
                                   note: note + "。第一組做完填還剩幾下，後面會自動校準", tip: .startWeight)
             }
@@ -661,6 +664,10 @@ enum Progression {
                                           note: "已經是你器材最重的了，改成多做 1 下，或下放放慢到 3 秒")
                     }
                     return loadedJump(item, lastWeight: lastWeight, top: top, next: next, ladder: ladder)
+                }
+                if ex.unit == .reps, let up = Upgrade.next(for: ex), Upgrade.store.load()[ex.id] == nil {
+                    return Suggestion(weight: lastWeight, reps: item.high,
+                                      note: "這次每組都做到 \(item.high) 下，下次自動換成更難的「\(up.name)」")
                 }
                 return Suggestion(weight: lastWeight, reps: item.high,
                                   note: "已經達標，下放放慢到 3 秒增加難度")
@@ -733,9 +740,9 @@ enum Stats {
         GoalEngine.streak(dates: sessions.map(\.date))
     }
 
+    /// 程式第幾週；停練暫停的週不算（`TrainingPause`）。
     static func week(since start: Date, at date: Date = .now) -> Int {
-        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: date)).day ?? 0
-        return max(1, days / 7 + 1)
+        TrainingPause.week(since: start, at: date, pauses: TrainingPause.current)
     }
 
     /// True when the most recent planned training day before today passed with no workout

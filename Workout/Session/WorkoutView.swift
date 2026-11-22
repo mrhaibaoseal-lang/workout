@@ -1065,8 +1065,8 @@ struct WorkoutView: View {
         }
         try? context.save()
         recordJumpState(at: now)
-        // 在家啞鈴到頂、每組都做到上限：下次自動換成更難的版本（`Upgrade`）
-        for d in drafts where !isGym {
+        // 在家啞鈴到頂（或徒手動作）、每組都做到上限：下次自動換成更難的版本（`Upgrade`）
+        for d in drafts where !isGym || !d.item.exercise.loaded {
             let work = d.sets.filter { $0.done && $0.kind == .work && !$0.eased }.map { (weight: $0.weight, reps: $0.reps) }
             guard !work.isEmpty, ProgramBuilder.phase(week: week) == .normal else { continue }
             Upgrade.record(item: d.item, work: work, ladder: d.ladder, equipment: equipment)

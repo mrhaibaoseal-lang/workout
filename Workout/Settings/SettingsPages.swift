@@ -82,6 +82,22 @@ struct TrainingSettingsView: View {
             .listRowBackground(Theme.surface)
 
             Section {
+                NavigationLink {
+                    LevelTestView()
+                } label: {
+                    LabeledContent {
+                        Text(LevelTest.summary)
+                    } label: {
+                        Label("程度評估", systemImage: "gauge.with.dots.needle.50percent")
+                    }
+                }
+                .frame(minHeight: 44)
+            } footer: {
+                SectionLabel("用 3 個簡單測試推算沒做過的動作第一次用多重。")
+            }
+            .listRowBackground(Theme.surface)
+
+            Section {
                 LabeledContent("目前", value: "第 \(Stats.week(since: Date(timeIntervalSince1970: startDate))) 週")
                 Picker("排法", selection: $levelRaw) {
                     ForEach(TrainingLevel.allCases) { l in

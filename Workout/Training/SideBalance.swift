@@ -62,6 +62,7 @@ enum SideBalance {
         "db_row", "db_lean_lateral", "cable_lateral",
         "db_sl_rdl", "sl_rdl", "db_split_squat", "split_squat", "db_reverse_lunge", "reverse_lunge",
         "sl_glute_bridge", "db_calf_raise", "calf_raise",
+        "pause_split_squat", "sl_hip_thrust", "sl_towel_leg_curl", "pause_calf_raise",
         "db_step_up", "db_concentration_curl",
     ]
 

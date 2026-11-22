@@ -202,6 +202,18 @@ enum ExerciseLibrary {
         Exercise(id: "dead_bug", name: "死蟲式", pattern: .core, requires: [], loaded: false, tip: "下背貼地，對側手腳慢慢伸直"),
         Exercise(id: "reverse_crunch", name: "反向捲腹", pattern: .core, requires: [], loaded: false, tip: "躺著，用腹部把骨盆捲起來、膝蓋帶向胸口，慢慢放下，不要甩"),
         Exercise(id: "plank", name: "棒式", pattern: .core, requires: [], loaded: false, unit: .seconds, range: 30...60, tip: "身體一直線，夾臀收腹"),
+
+        // 徒手動作的進階版（0.33.0）：放在最後，平常不會排到；原本的徒手動作每組都做到次數上限才自動升級（`Upgrade`）
+        Exercise(id: "pause_pushup", name: "暫停伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "胸口離地一個拳頭時停 2 秒，再推起來"),
+        Exercise(id: "archer_pushup", name: "弓箭手伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "雙手撐很寬，身體往一邊下、另一手伸直只是扶著，左右輪流"),
+        Exercise(id: "elevated_pike", name: "腳抬高屈體伏地挺身", pattern: .vPush, requires: [.bench], loaded: false, tip: "腳放椅子上、臀部抬高，頭往雙手中間的地板方向下"),
+        Exercise(id: "pause_table_row", name: "暫停桌下划船", pattern: .hPull, requires: [], loaded: false, tip: "先確認桌子夠穩！胸口拉到桌緣停 2 秒，再慢慢放下"),
+        Exercise(id: "slow_squat", name: "慢速深蹲", pattern: .squat, requires: [], loaded: false, tip: "3 秒蹲下、最低點停 2 秒，再站起來"),
+        Exercise(id: "pause_split_squat", name: "暫停保加利亞分腿蹲", pattern: .lunge, requires: [], loaded: false, tip: "後腳放椅子上，3 秒下、最低點停 2 秒（每邊做）"),
+        Exercise(id: "sl_hip_thrust", name: "單腳臀推", pattern: .glute, requires: [.bench], loaded: false, tip: "上背靠在椅子邊緣，單腳踩地把髖頂到最高，停 1 秒（每邊做）"),
+        Exercise(id: "sl_towel_leg_curl", name: "單腳毛巾腿後彎舉", pattern: .hamCurl, requires: [], loaded: false, tip: "臀部抬起、單腳踩毛巾往屁股拉，另一腳抬著（每邊做）"),
+        Exercise(id: "elevated_bench_dip", name: "腳抬高椅子撐體", pattern: .triceps, requires: [.bench], loaded: false, tip: "手撐椅緣、腳放另一張椅子或高處，肩膀不要聳起"),
+        Exercise(id: "pause_calf_raise", name: "暫停單腳提踵", pattern: .calf, requires: [], loaded: false, tip: "踮到最高停 2 秒，腳跟慢慢放到最低（每邊做）"),
     ]
 
     /// 不當主項（課表的重點動作）的動作：單腳版本受平衡限制、擺盪練的是爆發，重量進步不穩定。

@@ -85,34 +85,71 @@ enum Joint: String, CaseIterable, Identifiable {
 // MARK: - 器材到頂：升級成更難的版本
 
 /// 在家啞鈴加到最重、每組又都做到次數上限，就自動換成同類型裡「同樣重量更難」的動作（0.30.0）。
+/// 徒手動作每組都做到次數上限，也換成同類型更難的版本（0.33.0）；可以一路升好幾級（伏地挺身 → 暫停 → 弓箭手）。
 enum Upgrade {
     static let store = KeyedStore<String>(key: Keys.upgrades)
 
     /// 原本 → 更難的版本（同一個動作類型，部位計算不變）。
     static let paths: [String: String] = [
+        // 負重：啞鈴到頂
         "goblet_squat": "goblet_15",
         "heel_goblet": "goblet_15",
         "db_squat": "goblet_15",
         "db_rdl": "db_sl_rdl",
         "db_glute_bridge": "db_hip_thrust",
+        // 徒手：次數做到上限
+        "pushup": "pause_pushup",
+        "pause_pushup": "archer_pushup",
+        "pike_pushup": "elevated_pike",
+        "table_row": "pause_table_row",
+        "squat": "slow_squat",
+        "reverse_lunge": "split_squat",
+        "split_squat": "pause_split_squat",
+        "sl_glute_bridge": "sl_hip_thrust",
+        "towel_leg_curl": "sl_towel_leg_curl",
+        "bench_dip": "elevated_bench_dip",
+        "calf_raise": "pause_calf_raise",
+        "dead_bug": "reverse_crunch",
     ]
 
-    /// 排課用：這個動作已經升級過、升級後的動作現在排得了，就回傳升級後的動作。
+    /// 排課用：這個動作升級過，就一路換到最後一級現在排得了的版本。
     static func replacement(for ex: Exercise, equipment: Set<Equipment>, used: Set<String>) -> Exercise? {
-        guard let to = store.load()[ex.id], !used.contains(to), let up = ExerciseLibrary.byId(to),
-              up.requires.isSubset(of: equipment), !Avoid.isAvoided(to) else { return nil }
-        return up
+        replacement(for: ex, equipment: equipment, used: used, upgrades: store.load())
     }
 
-    /// 練完存檔時：重量已經是器材最重、每個正式組都做到次數上限 → 記下升級。回傳升級後的動作。
+    static func replacement(for ex: Exercise, equipment: Set<Equipment>, used: Set<String>,
+                            upgrades: [String: String]) -> Exercise? {
+        var current: Exercise? = nil
+        var id = ex.id
+        var seen: Set<String> = [id]
+        while let to = upgrades[id], !seen.contains(to) {
+            seen.insert(to)
+            guard !used.contains(to), let up = ExerciseLibrary.byId(to),
+                  up.requires.isSubset(of: equipment), !Avoid.isAvoided(to) else { break }
+            current = up
+            id = to
+        }
+        return current
+    }
+
+    /// 這組成績夠不夠升級：負重要已經是器材最重；徒手只看次數。每個正式組都要做到次數上限。
+    static func qualifies(_ ex: Exercise, high: Int, work: [(weight: Double, reps: Int)], ladder: WeightLadder) -> Bool {
+        guard !work.isEmpty, work.allSatisfy({ $0.reps >= high }) else { return false }
+        if ex.loaded {
+            guard !ladder.isEmpty, let top = work.map(\.weight).max(), top > 0 else { return false }
+            return ladder.up(top) <= top + 0.01
+        }
+        return ex.unit == .reps
+    }
+
+    /// 練完存檔時：成績夠（`qualifies`）就記下升級。回傳升級後的動作。
     @discardableResult
     static func record(item: PlannedExercise, work: [(weight: Double, reps: Int)], ladder: WeightLadder,
                        equipment: Set<Equipment>) -> Exercise? {
         let ex = item.exercise
-        guard ex.loaded, !ladder.isEmpty, let to = paths[ex.id], store.load()[ex.id] == nil,
+        guard let to = paths[ex.id], store.load()[ex.id] == nil,
               let up = ExerciseLibrary.byId(to), up.requires.isSubset(of: equipment), !Avoid.isAvoided(to),
-              let top = work.map(\.weight).max(), top > 0, ladder.up(top) <= top + 0.01,
-              work.allSatisfy({ $0.reps >= item.high }) else { return nil }
+              qualifies(ex, high: item.high, work: work, ladder: ladder) else { return nil }
         store[ex.id] = to
         return up
     }

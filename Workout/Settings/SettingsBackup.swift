@@ -22,7 +22,7 @@ enum SettingsBackup {
         Keys.deloadOverrides, Keys.deloadAskedWeek, Keys.trainingLevel, Keys.graduationSnooze, Keys.graduatedAt,
         Keys.weakSide, Keys.weakExtra, Keys.weakExtraSnooze, Keys.weakLeg, Keys.sideSnoozeArm, Keys.sideSnoozeLeg,
         Keys.focusMuscles, Keys.focusAskedBlock, Keys.specialization,
-        Keys.bodyWeight, Keys.bodyWeightDate, Keys.upgrades,
+        Keys.bodyWeight, Keys.bodyWeightDate, Keys.upgrades, Keys.levelTest, Keys.trainingPauses,
         ClassStore.key, EventStore.key,
     ]
 

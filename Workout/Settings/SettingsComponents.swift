@@ -105,9 +105,19 @@ struct OnboardingView: View {
                 }
                 .listRowBackground(Color.clear)
                 Section {
+                    NavigationLink {
+                        LevelTestView(onDone: start)
+                    } label: {
+                        Label("先做程度評估（約 10 分鐘）", systemImage: "gauge.with.dots.needle.50percent")
+                    }
+                    .frame(minHeight: 44)
+                } footer: {
+                    Text("伏地挺身、深蹲、划船各測一次，第一次的重量會推得比較準。之後也可以在設定裡做。")
+                }
+                .listRowBackground(Theme.surface)
+                Section {
                     Button {
-                        startDate = Date().timeIntervalSince1970
-                        onboarded = true
+                        start()
                     } label: {
                         Text("開始第 1 週")
                     }
@@ -119,6 +129,11 @@ struct OnboardingView: View {
             .themeForm()
             .navigationTitle("練壯")
         }
+    }
+
+    private func start() {
+        startDate = Date().timeIntervalSince1970
+        onboarded = true
     }
 }
 

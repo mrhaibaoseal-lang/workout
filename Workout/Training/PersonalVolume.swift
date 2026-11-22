@@ -264,9 +264,9 @@ enum PersonalVolume {
     }
 
     /// 第 n 週開始的時間（從開始日算）。
+    /// 停練暫停的週會往後推（`TrainingPause`）。
     static func weekStart(_ n: Int, start: Date) -> Date {
-        let cal = Calendar.current
-        return cal.date(byAdding: .day, value: (n - 1) * 7, to: cal.startOfDay(for: start)) ?? start
+        TrainingPause.weekStart(n, start: start, pauses: TrainingPause.current)
     }
 
     static func reviews() -> [BlockReview] { JSONList.load(Keys.volumeReviews) }

@@ -42,6 +42,7 @@ enum TrainingHistory {
         }
         lifts = out
         comeback = Comeback.detect(sessions, now: now)
+        if let c = comeback { TrainingPause.record(lastBefore: c.lastBefore, returned: c.returned, now: now) }
     }
 }
 

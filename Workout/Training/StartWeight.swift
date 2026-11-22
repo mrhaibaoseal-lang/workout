@@ -63,7 +63,10 @@ enum StartWeight {
         guard ex.loaded, strength[ex.id] != nil else { return nil }
         let mine = primary(ex.pattern)
         var best: (score: Int, ex: Exercise, lift: TrainingHistory.Lift)? = nil
-        for (id, lift) in TrainingHistory.lifts where id != ex.id && lift.e1rm > 0 {
+        // 真的練過的動作優先；沒練過的用程度評估換算的（`LevelTest`）
+        var candidates = TrainingHistory.lifts
+        for (id, lift) in LevelTest.referenceLifts where candidates[id] == nil { candidates[id] = lift }
+        for (id, lift) in candidates where id != ex.id && lift.e1rm > 0 {
             guard strength[id] != nil, let ref = ExerciseLibrary.byId(id) else { continue }
             let score: Int
             if ref.pattern == ex.pattern { score = 2 }
@@ -92,7 +95,7 @@ enum StartWeight {
         d.set(t, forKey: Keys.bodyWeightDate)
     }
 
-    /// 完全沒做過相關動作時的起點：沒練過的新手，槓鈴臥推的推估最大力量約體重的一半（沒量體重用 60 kg）。
+    /// 完全沒做過相關動作、也沒做程度評估時的起點：沒練過的新手，槓鈴臥推的推估最大力量約體重的一半（沒量體重用 60 kg）。
     /// 這是保守的起點，第一組做完填還剩幾下會自動校準。
     static let novicePressRatio = 0.5
     static let defaultBodyWeight = 60.0
@@ -101,7 +104,9 @@ enum StartWeight {
         let ex = item.exercise
         guard ex.loaded, let k = strength[ex.id] else { return nil }
         let bw = bodyWeight > 0 ? bodyWeight : defaultBodyWeight
-        let e1 = bw * novicePressRatio * k * safety
+        // 做過程度評估就用評估的力量（`LevelTest`），不然用體重 × 0.5
+        let base = LevelTest.current.flatMap { LevelTest.benchEquivalent($0, bodyWeight: bw) } ?? bw * novicePressRatio
+        let e1 = base * k * safety
         let raw = weight(e1rm: e1, reps: item.high, rir: targetRIR)
         guard raw > 0 else { return nil }
         let w = ladder.snap(raw)
