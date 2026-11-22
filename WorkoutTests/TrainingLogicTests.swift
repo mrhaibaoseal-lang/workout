@@ -44,7 +44,8 @@ final class TrainingLogicTests: XCTestCase {
     func testUpgradePathsStayInPattern() {
         for (from, to) in Upgrade.paths {
             XCTAssertEqual(ex(from).pattern, ex(to).pattern, "\(from) → \(to)")
-            XCTAssertTrue(ex(to).loaded)
+            // 負重升負重、徒手升徒手（0.33.0 起徒手也有路線）
+            XCTAssertEqual(ex(from).loaded, ex(to).loaded, "\(from) → \(to)")
         }
     }
 
