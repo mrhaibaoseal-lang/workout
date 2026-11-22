@@ -297,4 +297,20 @@ final class BlockAndVolumeTests: XCTestCase {
         XCTAssertEqual(Nutrition.average(log, days: 7, now: now), 120)
         XCTAssertNil(Nutrition.average([:], days: 7, now: now))
     }
+
+    // MARK: DemoVideos
+
+    func testDemoVideoIdsValidAndExercisesExist() {
+        for (id, v) in DemoVideos.byExercise {
+            XCTAssertNotNil(ExerciseLibrary.byId(id), id)
+            XCTAssertTrue(DemoVideos.isValidId(v.id), "\(id): \(v.id)")
+        }
+        for (id, base) in DemoVideos.sameAs {
+            XCTAssertNotNil(ExerciseLibrary.byId(id), id)
+            XCTAssertNotNil(DemoVideos.byExercise[base], base)
+        }
+        XCTAssertFalse(DemoVideos.isValidId("abc\"><x"))
+        let url = DemoVideos.searchURL(for: ExerciseLibrary.byId("db_kickback")!)
+        XCTAssertEqual(url.host, "www.youtube.com")
+    }
 }

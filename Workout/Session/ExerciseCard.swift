@@ -33,6 +33,8 @@ struct ExerciseCard: View {
     @State private var painJoint: Joint?
     /// 備註框：有上次的備註或已經寫了才一直開著，不然按「加備註」才出現
     @State private var noteOpen = false
+    /// 「看影片」示範（`DemoVideoSheet`）
+    @State private var showVideo = false
 
     private var ex: Exercise { draft.item.exercise }
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
@@ -49,6 +51,19 @@ struct ExerciseCard: View {
                     colors: [Color(gearHex: "#26303D"), Color(gearHex: "#141920"), Color(gearHex: "#0C0F14")],
                     center: .top, startRadius: 10, endRadius: 260),
                 in: RoundedRectangle(cornerRadius: 14))
+            .overlay(alignment: .bottomTrailing) {
+                Button { showVideo = true } label: {
+                    Label(DemoVideos.video(for: ex) != nil ? "看影片" : "找影片", systemImage: "play.rectangle.fill")
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 32)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .foregroundStyle(Theme.fg)
+                }
+                .buttonStyle(.plain)
+                .padding(8)
+            }
+            .sheet(isPresented: $showVideo) { DemoVideoSheet(exercise: ex) }
     }
 
     var body: some View {
