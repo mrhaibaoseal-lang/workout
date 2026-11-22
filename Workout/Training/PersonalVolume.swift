@@ -116,7 +116,7 @@ enum PersonalVolume {
     /// 這個部位的個人目標範圍（一般建議 + 個人調整）。
     static func range(for m: Muscle) -> ClosedRange<Double>? {
         guard let r = VolumePlan.range(for: m) else { return nil }
-        let o = Double(offset(m))
+        let o = Double(Focus.displayOffset(m))
         let low = max(2, r.lowerBound + o)
         return low...max(low, r.upperBound + o)
     }

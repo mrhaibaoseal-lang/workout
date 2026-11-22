@@ -74,6 +74,9 @@ struct TodayView: View {
     @AppStorage(Keys.trainingLevel) private var levelRaw = ""
     @AppStorage(Keys.graduationSnooze) private var graduationSnooze: Double = 0
     @State private var showGraduation = false
+    @AppStorage(Keys.focusMuscles) private var focusRaw = ""
+    @AppStorage(Keys.focusAskedBlock) private var focusAskedBlock = -1
+    @AppStorage(Keys.specialization) private var specRaw = ""
 
     private struct RankChange: Identifiable {
         let id = UUID()
@@ -87,7 +90,7 @@ struct TodayView: View {
         return ProgramBuilder.phase(week: week)
     }
     private var day: DayTemplate {
-        _ = (activeProgram, programsRaw, customExercisesRaw, customInAutoPick, builtInRaw, weekMergeRaw, weekMergeDismissed)
+        _ = (activeProgram, programsRaw, customExercisesRaw, customInAutoPick, builtInRaw, weekMergeRaw, weekMergeDismissed, specRaw)
         TrainingHistory.sync(sessions)
         // 選過的那天用 id 重新找：換了課表或改了內容，才會拿到最新的
         if let id = pickedDay?.id, let d = ProgramBuilder.days.first(where: { $0.id == id }) { return d }
@@ -95,7 +98,7 @@ struct TodayView: View {
     }
     private var equipment: Set<Equipment> { ProgramBuilder.equipment(place: placeRaw, homeRaw: equipmentRaw) }
     private var plan: [PlannedExercise] {
-        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw, adjustRaw, deloadRaw, levelRaw)
+        _ = (autoSuperset, kitsRaw, avoidRaw, shiftRaw, ceilingRaw, extraRaw, tempRaw, adjustRaw, deloadRaw, levelRaw, focusRaw, specRaw)
         return ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: length,
                                    limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
                                    gym: placeRaw == TrainingPlace.gym.rawValue)
@@ -134,6 +137,7 @@ struct TodayView: View {
                     }
                     weeklySummaryCard
                     coachCards
+                    specializationCard
                     let plans = self.plans
                     if pickedDay == nil, onLeave == nil, let offer = mergeOffer(plans) {
                         MergeDayCard(offer: offer, onAccept: {
@@ -558,7 +562,7 @@ struct TodayView: View {
 
     /// 本週預計組數：照目前課表、器材排出一週的完整版，點開才算。
     private var weekVolume: some View {
-        _ = (autoSuperset, kitsRaw, activeProgram, programsRaw, customExercisesRaw, customInAutoPick, avoidRaw, shiftRaw, adjustRaw)
+        _ = (autoSuperset, kitsRaw, activeProgram, programsRaw, customExercisesRaw, customInAutoPick, avoidRaw, shiftRaw, adjustRaw, focusRaw, specRaw)
         return WeeklyVolumeCard(plans: {
             ProgramBuilder.weeklyPlans(equipment: equipment, week: week,
                                        limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
@@ -571,7 +575,7 @@ struct TodayView: View {
     /// 減量時機（提早／延後）和升中階的卡片，一次最多一張；減量優先。
     @ViewBuilder
     private var coachCards: some View {
-        let _ = (deloadRaw, deloadAskedWeek, levelRaw, graduationSnooze)
+        let _ = (deloadRaw, deloadAskedWeek, levelRaw, graduationSnooze, focusRaw, focusAskedBlock, specRaw)
         let w = week
         if trainedToday || pickedDay != nil {
             EmptyView()
@@ -596,6 +600,39 @@ struct TodayView: View {
             }, onSnooze: {
                 withAnimation { Graduation.snooze() }
             })
+        } else if let a = Focus.offer(week: w, sessions: sessions) {
+            // 落後的部位有手臂或肩膀，而且沒排專項期，才多一個「改試專項期」
+            let canSpecialize = !Set(a.weak).isDisjoint(with: Specialization.muscles)
+                && Specialization.status(week: w) == .none
+            FocusOfferCard(analysis: a, onFocus: {
+                withAnimation {
+                    Focus.set(Array((a.weak + Focus.muscles).prefix(Focus.maxCount)))
+                    Focus.markAsked(week: w)
+                }
+            }, canSpecialize: canSpecialize, onSpecialize: {
+                withAnimation {
+                    Specialization.begin(week: w)
+                    Focus.markAsked(week: w)
+                }
+            }, onDismiss: {
+                withAnimation { Focus.markAsked(week: w) }
+            })
+        }
+    }
+
+    /// 手臂／肩膀專項期：排好或進行中顯示一行狀態，結束後顯示這段的進步（按「好」收起來）。
+    @ViewBuilder
+    private var specializationCard: some View {
+        let _ = (specRaw, deloadRaw, activeProgram)
+        switch Specialization.status(week: week) {
+        case .scheduled, .running:
+            SpecializationStatusRow(status: Specialization.status(week: week))
+        case .ended(let block):
+            SpecializationEndCard(report: Specialization.report(block: block, sessions: sessions)) {
+                withAnimation { Specialization.markEndSeen() }
+            }
+        case .none:
+            EmptyView()
         }
     }
 

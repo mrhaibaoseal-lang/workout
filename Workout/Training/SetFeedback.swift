@@ -245,6 +245,7 @@ enum Glossary: String, Identifiable {
     case rir, grade, ghost, dropset, pyramid, readiness, record, superset
     case weeklySets, bigJump, fixedCompound, personalSets, weeklySummary
     case startWeight, comeback, mergeDay, fatigue, graduation, sides
+    case focus, specialization
 
     var id: String { rawValue }
 
@@ -269,6 +270,8 @@ enum Glossary: String, Identifiable {
         case .fatigue: "疲勞決定減量時機"
         case .graduation: "新手畢業到中階"
         case .sides: "左右平衡"
+        case .focus: "重點部位（弱點加強）"
+        case .specialization: "手臂／肩膀專項期"
         }
     }
 
@@ -362,6 +365,18 @@ enum Glossary: String, Identifiable {
             + "・啞鈴到頂的重日，改慢速或單側版本\n\n"
             + "條件：至少練滿 12 週（一週 2 次以上）、減量後主要動作六成以上還是 3 週沒進步。"
             + "剛換範圍時，App 會用推估最大力量換算第一次的重量。設定裡可以切回新手。"
+        case .focus:
+            "每個部位長得快慢不一樣。App 看最近 12 週每個部位的重量進步（推估最大力量），"
+            + "明顯比其他部位慢的就是弱點：不到中位數的一半，而且差 3 個百分點以上。\n\n"
+            + "列為重點部位後，每週多練 2 組（一週練 2 次，等於每次多 1 組），加在練它的單關節動作上。"
+            + "最多選 2 個，選太多等於沒有重點。每個區塊問一次，設定 →「重點部位與專項期」可以自己改。"
+        case .specialization:
+            "一段時間集中練手臂和肩膀，其他部位先維持：\n\n"
+            + "・下半身日多排側平舉、後肩、二頭、三頭，一週練到 4 次\n"
+            + "・側肩、後肩、二頭、三頭每週再多 2 組\n"
+            + "・胸、背、腿每週少 2 組（這個量還是會維持住）\n\n"
+            + "長度是一個完整區塊（約 5 個進步週＋減量週），結束後自動回到原本的排法。"
+            + "手肘、肩膀的關節負擔比較大，建議隔一個區塊以上再開下一次。"
         }
     }
 }

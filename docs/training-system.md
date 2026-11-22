@@ -320,7 +320,35 @@
 - 重日到器材最重：建議改慢速（下放 3 秒、停 1 秒），或按「換一個動作」換單側版本。
 - 設定 → 週期 → 排法可以切回新手（`Keys.trainingLevel`）。
 
-## 左右平衡（0.27.0，`Training/SideBalance.swift`）
+## 弱點加強、手臂／肩膀專項期（0.27.0，`Training/Focus.swift`）
+
+使用者家裡沒有量圍度的尺，所以「長得慢」只看重量進步；選幾個部位、加幾組、專項期多長由 Claude 決定。
+
+### 重點部位（`Focus`）
+- 可選：胸、背闊、側肩、後肩、二頭、三頭、股四頭、大腿後側、臀、小腿；**最多 2 個**。每個每週 **+2 組**（一週練 2 次 = 每次 +1）。
+  存 `Keys.focusMuscles`（rawValue 逗號隔開）。只對內建課表；自訂課表不自動改。
+- 分析（`Focus.analyze`）：最近 12 週（不含適應期、不含這週）每個可選部位的 `PersonalVolume.gain`，至少 5 個部位算得出來才比。
+  落後 = 進步 ≤ 中位數的一半，**而且**比中位數少 3 個百分點以上；最慢的 2 個。
+- 今天頁卡片（`FocusOfferCard`，排在減量、升中階卡片之後，一次一張）：內建課表、進步週、練滿 6 週（一週 ≥ 2 次）、
+  有落後而且不全是重點部位、這個區塊還沒問過（`Keys.focusAskedBlock`）。「設為重點」把落後的放前面、補上原本的（最多 2 個）；
+  落後的有手臂／肩膀、而且沒排專項期，多一顆「改試手臂／肩膀專項期」。
+- 套用：`Focus.offsets(week:)` = `Graduation.offsets`（個人組數＋中階加組）＋重點＋專項期，合計夾在 −4～+8，交給 `VolumePlan.balance` 第 4 步。
+  `PersonalVolume.range`、本週預計組數的「你 +N」用 `Focus.displayOffset`（個人組數＋重點＋專項期）。區塊檢討的累積值（`muscleSetAdjust`）不受影響。
+- 設定 → 課表與動作 →「重點部位與專項期」（`FocusSettingsView`）：勾重點部位，旁邊顯示各部位 12 週進步和「落後」。
+
+### 手臂／肩膀專項期（`Specialization`）
+- 長度：**一個完整區塊**（預設 5 個進步週＋減量週，跟著區塊時鐘提早／延後）。目前區塊是第 2 個以後、還在第 1–2 週就從這個區塊開始，
+  否則從下個區塊開始。存 `Keys.specialization` JSON {block, start（開始日，重新開始後失效）, endSeen}。
+- 進步週才生效（`Specialization.active`；減量週、適應期照一般排）：
+  - `ProgramBuilder.builtInDays` 用 `Specialization.augment` 在核心前加動作：下半身 A 側平舉 3＋二頭 2、下半身 B 後肩 3＋三頭 2；
+    全身 A 三頭 2、全身 B 二頭 2、全身 C 側平舉 3。都不是重點動作（精簡版不排）。手臂、肩膀一週練到 4 次。
+  - 每週組數：側肩、後肩、二頭、三頭 +2；胸、背闊、股四頭、大腿後側、臀 −2（維持量，總時間差不多）。
+  - `template(id:)` 先找 `builtInDays`，所以訓練畫面拿到的是加過動作的那天。選動作的順位照原本課表（`siblingDays` 不含加的格子），原本的動作不會變。
+- 今天頁：排好／進行中顯示一行狀態（`SpecializationStatusRow`）；區塊過了顯示 `SpecializationEndCard`：四個部位這段（不含減量週）的進步和前一個區塊比，
+  加上其他部位的中位數，按「好」記成看過。建議隔一個區塊以上再開（只寫在說明，不擋）。設定頁可以取消。
+- 新 Keys（`focusMuscles`、`focusAskedBlock`、`specialization`）都加進 `SettingsBackup.keys`。
+
+## 左右平衡（0.28.0，`Training/SideBalance.swift`）
 
 使用者左手明顯比較弱（彎舉、肩推左手先抖、先做不動；左手很久以前骨折過，目前不痛）。
 

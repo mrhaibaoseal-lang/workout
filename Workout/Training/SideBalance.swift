@@ -21,7 +21,7 @@ enum WeakSide: String, CaseIterable, Identifiable {
     var otherHand: String { self == .right ? "左" : "右" }
 }
 
-/// 左右平衡（0.27.0）：
+/// 左右平衡（0.28.0）：
 /// - 手臂、肩膀、划船的啞鈴動作改成單手做，弱的那手先做，強的那手做到一樣的次數就停（`oneArmIds`）。
 /// - 次數、加重都看弱的那手（`SetEntry.reps` 存弱邊；`otherReps` 存另一手）。
 /// - 二頭、側平舉、肩推最後多一組只做弱邊的加強組（`SetKind.weak`，不算進步、紀錄、每週組數）。

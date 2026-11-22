@@ -234,7 +234,7 @@ struct VolumeTable: View {
         let range = personal ? PersonalVolume.range(for: m) : VolumePlan.range(for: m)
         let status = VolumePlan.status(m, sets: value, upper: personal ? nil : upper, range: range)
         let target = range.map { "目標 \(Int($0.lowerBound))–\(Int($0.upperBound))" } ?? ""
-        let offset = personal ? PersonalVolume.offset(m) : 0
+        let offset = personal ? Focus.displayOffset(m) : 0
         return HStack(spacing: 10) {
             Circle().fill(status.color).frame(width: 9, height: 9)
             Text(m.name).font(.subheadline).foregroundStyle(Theme.fg)

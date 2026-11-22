@@ -46,7 +46,7 @@ final class SetEntry {
     var kind: String = "work"
     /// 做完還剩幾下（RIR），-1 = 沒填。
     var rir: Int = -1
-    /// 左右平衡（0.27.0）：單手做的組，reps／rir 是弱的那手，這兩個是另一手；-1 = 不是單手組或沒填。
+    /// 左右平衡（0.28.0）：單手做的組，reps／rir 是弱的那手，這兩個是另一手；-1 = 不是單手組或沒填。
     var otherReps: Int = -1
     var otherRir: Int = -1
     /// 做的時候設定的弱邊（WeakSide.rawValue），空的 = 雙手一起做
