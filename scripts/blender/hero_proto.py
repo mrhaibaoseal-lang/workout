@@ -30,7 +30,7 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
 
 # ---------- 材質：卡通兩階 + 色帶 ----------
-def toon(name, color, shade=0.55, spec=False):
+def toon(name, color, shade=0.55, spec=False, alt=None, alt_attr=None, alt_shade=None):
     m = bpy.data.materials.new(name); m.use_nodes = True
     nt = m.node_tree; nt.nodes.clear()
     out = nt.nodes.new('ShaderNodeOutputMaterial')
@@ -44,7 +44,21 @@ def toon(name, color, shade=0.55, spec=False):
     em = nt.nodes.new('ShaderNodeEmission'); em.inputs['Strength'].default_value = 1.0
     nt.links.new(dif.outputs[0], s2r.inputs[0])
     nt.links.new(s2r.outputs['Color'], ramp.inputs[0])
-    nt.links.new(ramp.outputs['Color'], em.inputs['Color'])
+    if alt:
+        ramp2 = nt.nodes.new('ShaderNodeValToRGB'); r2 = ramp2.color_ramp; r2.interpolation = 'CONSTANT'
+        sh2 = alt_shade or shade
+        r2.elements[0].position = 0.0; r2.elements[0].color = (*[c * sh2 for c in alt], 1)
+        r2.elements[1].position = 0.18; r2.elements[1].color = (*alt, 1)
+        e2 = r2.elements.new(0.75); e2.color = (*[min(1, c * 1.18 + 0.06) for c in alt], 1)
+        nt.links.new(s2r.outputs['Color'], ramp2.inputs[0])
+        at = nt.nodes.new('ShaderNodeAttribute'); at.attribute_name = alt_attr
+        gt = nt.nodes.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; gt.inputs[1].default_value = 0.0
+        nt.links.new(at.outputs['Fac'], gt.inputs[0])
+        mx = nt.nodes.new('ShaderNodeMixRGB')
+        nt.links.new(gt.outputs[0], mx.inputs['Fac']); nt.links.new(ramp.outputs['Color'], mx.inputs['Color1']); nt.links.new(ramp2.outputs['Color'], mx.inputs['Color2'])
+        nt.links.new(mx.outputs['Color'], em.inputs['Color'])
+    else:
+        nt.links.new(ramp.outputs['Color'], em.inputs['Color'])
     # 邊緣光（Fresnel）
     fr = nt.nodes.new('ShaderNodeLayerWeight'); fr.inputs['Blend'].default_value = 0.25
     rr = nt.nodes.new('ShaderNodeValToRGB'); rr.color_ramp.interpolation = 'CONSTANT'
@@ -93,6 +107,7 @@ M = {
     'glow': flat('glow', hexc('#31F2D4'), 3.0),
     'flame': flat('flame', hexc('#BFFFF4'), 5.0),
 }
+M['skintank'] = toon('skintank', (0.50, 0.53, 0.58), alt=hexc('#FF6B35'), alt_attr='tank', alt_shade=0.62)
 if TOP: M['shirt'] = M['tisuit']
 if BOT: M['shorts'] = M['tisuit']
 OUTLINE = flat('outline', (0.01, 0.01, 0.02))
@@ -211,10 +226,21 @@ skinbody = skinmesh('skin', 'skin', P, E, lv=3)   # 細一級：背心是塗色�
 skinbody.data.materials.append(M['shirt']); skinbody.data.materials.append(M['shorts'])
 for f_ in skinbody.data.polygons:
     c = f_.center; ax = abs(c.x)
-    if (TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92)) or (not TOP and ((1.03 < c.z < 1.44 and ax < 0.19) or (1.40 <= c.z < 1.56 and 0.075 < ax < 0.165))):   # 背心身體＋肩帶
+    if TOP and 1.0 < c.z < 1.50 and (ax < 0.2 or c.z > 0.92):
         f_.material_index = 1
     elif c.z <= (1.0 if TOP else 1.03) and c.z > (0.12 if BOT else 0.72):
         f_.material_index = 2
+if not TOP:
+    # 基本款背心：每個頂點存「在背心裡面多深」（公尺，>0＝背心）。著色器在面中間內插再判斷 >0，
+    # 邊界是平滑的線，不會像整面塗色那樣鋸齒。之後 App 的即時著色器也用同一個屬性。
+    def tank_field(x, z):
+        ax = abs(x)
+        body = min(z - 1.03, 1.44 - z, 0.19 - ax)                    # 軀幹
+        strap = min(z - 1.40, 1.56 - z, ax - 0.075, 0.165 - ax)       # 肩帶
+        return max(body, strap)
+    at = skinbody.data.attributes.new('tank', 'FLOAT', 'POINT')
+    for i, v in enumerate(skinbody.data.vertices): at.data[i].value = tank_field(v.co.x, v.co.z)
+    skinbody.data.materials[0] = M['skintank']
 # 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣。
 # 基本款的背心最後會刪掉（改成身體塗色，見下方）；這裡照樣建，因為衣服權重轉移的流程共用。
 SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09))]
