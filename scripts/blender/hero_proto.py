@@ -213,18 +213,18 @@ for f_ in skinbody.data.polygons:
     elif c.z <= 1.0 and c.z > (0.12 if BOT else 0.72):
         f_.material_index = 2
 # 上衣：基本款是貼身背心（只有肩帶），鈦甲是全身緊身衣
-SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09))]
+SP = [((0, 0, 1.03), (0.135, 0.10)), ((0, -0.005, 1.30), (0.205, 0.125)), ((0, 0, 1.46), (0.10, 0.09) if TOP else (0.12, 0.105))]
 SE = [(0, 1), (1, 2)]
 for sx in (1, -1):
     if not TOP:
-        SP += [((0.15 * sx, -0.005, 1.47), (0.045, 0.07))]; SE += [(1, len(SP) - 1)]
+        SP += [((0.15 * sx, 0.0, 1.455), (0.075, 0.105))]; SE += [(1, len(SP) - 1)]
         continue
     SP += [((0.23 * sx, 0, 1.42), (0.095, 0.09)), ((0.28 * sx, -0.005, 1.30), (0.075, 0.073))]
     SE += [(1, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
     if TOP:
         SP += [((0.33 * sx, 0, 1.14), (0.058, 0.056)), ((0.35 * sx, -0.02, 0.93), (0.046, 0.042))]
         SE += [(len(SP) - 3, len(SP) - 2), (len(SP) - 2, len(SP) - 1)]
-shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.06)
+shirt = skinmesh('shirt', 'shirt', SP, SE, 1.08 if TOP else 1.12)
 HP = [((0, 0, 0.95), (0.155, 0.105)), ((0, 0, 1.07), (0.135, 0.10))]
 HE = [(0, 1)]
 for sx in (1, -1):
@@ -239,11 +239,58 @@ skinbody.select_set(True)
 rig.select_set(True); bpy.context.view_layer.objects.active = rig
 bpy.ops.object.parent_set(type='ARMATURE_AUTO')
 skinbody.parent = None; skinbody.modifiers.clear()
+# 自動權重會讓手臂影響一路延伸到胸口中央，舉手時胸口皮膚會戳穿背心。
+# 軀幹範圍（|x|<0.20）的手臂權重全部改給胸部；0.20～0.27 之間漸變，肩關節外側才完全跟手臂。
+_ARMG = [f'{b}.{s}' for b in ('upper_arm', 'forearm', 'hand') for s in ('L', 'R')]
+_cg = skinbody.vertex_groups['chest']
+for v in skinbody.data.vertices:
+    if not (1.0 < v.co.z < 1.5): continue
+    k = min(max((abs(v.co.x) - 0.235) / 0.055, 0.0), 1.0)      # 0＝全給胸部、1＝不動
+    if k >= 1: continue
+    moved = 0.0
+    for g in list(v.groups):
+        n = skinbody.vertex_groups[g.group].name
+        if n in _ARMG:
+            nw = g.weight * k; moved += g.weight - nw
+            if nw > 0: skinbody.vertex_groups[n].add([v.index], nw, 'REPLACE')
+            else: skinbody.vertex_groups[n].remove([v.index])
+    if moved: _cg.add([v.index], moved, 'ADD')
 for o in (shirt, shorts):  # 衣服沿用身體的權重，彎曲時才不會穿模
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
     dt = o.modifiers.new('dt', 'DATA_TRANSFER'); dt.object = skinbody; dt.use_vert_data = True
     dt.data_types_verts = {'VGROUP_WEIGHTS'}; dt.vert_mapping = 'POLYINTERP_NEAREST'
     bpy.ops.object.datalayout_transfer(modifier='dt'); bpy.ops.object.modifier_apply(modifier='dt')
+ARMG = [f'{b}.{s}' for b in ('upper_arm', 'forearm', 'hand') for s in ('L', 'R')]
+def arm_w(ob, vi):
+    w = 0.0
+    for g in ob.data.vertices[vi].groups:
+        if ob.vertex_groups[g.group].name in ARMG: w += g.weight
+    return w
+if not TOP:
+    # 背心沒有袖子：權重只留軀幹，不跟手臂動（不然舉手時橘色會被扯到上臂上）
+    chest_g = shirt.vertex_groups.get('chest') or shirt.vertex_groups.new(name='chest')
+    for v in shirt.data.vertices:
+        aw = arm_w(shirt, v.index)
+        if aw > 0:
+            for n in ARMG:
+                g = shirt.vertex_groups.get(n)
+                if g: g.remove([v.index])
+            chest_g.add([v.index], aw, 'ADD')
+if not TOP:
+    # 身體曲面和背心曲面形狀不同，靜止時上背就比背心鼓 → 把背心範圍內凸出去（或太貼近）的身體頂點壓到背心裡面 1.2 cm
+    for v in skinbody.data.vertices:
+        if not (1.0 < v.co.z < 1.50 and abs(v.co.x) < 0.23): continue
+        ok, loc, nrm, _ = shirt.closest_point_on_mesh(v.co)
+        if not ok: continue
+        d = (v.co - loc).dot(nrm)
+        if d > -0.012 and (v.co - loc).length < 0.08:
+            v.co = loc - nrm * 0.012
+if not TOP:
+    # 背心完全蓋住的身體面直接刪掉：衣服底下沒有皮膚，就不可能戳穿（遊戲常用做法）
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(skinbody.data)
+    dead = [f_ for f_ in bm.faces if all(abs(v.co.x) < 0.16 and 1.05 < v.co.z < 1.40 for v in f_.verts)]
+    _bm.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(skinbody.data); bm.free()
 for o in (skinbody, shirt, shorts): parts.append(o)
 # 頭
 H = (0, -0.01, 1.70)
