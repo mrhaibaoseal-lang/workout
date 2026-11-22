@@ -135,7 +135,7 @@ enum GoalEngine {
         var rankStreak = 0, minStreak = 0, shields = 0
         while week < thisWeek {
             let next = cal.date(byAdding: .weekOfYear, value: 1, to: week)!
-            let count = dates.filter { $0 >= week && $0 < next }.count
+            let count = SharedStore.trainingDays(dates.filter { $0 >= week && $0 < next })
             let isNew = week >= ctx.since
             let excused = isNew ? excusedDays(week: week, ctx: ctx) : 0
             var planned: Int?
@@ -187,7 +187,7 @@ enum GoalEngine {
     static func current(dates: [Date], goal: Int, ctx: GoalContext, now: Date = .now) -> Current {
         let week = SharedStore.weekStart(now)
         let recs = weeks(dates: dates, goal: goal, ctx: ctx, now: now)
-        let count = dates.filter { $0 >= week }.count
+        let count = SharedStore.trainingDays(dates.filter { $0 >= week })
         let isNew = week >= ctx.since
         let excused = isNew ? excusedDays(week: week, ctx: ctx) : 0
         var shields = recs.last?.shields ?? 0
@@ -232,9 +232,13 @@ enum GoalEngine {
             }
             var q = Quest(kind: kind, target: target)
             var upper = false, lower = false
+            var days = Set<Date>()
             for f in inWeek {
                 switch kind {
-                case .goal: q.current += 1
+                case .goal:
+                    // 同一天練兩次算 1 天
+                    days.insert(cal.startOfDay(for: f.date))
+                    q.current = days.count
                 case .record: q.current += f.prs
                 case .fullTwice: if f.length == .full { q.current += 1 }
                 case .upperLower:
@@ -276,7 +280,8 @@ enum GoalEngine {
 
     /// 補給箱總數：每次訓練 1 箱 + 週任務全破的獎勵箱。
     static func boxTotal(sessions: [WorkoutSession], goal: Int = savedGoal) -> Int {
-        sessions.count + bonusBoxes(facts: facts(sessions), goal: goal, ctx: .load())
+        // 每天最多一箱（同一天練好幾次不會多拿）
+        SharedStore.trainingDays(sessions.map(\.date)) + bonusBoxes(facts: facts(sessions), goal: goal, ctx: .load())
     }
 
     // MARK: 逆轉

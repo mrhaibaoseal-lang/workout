@@ -224,7 +224,7 @@ struct SettingsView: View {
                         InfoTip(item: .sides)
                     }
                 } footer: {
-                    SectionLabel("不用自己判斷：單臂划船、分腿蹲這類一邊一邊做的動作，兩邊都填「還能再做幾下」，連續 3 次某一邊少 2 下以上，今天頁會問你要不要開。開了以後弱的那邊先做、另一邊做到一樣的次數就停；手弱時彎舉、側平舉、肩推也改單手。彎舉、側平舉、肩推、弓步類最後弱的那邊多一組。")
+                    SectionLabel("單臂划船、分腿蹲這類動作兩邊分開記，連續 3 次某一邊少 2 下以上，今天頁會問你要不要開。開了以後弱的那邊先做、最後多一組。")
                 }
 
                 Section {
@@ -240,7 +240,7 @@ struct SettingsView: View {
                 } header: {
                     SectionLabel("訓練")
                 } footer: {
-                    SectionLabel("依正式組的重量自動算熱身組（例如 50% × 10、75% × 5），每個部位的第一個動作才做完整熱身。熱身組不算進步和破紀錄。每個動作的「遞增／遞減／Drop set」在訓練畫面右上角的按鈕調整。開啟「少排槓鈴」時，在家只有下半身 B 的臀推用槓鈴，其他都用啞鈴。超級組：內建課表裡相鄰的手臂、肩膀、小腿、核心動作兩兩輪流做，一輪做完才休息，兩個動作會分到不同器材。只是省時間，不會長得比較快。自訂課表在每個動作裡設定。")
+                    SectionLabel("熱身組依正式組重量自動算。少排槓鈴：在家只有臀推用槓鈴。超級組只是省時間，不會長得比較快。")
                 }
 
                 Section {
@@ -276,7 +276,7 @@ struct SettingsView: View {
                 } header: {
                     SectionLabel("課表與動作")
                 } footer: {
-                    SectionLabel("自訂課表和內建課表分開存，選哪一份就用哪一份。開關關著時，自訂動作只會出現在你指定它的自訂課表裡。")
+                    SectionLabel("自訂課表和內建課表分開存，選哪一份就用哪一份。")
                 }
                 .listRowBackground(Theme.surface)
 
@@ -323,7 +323,7 @@ struct SettingsView: View {
                 } header: {
                     SectionLabel("自動排程")
                 } footer: {
-                    SectionLabel("App 會扣掉上課、打工、活動和通勤時間，找出每天的空檔，自動排出這週要練哪幾天、練多久、幾點開始。這只是建議：首頁隨時可以改成完整版、精簡版或只做 1 組。班表直接從「打工薪水帳」讀取，改班後打開練壯就會重新排。")
+                    SectionLabel("扣掉上課、打工、活動和通勤，自動排出這週哪幾天練、幾點開始。首頁隨時可以改長度。")
                 }
                 .listRowBackground(Theme.surface)
 
@@ -355,7 +355,7 @@ struct SettingsView: View {
                 } header: {
                     SectionLabel("目標")
                 } footer: {
-                    SectionLabel("在家時，加重建議只會跳到你的啞鈴裝得出來的重量，還會告訴你每邊要裝哪幾片。")
+                    SectionLabel("在家時，加重建議只會跳到你的啞鈴裝得出來的重量。")
                 }
                 .listRowBackground(Theme.surface)
 
@@ -373,8 +373,8 @@ struct SettingsView: View {
                 } header: {
                     SectionLabel("週期")
                 } footer: {
-                    SectionLabel("第 1-2 週是適應期，之後大約每 6 週有一次減量週（疲勞高會提早、狀態好可以延後，都會先問你），減量週後換一批動作。"
-                                 + "\(TrainingLevel(rawValue: levelRaw)?.detail ?? TrainingLevel.beginner.detail)中階只套用在內建課表。重新開始不會刪除紀錄。")
+                    SectionLabel("前 2 週適應期，之後約每 6 週一次減量週（會先問你要不要提早或延後）。"
+                                 + "\(TrainingLevel(rawValue: levelRaw)?.detail ?? TrainingLevel.beginner.detail)重新開始不會刪除紀錄。")
                 }
                 .listRowBackground(Theme.surface)
 
@@ -388,7 +388,7 @@ struct SettingsView: View {
                 } header: {
                     SectionLabel("資料")
                 } footer: {
-                    SectionLabel("「每組紀錄」和「身體數據」各一個檔（有間歇紀錄會多一個），可以用 Excel、Numbers 打開。重量一律是 kg。用分享選單存到「檔案」。")
+                    SectionLabel("匯出成 CSV（重量是 kg），可以用 Excel、Numbers 打開。")
                 }
                 .listRowBackground(Theme.surface)
             }

@@ -281,8 +281,10 @@ struct WorkoutView: View {
                     Text(t)
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(Theme.bg)
+                        .multilineTextAlignment(.center)
                         .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(Theme.green, in: Capsule())
+                        .background(Theme.green, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .padding(.horizontal, 24)
                         .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
                         .padding(.top, 60)
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -764,7 +766,9 @@ struct WorkoutView: View {
 
     private func showToast(_ text: String) {
         withAnimation(.spring(duration: 0.3)) { toast = text }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        // 長的提醒多留一點時間讀
+        let seconds = max(2.5, Double(text.count) / 12)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             if toast == text { withAnimation { toast = nil } }
         }
     }
@@ -1035,12 +1039,15 @@ struct WorkoutView: View {
         }
         // 成果畫面：週目標、連續週數用存檔前的紀錄＋這一次算
         let dates = sessions.filter { $0 !== session }.map(\.date)
+        // 今天稍早已經拿過的訓練分（同一天只算最高的一次，和牌位一樣）
+        let paidToday = sessions.filter { $0 !== session && Calendar.current.isDateInToday($0.date) }
+            .map { RankEngine.points(for: $0.length) }.max() ?? 0
         withAnimation(.easeOut(duration: 0.25)) {
             summary = WorkoutSummary(
                 sets: drafts.reduce(0) { $0 + $1.sets.filter { $0.done && $0.kind == .work }.count },
                 seconds: session.durationSeconds,
                 prs: prCount.count,
-                points: RankEngine.points(for: length) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
+                points: max(0, RankEngine.points(for: length) - paidToday) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
                 weekDone: SharedStore.countThisWeek(dates + [now]),
                 weekGoal: GoalEngine.current(dates: dates + [now], goal: weeklyGoal, ctx: .load()).goal,
                 streakBefore: GoalEngine.streak(dates: dates),
@@ -1255,6 +1262,8 @@ struct ExerciseCard: View {
     var onEasePain: () -> Void = {}
     var onAvoid: (AvoidReason) -> Void = { _ in }
     @State private var showPain = false
+    /// 備註框：有上次的備註或已經寫了才一直開著，不然按「加備註」才出現
+    @State private var noteOpen = false
 
     private var ex: Exercise { draft.item.exercise }
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
@@ -1305,9 +1314,10 @@ struct ExerciseCard: View {
 
             if hasActive {
                 if draft.scheme != .straight {
-                    HStack(alignment: .top, spacing: 2) {
-                        Label(draft.scheme.explain, systemImage: "chart.bar.fill")
-                            .font(.caption)
+                    // 排法只顯示短名稱，完整說明放在 ⓘ 裡
+                    HStack(spacing: 2) {
+                        Label("排法：\(draft.scheme.title)", systemImage: "chart.bar.fill")
+                            .font(.caption.weight(.bold))
                             .foregroundStyle(Theme.accentSoft)
                         InfoTip(item: draft.scheme == .dropset ? .dropset : .pyramid)
                     }
@@ -1386,7 +1396,21 @@ struct ExerciseCard: View {
     }
 
     /// 動作備註：上次寫的放上面，這次的可以改（例如「椅子調第 3 格」）
+    @ViewBuilder
     private var noteEditor: some View {
+        if draft.lastNote == nil && draft.note.isEmpty && !noteOpen {
+            Button { noteOpen = true } label: {
+                Label("加備註", systemImage: "square.and.pencil")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+        } else {
+            noteField
+        }
+    }
+
+    private var noteField: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let lastNote = draft.lastNote {
                 Label("上次備註：\(lastNote)", systemImage: "note.text")

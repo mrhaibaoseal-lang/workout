@@ -15,6 +15,8 @@ struct PersonalRecord: Identifiable {
     let weight: Double
     let reps: Int
     let previous: Double
+    /// 次數紀錄（同重量做更多下）：以前用這個重量最多幾下；重量紀錄是 nil
+    var previousReps: Int? = nil
     var id: String { exerciseId + "\(date.timeIntervalSince1970)" }
 }
 
@@ -38,23 +40,34 @@ struct ProgressScreen: View {
 
     private var currentId: String? { selectedId ?? exerciseIds.first }
 
-    /// Same rule as the character milestones: first time doesn't count.
+    /// 和牌位、訓練中同一套規則（`PRRule`）：重量紀錄或最高重量的次數紀錄，第一次做不算，每次訓練每個動作最多 1 個。
     private var records: [PersonalRecord] {
-        let sorted = entries.sorted { a, b in
-            a.date != b.date ? a.date < b.date : a.setIndex < b.setIndex
-        }
-        var best: [String: Double] = [:]
+        let work = entries.filter { $0.isWork && $0.weight > 0 && $0.reps > 0 }
+        // 同一次訓練的組存檔時間相同
+        let groups = Dictionary(grouping: work) { "\($0.exerciseId)|\($0.date.timeIntervalSince1970)" }
+            .values.sorted { ($0.first?.date ?? .distantPast) < ($1.first?.date ?? .distantPast) }
+        var best: [String: PRBest] = [:]
         var out: [PersonalRecord] = []
-        for e in sorted where e.weight > 0 {
-            guard let ex = ExerciseLibrary.byId(e.exerciseId), ex.loaded else { continue }
-            if let prev = best[e.exerciseId] {
-                if e.weight > prev {
-                    out.append(PersonalRecord(exerciseId: e.exerciseId, date: e.date,
-                                              weight: e.weight, reps: e.reps, previous: prev))
-                    best[e.exerciseId] = e.weight
+        for sets in groups {
+            guard let first = sets.first, let ex = ExerciseLibrary.byId(first.exerciseId), ex.loaded else { continue }
+            let id = first.exerciseId
+            let before = best[id]
+            var hit: (SetEntry, PRKind)? = nil
+            var b = before
+            for e in sets.sorted(by: { $0.setIndex < $1.setIndex }) {
+                if before != nil, let k = PRRule.check(weight: e.weight, reps: e.reps, best: b) { hit = (e, k) }
+                b = PRRule.merge(b, weight: e.weight, reps: e.reps)
+            }
+            best[id] = b
+            if let h = hit, let before {
+                let e = h.0
+                switch h.1 {
+                case .weight(let old):
+                    out.append(PersonalRecord(exerciseId: id, date: e.date, weight: e.weight, reps: e.reps, previous: old))
+                case .reps:
+                    out.append(PersonalRecord(exerciseId: id, date: e.date, weight: e.weight, reps: e.reps,
+                                              previous: before.weight, previousReps: before.reps))
                 }
-            } else {
-                best[e.exerciseId] = e.weight
             }
         }
         return out
@@ -65,7 +78,6 @@ struct ProgressScreen: View {
             ScrollView {
                 VStack(spacing: 12) {
                     header
-                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal))
                     NavigationLink { BodyScreen() } label: { bodyLink }
                         .buttonStyle(.plain)
                     if entries.isEmpty {
@@ -76,18 +88,24 @@ struct ProgressScreen: View {
                     } else {
                         let records = self.records
                         statTiles(records: records.count)
-                        NavigationLink { RecordsScreen() } label: { RecordsLinkCard() }
-                            .buttonStyle(.plain)
-                        MuscleVolumeCard(sessions: sessions)
-                        FatigueMapCard(sessions: sessions)
-                        SideBalanceCard(sessions: sessions)
-                        ShadowRivalCard(sessions: sessions)
-                        TonnageCard(sessions: sessions)
-                        weeklyCard
+                        // 力量：每個動作的曲線、紀錄
+                        SectionHeader(title: "力量")
                         if let id = currentId, let ex = ExerciseLibrary.byId(id) {
                             exerciseCard(ex, records: records)
                         }
+                        NavigationLink { RecordsScreen() } label: { RecordsLinkCard() }
+                            .buttonStyle(.plain)
                         recordList(records)
+                        ShadowRivalCard(sessions: sessions)
+                        // 部位：組數、疲勞、左右
+                        SectionHeader(title: "部位")
+                        MuscleVolumeCard(sessions: sessions)
+                        FatigueMapCard(sessions: sessions)
+                        SideBalanceCard(sessions: sessions)
+                        // 訓練量
+                        SectionHeader(title: "訓練量")
+                        weeklyCard
+                        TonnageCard(sessions: sessions)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -333,7 +351,7 @@ struct ProgressScreen: View {
                                 Text("\(Progression.format(r.weight)) kg × \(r.reps)")
                                     .font(Theme.number(16))
                                     .foregroundStyle(Theme.fg)
-                                Text("原本 \(Progression.format(r.previous)) kg")
+                                Text(r.previousReps.map { "原本 \($0) 下" } ?? "原本 \(Progression.format(r.previous)) kg")
                                     .font(.caption2)
                                     .foregroundStyle(Theme.muted)
                             }

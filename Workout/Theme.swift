@@ -51,6 +51,58 @@ extension View {
     }
 }
 
+/// 捲動頁面裡分段的小標題（「本週」「更多」），讓長頁面有層次。
+struct SectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.footnote.weight(.heavy))
+            .foregroundStyle(Theme.muted)
+            .textCase(nil)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.top, 10)
+    }
+}
+
+/// 兩欄並排的小方塊入口（今天頁的間歇計時、補給箱）。
+struct TileButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let tint: Color
+    let tintBg: Color
+    var dashed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.headline)
+                .foregroundStyle(tint)
+                .frame(width: 36, height: 36)
+                .background(tintBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Theme.fg)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(dashed ? Color(gearHex: "#4A3C1E") : Theme.line,
+                    style: StrokeStyle(lineWidth: 1, dash: dashed ? [5, 4] : [])))
+    }
+}
+
 /// Small rounded tag, e.g. 「加重」「完整版」.
 struct Tag: View {
     let text: String

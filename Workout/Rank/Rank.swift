@@ -139,8 +139,16 @@ enum RankEngine {
 
         // 每次訓練＋破紀錄加分。破紀錄的定義跟進步頁、角色里程碑一樣：
         // 有負重的動作，重量超過以前的最高重量，或用最高重量做更多下（`PRRule`，第一次做不算）。
+        // 同一天練好幾次：訓練分只算那天最高的一次（不能刷「只做 1 組」湊分）
+        var paidToday: [Date: Int] = [:]
         for f in facts {
-            events.append(RankEvent(date: f.date, delta: points(for: f.length), reason: "完成訓練（\(f.length.title)）"))
+            let day = Calendar.current.startOfDay(for: f.date)
+            let paid = paidToday[day] ?? 0
+            let p = points(for: f.length)
+            if p > paid {
+                events.append(RankEvent(date: f.date, delta: p - paid, reason: "完成訓練（\(f.length.title)）"))
+                paidToday[day] = p
+            }
             if f.prs > 0 {
                 events.append(RankEvent(date: f.date, delta: min(prCap, f.prs * prPoints), reason: "破個人紀錄 × \(f.prs)", kind: .record))
             }

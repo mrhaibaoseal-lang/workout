@@ -64,7 +64,12 @@ enum SharedStore {
 
     static func countThisWeek(_ dates: [Date], now: Date = .now) -> Int {
         let start = weekStart(now)
-        return dates.filter { $0 >= start }.count
+        return trainingDays(dates.filter { $0 >= start })
+    }
+
+    /// 練了幾天（同一天練兩次算 1 天：週目標算的是天數，不能一天練兩次湊數）。
+    static func trainingDays(_ dates: [Date]) -> Int {
+        Set(dates.map { calendar.startOfDay(for: $0) }).count
     }
 
     /// Consecutive weeks (ending this week or last week) with at least `minPerWeek` sessions.

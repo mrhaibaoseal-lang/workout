@@ -130,15 +130,12 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     header
+                    // 1. 會改變今天要做什麼的：漏練、併成全身日
                     if missed && !trainedToday {
                         MissedCard(onStart: {
                             active = ActiveWorkout(day: day, length: .minimal)
                         }, onLeave: { goalSheet = .leave })
                     }
-                    weeklySummaryCard
-                    coachCards
-                    SideDetectCard(sessions: sessions)
-                    specializationCard
                     let plans = self.plans
                     if pickedDay == nil, onLeave == nil, let offer = mergeOffer(plans) {
                         MergeDayCard(offer: offer, onAccept: {
@@ -147,23 +144,36 @@ struct TodayView: View {
                             withAnimation { WeekFit.dismiss() }
                         })
                     }
+                    // 2. 今天的訓練：開始按鈕和動作清單放最上面
+                    let plan = self.plan
+                    heroCard(today: plans.first, plan: plan)
+                    exerciseList(plan)
+                    // 3. 教練的提醒（每週、每個區塊才出現一次）
+                    weeklySummaryCard
+                    coachCards
+                    SideDetectCard(sessions: sessions)
+                    specializationCard
+                    // 4. 本週進度、牌位、任務
                     let ctx = self.ctx
                     let dates = sessions.map(\.date)
                     let current = GoalEngine.current(dates: dates, goal: weeklyGoal, ctx: ctx)
+                    SectionHeader(title: "本週")
                     WeekRingCard(week: week, phase: phase,
                                  done: current.count, goal: current.goal,
                                  plans: plans)
-                    heroCard(today: plans.first)
-                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal, ctx: ctx), intake: intake)
                     QuestCard(quests: GoalEngine.quests(week: current.week, facts: GoalEngine.facts(sessions),
                                                         goal: current.goal, ctx: ctx),
                               shields: current.shields,
                               activeBet: ctx.bets.first(where: { $0.week == current.week }),
                               onSheet: { goalSheet = $0 })
-                    exerciseList
+                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal, ctx: ctx), intake: intake)
+                    // 5. 其他
+                    SectionHeader(title: "更多")
                     weekVolume
-                    toolsRow
-                    boxStrip
+                    HStack(spacing: 10) {
+                        toolsTile
+                        boxTile
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
@@ -327,10 +337,10 @@ struct TodayView: View {
 
     // MARK: Hero
 
-    private func heroCard(today: DayPlan?) -> some View {
+    private func heroCard(today: DayPlan?, plan: [PlannedExercise]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                Tag(text: length.title, fg: Theme.bg, bg: Theme.accent)
+                placeMenu
                 if let leave = onLeave, !trainedToday {
                     Label("今天請假：\(leave.title)", systemImage: leave.icon)
                         .font(.footnote.weight(.bold))
@@ -364,7 +374,7 @@ struct TodayView: View {
                 Text(day.name)
                     .font(.system(size: 34, weight: .black))
                     .foregroundStyle(Theme.fg)
-                Text(summaryLine)
+                Text(summaryLine(plan))
                     .font(.subheadline)
                     .foregroundStyle(Theme.accentSoft)
                 if let name = ProgramBuilder.customName {
@@ -390,22 +400,6 @@ struct TodayView: View {
                 Text(reason)
                     .font(.caption)
                     .foregroundStyle(Theme.accentSoft.opacity(0.8))
-            }
-
-            HStack(spacing: 6) {
-                ForEach(TrainingPlace.allCases) { p in
-                    let on = p.rawValue == placeRaw
-                    Button { placeRaw = p.rawValue } label: {
-                        Label(p.title, systemImage: p.icon)
-                            .font(.footnote.weight(.bold))
-                            .foregroundStyle(on ? Theme.bg : Color(gearHex: "#DCE4F7"))
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                            .background(on ? Color(gearHex: "#DCE4F7") : .clear, in: Capsule())
-                            .overlay(Capsule().stroke(on ? Color(gearHex: "#DCE4F7") : Theme.accentDim, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(on ? .isSelected : [])
-                }
             }
 
             HStack(spacing: 6) {
@@ -448,7 +442,30 @@ struct TodayView: View {
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color(gearHex: "#34446F"), lineWidth: 1))
     }
 
-    private var summaryLine: String {
+    /// 在家／健身房：不常換，做成小選單放在卡片左上角
+    private var placeMenu: some View {
+        let place = TrainingPlace(rawValue: placeRaw) ?? .home
+        return Menu {
+            Picker("地點", selection: $placeRaw) {
+                ForEach(TrainingPlace.allCases) { p in
+                    Label(p.title, systemImage: p.icon).tag(p.rawValue)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: place.icon)
+                Text(place.title)
+                Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+            }
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(Theme.bg)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Color(gearHex: "#DCE4F7"), in: Capsule())
+        }
+        .accessibilityLabel("訓練地點：\(place.title)")
+    }
+
+    private func summaryLine(_ plan: [PlannedExercise]) -> String {
         let sets = plan.reduce(0) { $0 + $1.sets }
         if length == .minimal { return "\(day.focus) · 做 1 組就算數" }
         let minutes = ProgramBuilder.estimatedMinutes(plan, sessions: sessions, gym: placeRaw == TrainingPlace.gym.rawValue,
@@ -466,7 +483,7 @@ struct TodayView: View {
         var id: String { item.id }
     }
 
-    private var rows: [Row] {
+    private func rows(_ plan: [PlannedExercise]) -> [Row] {
         plan.enumerated().map { i, item in
             let last = Progression.lastSets(for: item.exercise.id, in: sessions)
             let ladder = WeightLadder.make(item, gym: placeRaw == TrainingPlace.gym.rawValue, step: increment)
@@ -488,8 +505,8 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private var exerciseList: some View {
-        let rows = self.rows
+    private func exerciseList(_ plan: [PlannedExercise]) -> some View {
+        let rows = self.rows(plan)
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text("今天的動作").font(.headline).foregroundStyle(Theme.fg)
@@ -500,7 +517,6 @@ struct TodayView: View {
                 }
             }
             .padding(.horizontal, 4)
-            .padding(.top, 8)
 
             if rows.isEmpty {
                 Text("目前器材找不到適合的動作，請到「設定」勾選你的器材。")
@@ -655,69 +671,29 @@ struct TodayView: View {
         }
     }
 
-    // MARK: Tools
+    // MARK: Tools & supply box
 
-    private var toolsRow: some View {
-        Button {
-            showIntervals = true
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "timer")
-                    .font(.title3)
-                    .foregroundStyle(Theme.hotText)
-                    .frame(width: 46, height: 46)
-                    .background(Theme.hotBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("間歇計時")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Theme.fg)
-                    Text("Tabata、EMOM、AMRAP，練完加練用")
-                        .font(.caption)
-                        .foregroundStyle(Theme.muted)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.bold))
-                    .foregroundStyle(Theme.muted)
-            }
-            .padding(14)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.line, lineWidth: 1))
+    private var toolsTile: some View {
+        Button { showIntervals = true } label: {
+            TileButton(icon: "timer", title: "間歇計時", subtitle: "Tabata、EMOM、AMRAP，練完加練用",
+                       tint: Theme.hotText, tintBg: Theme.hotBg)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: Supply box
-
-    private var boxStrip: some View {
+    private var boxTile: some View {
         let count = sessions.count
         let waiting = inventory.boxesAvailable(sessionCount: GoalEngine.boxTotal(sessions: sessions, goal: weeklyGoal))
         let next = Milestone.all
             .filter { $0.kind == .sessions && $0.goal > count }
             .min { $0.goal < $1.goal }
-        let title = waiting > 0 ? "有 \(waiting) 個補給箱還沒開" : (trainedToday ? "明天練完再拿 1 個補給箱" : "練完拿 1 個補給箱")
-        return HStack(spacing: 12) {
-            Image(systemName: "shippingbox.fill")
-                .font(.title3)
-                .foregroundStyle(Theme.gold)
-                .frame(width: 46, height: 46)
-                .background(Theme.goldBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.fg)
-                if let m = next, let item = m.item {
-                    Text("再 \(m.goal - count) 次解鎖「\(item.name)」（\(m.condition)）")
-                        .font(.caption)
-                        .foregroundStyle(Theme.muted)
-                }
-            }
-            Spacer(minLength: 0)
+        let title = waiting > 0 ? "\(waiting) 個補給箱" : "補給箱"
+        var subtitle = waiting > 0 ? "到「角色」打開" : (trainedToday ? "明天練完再拿 1 個" : "練完拿 1 個")
+        if waiting == 0, let m = next, let item = m.item {
+            subtitle = "再 \(m.goal - count) 次解鎖「\(item.name)」"
         }
-        .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(Color(gearHex: "#4A3C1E"), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+        return TileButton(icon: "shippingbox.fill", title: title, subtitle: subtitle,
+                          tint: Theme.gold, tintBg: Theme.goldBg, dashed: true)
     }
 }
 
