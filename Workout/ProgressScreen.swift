@@ -80,6 +80,7 @@ struct ProgressScreen: View {
                             .buttonStyle(.plain)
                         MuscleVolumeCard(sessions: sessions)
                         FatigueMapCard(sessions: sessions)
+                        SideBalanceCard(sessions: sessions)
                         ShadowRivalCard(sessions: sessions)
                         TonnageCard(sessions: sessions)
                         weeklyCard

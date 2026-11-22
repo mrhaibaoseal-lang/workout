@@ -20,6 +20,7 @@ enum SettingsBackup {
         Keys.muscleFeedback, Keys.muscleSetAdjust, Keys.volumeReviews, Keys.volumeReviewedBlock, Keys.weeklySummarySeen,
         Keys.builtInProgram, Keys.weekMerge, Keys.weekMergeDismissed,
         Keys.deloadOverrides, Keys.deloadAskedWeek, Keys.trainingLevel, Keys.graduationSnooze, Keys.graduatedAt,
+        Keys.weakSide, Keys.weakExtra, Keys.weakExtraSnooze,
         ClassStore.key, EventStore.key,
     ]
 

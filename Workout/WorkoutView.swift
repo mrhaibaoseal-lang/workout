@@ -15,6 +15,11 @@ struct SetDraft: Identifiable {
     var target: Int = 0
     /// 做完後的判定（只有正式組）
     var grade: SetGrade? = nil
+    /// 左右平衡：單手輪流做（reps／rir 是弱的那手）
+    var oneArm = false
+    /// 另一手的次數（-1 = 和弱的那手一樣）、還剩幾下（-1 = 沒填）
+    var otherReps = -1
+    var otherRir = -1
 }
 
 struct ExerciseDraft: Identifiable {
@@ -880,7 +885,11 @@ struct WorkoutView: View {
                                              firstInRegion: firstInRegion, avoidKit: avoidKit ?? barbellKit,
                                              plateau: plateau)
         let s = planned.suggestion
-        var sets = planned.sets.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit, target: $0.reps) }
+        let oneArm = SideBalance.oneArm(item.exercise)
+        var sets = planned.sets.map {
+            SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit, target: $0.reps,
+                     oneArm: oneArm && $0.kind == .work)
+        }
         adjustForReadiness(&sets, ladder: ladder, loaded: item.exercise.loaded)
         var lastText = ""
         if !last.isEmpty {
@@ -953,7 +962,8 @@ struct WorkoutView: View {
     private func addSet() {
         guard var lastDraft = drafts.last,
               let lastSet = lastDraft.sets.last(where: { $0.kind == .work }) ?? lastDraft.sets.last else { return }
-        lastDraft.sets.append(SetDraft(weight: lastSet.weight, reps: lastSet.reps, target: lastSet.target))
+        lastDraft.sets.append(SetDraft(weight: lastSet.weight, reps: lastSet.reps, target: lastSet.target,
+                                       oneArm: lastSet.kind == .work && lastSet.oneArm))
         drafts[drafts.count - 1] = lastDraft
     }
 
@@ -988,6 +998,11 @@ struct WorkoutView: View {
                 let entry = SetEntry(exerciseId: d.item.exercise.id, setIndex: i,
                                      weight: d.item.exercise.loaded ? set.weight : 0,
                                      reps: set.reps, date: now, kind: set.kind, rir: set.rir)
+                if set.oneArm || set.kind == .weak { entry.side = SideBalance.weak.rawValue }
+                if set.oneArm {
+                    entry.otherReps = set.otherReps < 0 ? set.reps : set.otherReps
+                    entry.otherRir = set.otherRir
+                }
                 entry.session = session
                 context.insert(entry)
             }
@@ -1282,6 +1297,11 @@ struct ExerciseCard: View {
                     }
                 }
                 suggestionLine
+                if let side = SideBalance.cardNote(ex) {
+                    Label(side, systemImage: "hand.raised.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.gold)
+                }
                 Text(ex.tip)
                     .font(.footnote)
                     .foregroundStyle(Theme.muted)
@@ -1490,8 +1510,9 @@ struct CompactSetRow: View {
 
     private var label: String {
         let reps = "\(set.reps) \(exercise.unit.label)"
-        guard exercise.loaded else { return reps }
-        return "\(Progression.format(set.weight)) kg × \(set.reps)"
+        let each = set.oneArm ? " 每手" : ""
+        guard exercise.loaded else { return reps + each }
+        return "\(Progression.format(set.weight)) kg × \(set.reps)" + each
     }
 }
 
@@ -1509,7 +1530,7 @@ struct ActiveSetEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(set.kind == .work ? "第 \(tag) 組" : set.kind.title)
+            Text(header)
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(set.kind == .work ? Theme.fg : (set.kind == .warmup ? Theme.accentSoft : Theme.hotText))
             HStack(spacing: 10) {
@@ -1557,8 +1578,11 @@ struct ActiveSetEditor: View {
                 ghostRow(last)
             }
             if set.kind == .work {
-                rirPicker
+                rirPicker(set.oneArm ? "\(weak.hand)手還能再做幾下？" : "還能再做幾下？", value: $set.rir)
                 gradePreview
+            }
+            if set.oneArm {
+                otherSide
             }
             if exercise.unit == .seconds {
                 Button {
@@ -1630,18 +1654,54 @@ struct ActiveSetEditor: View {
         }
     }
 
+    private var weak: WeakSide { SideBalance.weak }
+
+    private var header: String {
+        switch set.kind {
+        case .work: set.oneArm ? "第 \(tag) 組 · 單手，先做\(weak.hand)手" : "第 \(tag) 組"
+        default: set.kind.title
+        }
+    }
+
+    /// 單手組的另一手：預設做到和弱的那手一樣的次數就停；填「還剩幾下」才算得出兩手差多少。
+    private var otherSide: some View {
+        let reps = set.otherReps < 0 ? set.reps : set.otherReps
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Text("\(weak.otherHand)手：做到 \(set.reps) 下就停，不要多做")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(Theme.accentSoft)
+                InfoTip(item: .sides)
+            }
+            stepperBox(
+                minus: { set.otherReps = max(0, reps - repStep) },
+                plus: { set.otherReps = min(300, reps + repStep) },
+                minusLabel: "減少\(weak.otherHand)手次數", plusLabel: "增加\(weak.otherHand)手次數"
+            ) {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(reps)").font(Theme.number(20)).foregroundStyle(Theme.fg)
+                    Text(exercise.unit.label).font(.caption).foregroundStyle(Theme.muted)
+                }
+                .frame(minWidth: 52)
+            }
+            rirPicker("\(weak.otherHand)手還能再做幾下？", value: $set.otherRir)
+        }
+        .padding(10)
+        .background(Theme.sunken.opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     /// 做完還剩幾下力氣：用來自動調整下一組，也用來判定 PERFECT。
-    private var rirPicker: some View {
+    private func rirPicker(_ title: String, value: Binding<Int>) -> some View {
         HStack(spacing: 6) {
-            Text("還能再做幾下？")
+            Text(title)
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
             InfoTip(item: .rir)
             Spacer(minLength: 0)
             ForEach(0..<5, id: \.self) { v in
-                let on = set.rir == v
+                let on = value.wrappedValue == v
                 Button {
-                    set.rir = on ? -1 : v
+                    value.wrappedValue = on ? -1 : v
                 } label: {
                     Text(v == 4 ? "4+" : "\(v)")
                         .font(Theme.number(14))

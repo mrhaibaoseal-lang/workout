@@ -46,6 +46,11 @@ final class SetEntry {
     var kind: String = "work"
     /// 做完還剩幾下（RIR），-1 = 沒填。
     var rir: Int = -1
+    /// 左右平衡（0.27.0）：單手做的組，reps／rir 是弱的那手，這兩個是另一手；-1 = 不是單手組或沒填。
+    var otherReps: Int = -1
+    var otherRir: Int = -1
+    /// 做的時候設定的弱邊（WeakSide.rawValue），空的 = 雙手一起做
+    var side: String = ""
 
     init(exerciseId: String, setIndex: Int, weight: Double, reps: Int, date: Date,
          kind: SetKind = .work, rir: Int = -1) {
@@ -148,6 +153,12 @@ enum Keys {
     static let tempos = "tempos"
     /// 間歇計時上次的設定，JSON [IntervalKind: IntervalSetup]
     static let intervalSetups = "intervalSetups"
+    /// 左右平衡：哪一手比較弱（WeakSide.rawValue）
+    static let weakSide = "weakSide"
+    /// 左右平衡：弱邊加強組（預設開）
+    static let weakExtra = "weakExtra"
+    /// 「可以關掉加強組」按了「再練一陣子」的時間（秒）
+    static let weakExtraSnooze = "weakExtraSnooze"
 
     static let defaultWeekdays = "2,3,5,7"
     static let defaultMinutes = 21 * 60

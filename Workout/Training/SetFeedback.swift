@@ -244,7 +244,7 @@ struct Sparkline: View {
 enum Glossary: String, Identifiable {
     case rir, grade, ghost, dropset, pyramid, readiness, record, superset
     case weeklySets, bigJump, fixedCompound, personalSets, weeklySummary
-    case startWeight, comeback, mergeDay, fatigue, graduation
+    case startWeight, comeback, mergeDay, fatigue, graduation, sides
 
     var id: String { rawValue }
 
@@ -268,11 +268,20 @@ enum Glossary: String, Identifiable {
         case .mergeDay: "併成全身日"
         case .fatigue: "疲勞決定減量時機"
         case .graduation: "新手畢業到中階"
+        case .sides: "左右平衡"
         }
     }
 
     var text: String {
         switch self {
+        case .sides:
+            "兩手力氣差很多時，雙手一起做，強的那手會偷偷多出力，弱的那手就一直追不上。所以：\n\n"
+            + "・彎舉、側平舉、肩推、划船這類啞鈴動作改成單手做，弱的那手先做（力氣最多的時候）。\n"
+            + "・另一手做到一樣的次數就停，不要多做。重量和加重都看弱的那手。\n"
+            + "・彎舉、側平舉、肩推最後，弱的那手多做一組加強組。\n"
+            + "・兩手都填「還能再做幾下」，App 就能算出兩手差幾下，在進步頁看會不會越來越小。\n\n"
+            + "差 1 下以內就算平衡。新手的左右差大多是神經還不熟練，通常幾個月就會明顯變小。"
+            + "做的時候如果是關節痛（不是肌肉痠），先停下來，用動作選單的「會痛…」。"
         case .rir:
             "做完這組，覺得硬拚還能再做幾下。做 10 下、還能再 2 下，就選 2。\n\n"
             + "每個正式組做完都填，熱身組不用。App 靠它決定下次加不加重：還剩 4 下以上會加重，"

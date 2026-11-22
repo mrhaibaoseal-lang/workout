@@ -12,7 +12,7 @@ enum CSVExport {
         let stamp = dayFmt.string(from: .now)
         var urls: [URL] = []
 
-        var sets: [[String]] = [["日期", "時間", "課表", "長度", "動作", "動作代號", "類型", "第幾組", "重量 (kg)", "次數或秒數", "單位", "還能再做幾下"]]
+        var sets: [[String]] = [["日期", "時間", "課表", "長度", "動作", "動作代號", "類型", "第幾組", "重量 (kg)", "次數或秒數", "單位", "還能再做幾下", "單手：另一手次數", "單手：另一手還能再做幾下"]]
         for s in sessions.sorted(by: { $0.date < $1.date }) {
             let entries = s.entries.sorted { ($0.date, $0.setIndex) < ($1.date, $1.setIndex) }
             for e in entries {
@@ -22,6 +22,7 @@ enum CSVExport {
                     ex?.name ?? e.exerciseId, e.exerciseId, SetKind(rawValue: e.kind)?.title ?? e.kind,
                     "\(e.setIndex + 1)", ex?.loaded == false && e.weight == 0 ? "" : num(e.weight), "\(e.reps)",
                     ex?.unit.label ?? "下", e.rir >= 0 ? "\(e.rir)" : "",
+                    e.otherReps >= 0 ? "\(e.otherReps)" : "", e.otherRir >= 0 ? "\(e.otherRir)" : "",
                 ])
             }
         }

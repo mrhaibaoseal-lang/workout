@@ -3,6 +3,8 @@ import Foundation
 /// 每一組的類型。只有正式組算進步、破紀錄和訓練量。
 enum SetKind: String {
     case warmup, work, drop
+    /// 左右平衡：只做弱的那手的加強組（不算進步、紀錄、每週組數）
+    case weak
 
     /// 組號位置顯示的短標籤（正式組顯示數字）
     var badge: String? {
@@ -10,6 +12,7 @@ enum SetKind: String {
         case .warmup: "熱"
         case .work: nil
         case .drop: "降"
+        case .weak: "加"
         }
     }
 
@@ -18,6 +21,7 @@ enum SetKind: String {
         case .warmup: "熱身組"
         case .work: "正式組"
         case .drop: "遞減組（不休息）"
+        case .weak: "加強組（只做\(SideBalance.weak.hand)手）"
         }
     }
 }
@@ -246,7 +250,13 @@ enum SetPlanner {
             ? warmups(for: item.exercise, workWeight: work.first?.weight ?? 0, first: firstInRegion,
                       ladder: ladder, avoidKit: avoidKit)
             : []
-        return ExercisePlan(scheme: scheme, suggestion: s, sets: warm + work)
+        // 左右平衡：最後多一組只做弱的那手，重量、次數和最後一個正式組一樣
+        var extra: [PlannedSet] = []
+        if SideBalance.wantsExtra(item.exercise, phase: phase, minimal: minimal),
+           let w = work.last(where: { $0.kind == .work }) {
+            extra = [PlannedSet(weight: w.weight, reps: w.reps, kind: .weak)]
+        }
+        return ExercisePlan(scheme: scheme, suggestion: s, sets: warm + work + extra)
     }
 
     /// 還沒做的一組，算換重量用的最少資訊
@@ -312,6 +322,8 @@ enum SetPlanner {
     /// 這組做完要休息幾秒。下一組是遞減組就不休息；熱身組休息短一點。
     static func rest(after done: SetKind, next: SetKind?, normal: Int) -> Int {
         if next == .drop { return 0 }
+        // 弱邊加強組：另一手做的時候弱邊已經在休息了
+        if next == .weak { return 45 }
         if done == .warmup { return next == .warmup ? 45 : 75 }
         return normal
     }
@@ -328,6 +340,8 @@ enum WorkoutTimeEstimator {
         let kind: SetKind
         let kit: String?
         let loading: Loading?
+        /// 單手輪流做，一組要做兩次
+        var oneArm = false
     }
 
     static func seconds(plan: [PlannedExercise], sessions: [WorkoutSession], gym: Bool, increment: Double,
@@ -353,7 +367,8 @@ enum WorkoutTimeEstimator {
                                            autoWarmup: autoWarmup, firstInRegion: first, avoidKit: barKit)
             sets.append(p.sets.map { s in
                 let l: Loading? = ex.loaded && s.weight > 0 ? ladders[n].loading(s.weight, kit: s.kit) : nil
-                return Entry(name: ex.name, kind: s.kind, kit: s.kit, loading: l)
+                return Entry(name: ex.name, kind: s.kind, kit: s.kit, loading: l,
+                             oneArm: s.kind == .work && SideBalance.oneArm(ex))
             })
         }
         // 照實際做的順序（超級組輪流做）
@@ -393,7 +408,7 @@ enum WorkoutTimeEstimator {
 
         for (k, st) in order.enumerated() {
             let e = sets[st.exercise][st.set]
-            total += setSeconds
+            total += setSeconds + (e.oneArm ? 30 : 0)
             if let l = e.loading { rigs[l.kit] = RigState(use: l.use, plates: l.plates) }
             guard k + 1 < order.count else { break }
             let nx = order[k + 1]
