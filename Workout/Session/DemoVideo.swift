@@ -70,7 +70,8 @@ enum DemoVideos {
 
     /// 只接受 YouTube 影片 ID 的字元，避免組 HTML 時出錯
     static func isValidId(_ id: String) -> Bool {
-        id.count == 11 && id.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        // 只收 ASCII：`isLetter`／`isNumber` 會放過中文字和全形數字
+        id.count == 11 && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
 }
 

@@ -17,6 +17,8 @@ enum LevelTest {
         var gobletKg: Double?
         var rowKg: Double?
         var date: Double
+        /// 測試當下的體重（0.33.1；伏地挺身換算要用）。舊資料沒有，用目前記的體重
+        var bodyWeight: Double? = nil
     }
 
     /// 伏地挺身撐起的體重比例
@@ -24,6 +26,8 @@ enum LevelTest {
     /// 測試的次數和還剩幾下
     static let testReps = 10
     static let testRIR = 2
+    /// 換算最大力量的次數上限：Epley 超過 15 下就高估很多（伏地挺身 40 下會推成 2 倍多體重），超過的當 15 下算（偏保守）
+    static let maxRepsForE1RM = 15
 
     static var current: Result? {
         guard let raw = UserDefaults.standard.string(forKey: Keys.levelTest),
@@ -40,7 +44,8 @@ enum LevelTest {
     static func lifts(_ r: Result, bodyWeight: Double) -> [String: Double] {
         var out: [String: Double] = [:]
         if let n = r.pushups, n > 0 {
-            out["bb_bench"] = Comeback.e1rm(weight: bodyWeight * pushupLoad, reps: n, rir: 0)
+            let bw = r.bodyWeight.flatMap { $0 > 0 ? $0 : nil } ?? bodyWeight
+            out["bb_bench"] = Comeback.e1rm(weight: bw * pushupLoad, reps: min(n, maxRepsForE1RM), rir: 0)
         }
         if let w = r.gobletKg, w > 0 {
             out["goblet_squat"] = Comeback.e1rm(weight: w, reps: testReps, rir: testRIR)
@@ -81,25 +86,30 @@ struct LevelTestView: View {
     var onDone: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
-    @State private var doPushups = true
+    // 預設全部關著：打開才算有做，免得沒改數字直接存，預設值被當成真的成績
+    @State private var doPushups = false
     @State private var pushups = 10
-    @State private var doGoblet = true
+    @State private var bodyWeight = StartWeight.bodyWeight > 0 ? StartWeight.bodyWeight : StartWeight.defaultBodyWeight
+    @State private var doGoblet = false
     @State private var goblet = 8.0
-    @State private var doRow = true
+    @State private var doRow = false
     @State private var row = 8.0
+
+    private var anyOn: Bool { doPushups || doGoblet || doRow }
 
     var body: some View {
         Form {
             Section {
-                Text("做 3 個簡單測試，App 會用結果推算每個動作第一次的重量。做不到或沒器材就關掉那一項。測完休息幾分鐘再做下一項。")
+                Text("做 3 個簡單測試，App 會用結果推算每個動作第一次的重量。做了哪一項就打開、填成績；做不到或沒器材就關著。測完休息幾分鐘再做下一項。")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
             }
             .listRowBackground(Theme.surface)
 
             item(on: $doPushups, title: "伏地挺身最多幾下",
-                 detail: "身體一直線，胸口貼近地面再推起，做到做不動為止。") {
+                 detail: "身體一直線，胸口貼近地面再推起，做到做不動為止。體重用來換算推起的重量，填準一點。") {
                 Stepper("\(pushups) 下", value: $pushups, in: 1...80)
+                Stepper("體重 \(Progression.format(bodyWeight)) kg", value: $bodyWeight, in: 30...180, step: 0.5)
             }
             item(on: $doGoblet, title: "高腳杯深蹲 10 下用幾公斤",
                  detail: "雙手捧一個啞鈴在胸前，挑一個做完 10 下大概還能再做 2 下的重量。") {
@@ -111,14 +121,17 @@ struct LevelTestView: View {
             }
 
             Section {
-                Button("存起來") {
+                Button(anyOn ? "存起來" : "先打開做過的項目") {
                     LevelTest.save(LevelTest.Result(pushups: doPushups ? pushups : nil,
                                                     gobletKg: doGoblet ? goblet : nil,
                                                     rowKg: doRow ? row : nil,
-                                                    date: Date().timeIntervalSince1970))
+                                                    date: Date().timeIntervalSince1970,
+                                                    bodyWeight: doPushups ? bodyWeight : nil))
+                    if doPushups { StartWeight.noteBodyWeight(bodyWeight, date: .now) }
                     finish()
                 }
                 .buttonStyle(HotButtonStyle())
+                .disabled(!anyOn)
                 .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
             } footer: {
                 Text("只影響「第一次做」的動作；練過的動作照你實際的紀錄加重。")
@@ -148,6 +161,7 @@ struct LevelTestView: View {
         doPushups = r.pushups != nil; pushups = r.pushups ?? pushups
         doGoblet = r.gobletKg != nil; goblet = r.gobletKg ?? goblet
         doRow = r.rowKg != nil; row = r.rowKg ?? row
+        if let w = r.bodyWeight, w > 0 { bodyWeight = w }
     }
 
     private func finish() {

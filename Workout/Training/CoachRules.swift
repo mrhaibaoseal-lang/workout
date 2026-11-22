@@ -142,21 +142,44 @@ enum Upgrade {
         return ex.unit == .reps
     }
 
-    /// 練完存檔時：成績夠（`qualifies`）就記下升級。回傳升級後的動作。
-    @discardableResult
-    static func record(item: PlannedExercise, work: [(weight: Double, reps: Int)], ladder: WeightLadder,
-                       equipment: Set<Equipment>) -> Exercise? {
-        let ex = item.exercise
-        guard let to = paths[ex.id], store.load()[ex.id] == nil,
-              let up = ExerciseLibrary.byId(to), up.requires.isSubset(of: equipment), !Avoid.isAvoided(to),
-              qualifies(ex, high: item.high, work: work, ladder: ladder) else { return nil }
-        store[ex.id] = to
+    /// 升級的目標：還沒升級過、有路線、器材夠、沒設成避開。建議文字和存檔共用同一個判斷，
+    /// 建議才不會答應做不到的升級（例如沒有椅子卻說「下次換成腳抬高屈體伏地挺身」）。
+    static func target(for ex: Exercise, equipment: Set<Equipment>) -> Exercise? {
+        target(for: ex, equipment: equipment, upgrades: store.load())
+    }
+
+    static func target(for ex: Exercise, equipment: Set<Equipment>, upgrades: [String: String]) -> Exercise? {
+        guard upgrades[ex.id] == nil, let to = paths[ex.id], let up = ExerciseLibrary.byId(to),
+              up.requires.isSubset(of: equipment), !Avoid.isAvoided(to) else { return nil }
         return up
     }
 
-    /// 給建議文字用：到頂又全部達標時，下次會換成什麼。
-    static func next(for ex: Exercise) -> Exercise? {
-        paths[ex.id].flatMap(ExerciseLibrary.byId)
+    /// 目前地點的器材（`Progression.suggest` 沒有傳器材進來時用）。
+    static var currentEquipment: Set<Equipment> {
+        let d = UserDefaults.standard
+        return ProgramBuilder.equipment(place: d.string(forKey: Keys.place) ?? TrainingPlace.home.rawValue,
+                                        homeRaw: d.string(forKey: Keys.equipment) ?? "")
+    }
+
+    /// 夠不夠升級：負重到器材最重、這次每組做到上限就夠；徒手要這次和上一次（`previous`）都每組做到上限
+    /// （連續 2 次：一次做到可能只是那天狀態好，或沒改預填的次數就按完成）。
+    static func ready(_ ex: Exercise, high: Int, work: [(weight: Double, reps: Int)],
+                      previous: [(weight: Double, reps: Int)], ladder: WeightLadder) -> Bool {
+        guard qualifies(ex, high: high, work: work, ladder: ladder) else { return false }
+        return ex.loaded || qualifies(ex, high: high, work: previous, ladder: ladder)
+    }
+
+    /// 練完存檔時：成績夠（`ready`）就記下升級。回傳升級後的動作。
+    /// previous：上一次做這個動作的正式組（不含減輕的組）。
+    @discardableResult
+    static func record(item: PlannedExercise, work: [(weight: Double, reps: Int)],
+                       previous: [(weight: Double, reps: Int)], ladder: WeightLadder,
+                       equipment: Set<Equipment>) -> Exercise? {
+        let ex = item.exercise
+        guard let up = target(for: ex, equipment: equipment),
+              ready(ex, high: item.high, work: work, previous: previous, ladder: ladder) else { return nil }
+        store[ex.id] = up.id
+        return up
     }
 }
 

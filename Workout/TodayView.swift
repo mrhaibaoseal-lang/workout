@@ -667,12 +667,15 @@ struct TodayView: View {
         if let w = WeeklySummary.pendingWeek(start: start, seen: summarySeen, sessions: sessions) {
             WeeklySummaryCard(week: w, hasReview: PersonalVolume.review(endingWeek: w) != nil) {
                 var facts = WeeklySummary.facts(week: w, start: start, sessions: sessions, goal: weeklyGoal)
-                let weights = bodyLogs.filter { $0.weight > 0 }.map { (date: $0.date, weight: $0.weight) }
+                // 用被總結的那一週算，不是今天（週總結可能過幾天才打開）
+                let weekEnd = PersonalVolume.weekStart(w + 1, start: start)
+                let lastDay = Stats.calendar.date(byAdding: .day, value: -1, to: weekEnd) ?? weekEnd
+                let weights = bodyLogs.filter { $0.weight > 0 && $0.date < weekEnd }.map { (date: $0.date, weight: $0.weight) }
                 let bw = weights.last?.weight ?? StartWeight.bodyWeight
-                facts.weeklyGain = Nutrition.weeklyChange(weights)
+                facts.weeklyGain = Nutrition.weeklyChange(weights, now: weekEnd)
                 facts.pace = Nutrition.pace(weeklyChange: facts.weeklyGain, bodyWeight: bw)
-                if bw > 0, let avg = Nutrition.average(Nutrition.load(), days: 7) {
-                    facts.protein = (avg, Nutrition.target(bodyWeight: bw))
+                if bw > 0, let st = Nutrition.stats(Nutrition.load(), days: 7, endingOn: lastDay) {
+                    facts.protein = (st.avg, Nutrition.target(bodyWeight: bw), st.logged)
                 }
                 weeklyFacts = WeeklyFactsItem(facts: facts)
             }

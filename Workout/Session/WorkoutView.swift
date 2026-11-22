@@ -1071,7 +1071,9 @@ struct WorkoutView: View {
         for d in drafts where !isGym || !d.item.exercise.loaded {
             let work = d.sets.filter { $0.done && $0.kind == .work && !$0.eased }.map { (weight: $0.weight, reps: $0.reps) }
             guard !work.isEmpty, ProgramBuilder.phase(week: week) == .normal else { continue }
-            Upgrade.record(item: d.item, work: work, ladder: d.ladder, equipment: equipment)
+            let previous = Progression.lastSets(for: d.item.exercise.id, in: sessions.filter { $0 !== session })
+                .filter { !$0.eased }.map { (weight: $0.weight, reps: $0.reps) }
+            Upgrade.record(item: d.item, work: work, previous: previous, ladder: d.ladder, equipment: equipment)
         }
         let facts = coachFacts(session: session)
         coach = CoachLoader(facts: facts)
