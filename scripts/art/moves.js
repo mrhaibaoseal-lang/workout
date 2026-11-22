@@ -286,6 +286,14 @@ const MOVES = {
       { torso: 0, neck: -10, arm: [60, 90], leg: [180, -60], anchor: ['hip', 96, 136] },
     ],
   },
+  latPulldown: {
+    // 坐在椅子上、面向下拉架；從頭上把握把拉到上胸，手肘往下往後
+    title: '高位下拉', gear: 'bare', period: 3, prop: 'cableTower',
+    frames: [
+      { torso: -98, neck: -90, arm: [-80, -84], leg: [8, 92], anchor: ['hip', 98, 140] },
+      { torso: -104, neck: -94, arm: [100, -58], leg: [8, 92], anchor: ['hip', 98, 140] },
+    ],
+  },
 };
 
 const ORDER = ['head', 'sh', 'el', 'ha', 'hip', 'kn', 'an', 'to'];
@@ -324,7 +332,11 @@ const PROPS = {
   benchBack: '<rect x="20" y="146" width="62" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="30" y="155" width="6" height="29" fill="#2A313C"/><rect x="66" y="155" width="6" height="29" fill="#2A313C"/>',
   benchFront: '<rect x="112" y="146" width="70" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="122" y="155" width="6" height="29" fill="#2A313C"/><rect x="166" y="155" width="6" height="29" fill="#2A313C"/>',
   wall: '<rect x="152" y="20" width="10" height="166" rx="2" fill="#2E3642" stroke="#4A5566" stroke-width="1.5"/>',
+  // 下拉架：直柱、上橫桿、滑輪＋椅子；鋼索和握把跟著手（預覽時另外畫）
+  cableTower: '<rect x="158" y="-6" width="9" height="192" rx="2" fill="#2E3642" stroke="#4A5566" stroke-width="1.5"/><rect x="108" y="-8" width="58" height="7" rx="2" fill="#2E3642" stroke="#4A5566" stroke-width="1.5"/><circle cx="114" cy="2" r="5" fill="#5B6778" stroke="#2A313C" stroke-width="2"/><rect x="70" y="146" width="56" height="9" rx="3" fill="#3A4452" stroke="#5B6778" stroke-width="1.5"/><rect x="78" y="155" width="6" height="29" fill="#2A313C"/><rect x="112" y="155" width="6" height="29" fill="#2A313C"/>',
 };
+/** 下拉架滑輪的位置（鋼索從這裡接到手上的握把） */
+const PULLEY = [114, 2];
 
 async function preview(out, only) {
   const { chromium } = require('playwright');
@@ -342,7 +354,7 @@ async function preview(out, only) {
       const x = p * (fr.length - 1); const i = Math.min(Math.floor(x), fr.length - 2); const t = x - i;
       return lerpP(fr[i], fr[i + 1], t);
     });
-    data[id] = { title: m.title, gear: m.gear, prop: m.prop ? PROPS[m.prop] : '', poses: pick, mirror: isMirror(m) };
+    data[id] = { title: m.title, gear: m.gear, prop: m.prop ? PROPS[m.prop] : '', cable: m.prop === 'cableTower' ? PULLEY : null, poses: pick, mirror: isMirror(m) };
   }
   const b = await chromium.launch();
   const page = await b.newPage({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 1 });
@@ -371,7 +383,12 @@ async function preview(out, only) {
       for (const P of d.poses) {
         let svg = '';
         try { svg = drawGear(id, P, g, false, 0.3); } catch (e) { svg = `<text x="40" y="100" fill="red">${e.message}</text>`; }
-        h += `<svg width="270" height="306" viewBox="10 -14 180 204" style="background:#161B22;border-radius:8px"><line x1="10" y1="186" x2="190" y2="186" stroke="#333" stroke-width="2"/>${d.prop}${svg}</svg>`;
+        let cable = '', grip = '';
+        if (d.cable) {
+          cable = `<line x1="${d.cable[0]}" y1="${d.cable[1]}" x2="${P.ha[0]}" y2="${P.ha[1]}" stroke="#AEB8C6" stroke-width="1.6"/>`;
+          grip = `<line x1="${P.ha[0] - 5}" y1="${P.ha[1] + 1}" x2="${P.ha[0] + 5}" y2="${P.ha[1] - 1}" stroke="#0A0D12" stroke-width="7" stroke-linecap="round"/><line x1="${P.ha[0] - 5}" y1="${P.ha[1] + 1}" x2="${P.ha[0] + 5}" y2="${P.ha[1] - 1}" stroke="#4A5566" stroke-width="4" stroke-linecap="round"/>`;
+        }
+        h += `<svg width="270" height="306" viewBox="10 -14 180 204" style="background:#161B22;border-radius:8px"><line x1="10" y1="186" x2="190" y2="186" stroke="#333" stroke-width="2"/>${d.prop}${cable}${svg}${grip}</svg>`;
       }
       h += '</div>';
     }

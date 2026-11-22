@@ -222,7 +222,30 @@ enum CharacterRenderer {
             let r = Path(roundedRect: CGRect(x: 152, y: 20, width: 10, height: 166), cornerRadius: 2)
             pen.fill(&c, r, Color(gearHex: "#2E3642"))
             pen.stroke(&c, r, Color(gearHex: "#4A5566"), 1.5)
+        case .cableTower:
+            let frame = Color(gearHex: "#2E3642")
+            let frameEdge = Color(gearHex: "#4A5566")
+            for r in [CGRect(x: 158, y: -6, width: 9, height: 192), CGRect(x: 108, y: -8, width: 58, height: 7)] {
+                let path = Path(roundedRect: r, cornerRadius: 2)
+                pen.fill(&c, path, frame)
+                pen.stroke(&c, path, frameEdge, 1.5)
+            }
+            pen.circle(&c, MoveProp.pulley, 5, fill: edge, stroke: leg, sw: 2)
+            bench(70, 56, legs: [78, 112])
         }
+    }
+
+    /// 下拉架的鋼索（畫在身體後面）
+    private static func drawCable(_ c: inout GraphicsContext, _ pen: Pen, P: Joints) {
+        pen.line(&c, MoveProp.pulley, P.ha, 1.6, Color(gearHex: "#AEB8C6"))
+    }
+
+    /// 下拉架的握把（畫在手上）
+    private static func drawGrip(_ c: inout GraphicsContext, _ pen: Pen, P: Joints) {
+        let a = pt(P.ha.x - 5, P.ha.y + 1)
+        let b = pt(P.ha.x + 5, P.ha.y - 1)
+        pen.line(&c, a, b, 7, K)
+        pen.line(&c, a, b, 4, Color(gearHex: "#4A5566"))
     }
 
     fileprivate static func draw(_ c: inout GraphicsContext, size: CGSize, move: CharacterMove,
@@ -295,6 +318,7 @@ enum CharacterRenderer {
 
         if let prop = move.prop {
             drawProp(&c, pen, prop)
+            if prop == .cableTower { drawCable(&c, pen, P: P) }
         }
 
         // 後層特效
@@ -413,6 +437,7 @@ enum CharacterRenderer {
 
         // 啞鈴
         drawParts(&c, pen, gear, z: .grip, P: P, t: t, goblet: goblet, mirror: mirrored)
+        if move.prop == .cableTower { drawGrip(&c, pen, P: P) }
 
         // 喝水的水壺：從手往嘴巴的方向
         if move == .drink {

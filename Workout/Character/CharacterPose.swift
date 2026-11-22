@@ -101,6 +101,11 @@ enum MoveProp {
     case benchFront
     /// 牆（推牆伸展）
     case wall
+    /// 下拉架（直柱、上橫桿、滑輪）＋坐的椅子；鋼索和握把跟著手畫
+    case cableTower
+
+    /// 下拉架滑輪的位置（200 單位座標）
+    static let pulley = CGPoint(x: 114, y: 2)
 }
 
 /// 由 scripts/art/moves.js 產生的動作（`MoveFrames.swift`）
@@ -135,7 +140,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
     case chestStretch, crossBody, tricepsStretch, childPose, quadStretch, seatedFold, kneeHug, calfStretch, hipFlexor, cobra
     // 比依動作模式套用更貼近的訓練示範
     case splitSquat, reverseLunge, stepUp, hipThrust, benchPress, floorPress, skullCrusher, pullover, kickback
-    case pikePushup, reverseCrunch, deadBug, slRdl, legCurl
+    case pikePushup, reverseCrunch, deadBug, slRdl, legCurl, latPulldown
 
     var id: String { rawValue }
 
@@ -178,6 +183,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         "reverse_crunch": .reverseCrunch, "dead_bug": .deadBug,
         "db_sl_rdl": .slRdl, "sl_rdl": .slRdl,
         "db_leg_curl": .legCurl, "squat": .bwSquat,
+        "cable_pulldown": .latPulldown, "cable_close_pulldown": .latPulldown, "band_pulldown": .latPulldown,
     ]
 
     static func forExercise(_ e: Exercise) -> CharacterMove {
