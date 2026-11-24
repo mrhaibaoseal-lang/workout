@@ -47,7 +47,7 @@ def _stand_base(width=0.14, hip_z=0.97, lam_hips=0.0, lam_chest=0.0, lam_head=0.
 if MOVE == 'squat':
     N = 48
     def pose(t):
-        ts, tt, lam = D(38) * t, D(78) * t, D(36) * t
+        ts, tt, lam = D(22) * t, D(88) * t, D(36) * t   # 小腿前傾 22°＋大腿到水平：膝角約 70°（動作卡 70～85°；原本 38°/78° 膝角 64°）
         hipmid = Vector((0, 0, 0)); J = {}
         for s, sx in SX:
             A = rest[f'shin.{s}'][1]

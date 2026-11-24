@@ -45,7 +45,7 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 
 驗收工具（2026-11-24，BLENDER_BRIEF §5-2、§9-1）：
 - **角度自動判定**：動作的 `MOVE_META` 加 `'angles'`（字面值）。`moves3d.py` 的 `measure_pose(pose.bones)` 從骨頭姿勢量：`knee.L/R`、`hip.L/R`、`elbow.L/R`（內角，伸直＝180°）、
-  `trunk_lean`（胸骨頭離垂直，0＝直立）、`uarm_trunk.L/R`（上臂和「軀幹往下」夾角，躺著也適用）、`uarm_vert.L/R`（上臂離世界垂直往下，90＝水平）。
+  `trunk_lean`（胸骨頭離垂直，0＝直立）、`uarm_trunk.L/R`（上臂和「軀幹往下」夾角，躺著也適用）、`uarm_vert.L/R`（上臂離世界垂直往下，90＝水平）。`uarm_flare.L/R`（手肘往身體左右外開的角度，躺著、趴著也適用）。
   寫法：`{'knee': (70, 180)}`＝整個循環最小值不能小於 70、最大值不能大於 180（任一邊可寫 `None`＝不限）；
   `{'knee': {'min': (70, 85)}}`＝最小值要落在 70～85（`'max'` 同理，可兩個都寫）。名稱不帶左右＝左右都檢查，`'knee.L'`＝只檢查左邊。容差 0.5°。名稱打錯會直接 FAIL。
   `python scripts/blender/clipbatch.py --moves squat --series basic`：先照常跑穿模檢查，再由 `anglecheck.py` 對 hero.blend 量一次（`angles.json`，每個動作只量一個系列），
