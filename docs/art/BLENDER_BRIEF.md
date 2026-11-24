@@ -233,7 +233,7 @@
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
-| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。裝備相關的交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
+| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格，使用者 2026-11-24 看過截圖，接受、不改）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。鈦甲胸甲那點交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
