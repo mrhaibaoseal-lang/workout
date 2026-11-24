@@ -219,6 +219,7 @@
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
+| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`）。上斜照 App 提示用離地 30°（`back_deg` 60）；胸靠的兩個動作把椅子轉 180° 趴上去，頭超出頭枕。骨架尚未改 A 字姿勢（§6-1），肩膀變形照舊 | 交給使用者看（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
