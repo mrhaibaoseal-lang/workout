@@ -63,7 +63,7 @@ def report():
 
 UL = blen['upper_arm.L']; FL = blen['forearm.L']
 
-def supine(back_deg, s0, foot_y, foot_x=0.30):
+def supine(back_deg, s0, foot_y, foot_x=0.36):
     """仰躺／靠在靠背上：髖、軀幹、頭（下巴微收貼墊）、兩腳平踩地面。回傳 (dv, nv, 胸部變換, 肩)"""
     dv, nv, hg = padframe(back_deg)
     lam = -D(back_deg)
@@ -72,7 +72,7 @@ def supine(back_deg, s0, foot_y, foot_x=0.30):
     for s, sx in SX:
         hj = h + RX(lam) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
         an = Vector((foot_x * sx, foot_y, 0.11))
-        k = ik2(hj, an, blen[f'thigh.{s}'], blen[f'shin.{s}'], Vector((0.35 * sx, -0.5, 1.0)))
+        k = ik2(hj, an, blen[f'thigh.{s}'], blen[f'shin.{s}'], Vector((0.7 * sx, -0.5, 1.0)))   # 膝蓋朝腳尖、略往外（大腿內側不互碰）
         aim(f'thigh.{s}', hj, k - hj); aim(f'shin.{s}', k, an - k)
         aim(f'foot.{s}', an, rest[f'foot.{s}'][1] - rest[f'foot.{s}'][0])
         if s == 'L': stat('膝角', ang(hj - k, an - k))
@@ -179,12 +179,12 @@ if MOVE == 'pullover':
     def pose(t):
         dv, nv, cp, sh = supine(90, -0.10, -0.30)
         mid = (sh['L'] + sh['R']) / 2
-        phi = D(4) + D(38) * t                          # 從胸口正上方往頭後畫弧到額頭上方約 42°（公仔頭大、手短，再往後前臂會穿過臉；使用者 2026-11-24 選半幅度，App 文字補完整幅度）
+        phi = D(4) + D(34) * t                          # 從胸口正上方往頭後畫弧到額頭上方約 42°（公仔頭大、手短，再往後前臂會穿過臉；使用者 2026-11-24 選半幅度，App 文字補完整幅度）
         a = Z_ * math.cos(phi) + dv * math.sin(phi)
         close = Z_ * math.sin(phi) - dv * math.cos(phi)
         hold = mid + a * 0.49 + close * 0.04  # 兩手在啞鈴握把中段
         for s, sx in SX:
-            wrist = hold + X_ * (0.075 * sx) - a * 0.03
+            wrist = hold + X_ * (0.10 * sx) - a * 0.03
             pole = (close + X_ * (0.6 * sx)).normalized()
             e = elbow_ik(s, sh[s], wrist, pole)
             hd = (-X_ * sx + a * 0.25).normalized()      # 手指朝中間互扣，掌心托住啞鈴
@@ -231,8 +231,8 @@ if MOVE in ('chestRow', 'chestRearFly'):
         cp, sh = trunk(hpt, lam, lam, lam - D(10))       # 頭跟脊椎一直線（略抬，眼睛看前下方）
         for s, sx in SX:
             hj = hpt + RX(lam) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
-            an = Vector((0.27 * sx, hj.y + 0.34, 0.11))  # 跨坐在座墊兩側，腳往後踩（膝蓋不往前頂到啞鈴）
-            k = ik2(hj, an, blen[f'thigh.{s}'], blen[f'shin.{s}'], Vector((0.3 * sx, -1.0, 0.2)))
+            an = Vector((0.33 * sx, hj.y + 0.34, 0.11))  # 跨坐在座墊兩側，腳往後踩（膝蓋不往前頂到啞鈴）
+            k = ik2(hj, an, blen[f'thigh.{s}'], blen[f'shin.{s}'], Vector((0.6 * sx, -1.0, 0.2)))
             aim(f'thigh.{s}', hj, k - hj); aim(f'shin.{s}', k, an - k)
             aim(f'foot.{s}', an, rest[f'foot.{s}'][1] - rest[f'foot.{s}'][0])
             if s == 'L': stat('膝角', ang(hj - k, an - k))

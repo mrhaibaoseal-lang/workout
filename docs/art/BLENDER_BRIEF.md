@@ -231,7 +231,7 @@
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
-| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`）。上斜照 App 提示用離地 30°（`back_deg` 60）；胸靠的兩個動作把椅子轉 180° 趴上去，頭超出頭枕。骨架尚未改 A 字姿勢（§6-1），肩膀變形照舊。clipcheck（每 4 格，basic/frost/pig/titan）待修：①`pullover` 手臂和啞鈴穿過頭（400～1000 對）：人要往頭端移、弧線要繞過頭頂；②`inclineCurl` 啞鈴打到大腿（150～280）：手臂往外垂或抬高髖；③`chestRow`／`chestRearFly` 底部啞鈴碰大腿（30～120）：S0 再往上或腳往後；④frost 臥推／上斜頂端兩顆冰塊互碰（96）：頂端握距放寬。其餘只剩大腿內側互碰（≤11）和碰軟墊 | 初版，等骨架修正（§6-1，另一個 session）後再修上面 4 點、出 GIF 交付（Claude，2026-11-24） |
+| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。裝備相關的交給 Claude（裝備） | 交給使用者看（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
