@@ -6,11 +6,7 @@ options:
     iOS: "17.0"
 settings:
   base:
-<<<<<<< HEAD
     MARKETING_VERSION: "0.41.0"
-=======
-    MARKETING_VERSION: "0.39.1"
->>>>>>> origin/main
     CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
