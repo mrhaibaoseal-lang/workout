@@ -160,7 +160,7 @@ enum Coach {
     }
 
     /// 常見的簡體字（繁體不會用到的寫法）
-    private static let simplified: Set<Character> = Set("这们个说为时会对还进没过动练组让给应该觉错吗习实现发经与东两边头长门问间关开体么样当减轻级")
+    static let simplified: Set<Character> = Set("这们个说为时会对还进没过动练组让给应该觉错吗习实现发经与东两边头长门问间关开体么样当减轻级")
 }
 
 // MARK: - Apple Intelligence
@@ -265,6 +265,8 @@ final class CoachLoader: ObservableObject {
 /// 練完成果之後的教練講評。
 struct CoachReviewView: View {
     @ObservedObject var loader: CoachLoader
+    /// 有給就在講評下面多一張「從備註看到」
+    var notes: NoteReaderLoader? = nil
     /// 有給就多一顆「練後伸展」按鈕
     var onStretch: (() -> Void)? = nil
     var stretchMinutes = 4
@@ -278,6 +280,8 @@ struct CoachReviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 Image(systemName: "figure.strengthtraining.traditional")
                     .font(.title2.weight(.bold))
@@ -325,7 +329,13 @@ struct CoachReviewView: View {
                 .frame(maxWidth: .infinity, minHeight: 200)
             }
 
-            Spacer(minLength: 0)
+            if let notes {
+                NoteFindingsCard(loader: notes)
+                    .modifier(Appear(shown: shown, delay: 0.6, reduce: reduceMotion))
+            }
+            }
+            }
+            .scrollIndicators(.hidden)
             if let onStretch {
                 Button(action: onStretch) {
                     Label("練後伸展跟做（約 \(stretchMinutes) 分鐘）", systemImage: "figure.cooldown")

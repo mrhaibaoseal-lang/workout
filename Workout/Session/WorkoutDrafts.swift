@@ -44,6 +44,8 @@ struct ExerciseDraft: Identifiable {
     var note: String = ""
     /// 上次寫的動作備註
     var lastNote: String? = nil
+    /// 上次備註推出來的「下次提醒我」（`NoteStore`），動作卡最上面橘色一行，按 ✕ 刪掉
+    var reminder: String? = nil
     /// 同一個關節最近會痛的提醒（`Joint.caution`）
     var caution: String? = nil
     /// 最近幾次的推估最大力量（休息頁小圖）
