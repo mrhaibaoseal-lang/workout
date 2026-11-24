@@ -44,6 +44,8 @@ struct WorkoutView: View {
     /// 正在休息：剛做完的是第幾個動作（用來算下一組和要換的重量）
     /// 剛做完、正在休息的那一組
     @State private var restAfter: UUID?
+    /// 換重量中：先換，按「換好了」才開始休息倒數（`restEnd` 此時是 nil）
+    @State private var swap: PendingSwap?
     /// 休息頁縮成底部的小卡
     @State private var restMinimized = false
     /// 為什麼休息這麼久
@@ -461,9 +463,9 @@ struct WorkoutView: View {
 
     @ViewBuilder
     private var restScreen: some View {
-        if let end = restEnd, !restMinimized {
+        if restEnd != nil || swap != nil, !restMinimized || swap != nil {
             let pos = restPosition
-            RestScreen(end: end, total: restTotal,
+            RestScreen(end: restEnd ?? .distantFuture, total: restTotal, swap: swap, onSwapDone: swapDone,
                        next: pos.map { restNext(j: $0.0, k: $0.1) },
                        nextSet: pos.map { $drafts[$0.0].sets[$0.1] } ?? .constant(SetDraft(weight: 0, reps: 0)),
                        changes: changes, reasons: restReasons, combo: combo, result: lastResult,
@@ -475,13 +477,13 @@ struct WorkoutView: View {
 
     /// 這次休息要換的器材（下一組的重量改了會跟著變）
     private var changes: [RigChange] {
-        guard restEnd != nil, let id = restAfter else { return [] }
+        guard restEnd != nil || swap != nil, let id = restAfter else { return [] }
         return restChanges(after: id)
     }
 
     /// 休息後要做的那一組：(第幾個動作, 第幾組)
     private var restPosition: (Int, Int)? {
-        guard restEnd != nil, let id = restAfter, let found = nextSet(after: id),
+        guard restEnd != nil || swap != nil, let id = restAfter, let found = nextSet(after: id),
               let k = drafts[found.0].sets.firstIndex(where: { $0.id == found.1.id }) else { return nil }
         return (found.0, k)
     }
@@ -523,7 +525,29 @@ struct WorkoutView: View {
         restTotal += 30
     }
 
+    /// 按「換好了」：超級組輪內直接做下一個動作；一般休息這時才開始倒數。
+    private func swapDone() {
+        guard let sw = swap else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        swap = nil
+        guard let rest = sw.rest else {
+            commitRest()
+            return
+        }
+        restTotal = Double(rest)
+        restMinimized = false
+        withAnimation(.spring(duration: 0.4)) {
+            restEnd = Date().addingTimeInterval(TimeInterval(rest))
+        }
+    }
+
     private func endRest() {
+        if swap != nil {
+            // 換重量中按「跳過」：不休息了，當作換好
+            swap = nil
+            commitRest()
+            return
+        }
         scoreRest(grace: RestScreen.comboWindow)
         commitRest()
         withAnimation(.easeOut(duration: 0.25)) { restEnd = nil }
@@ -570,6 +594,11 @@ struct WorkoutView: View {
 
     private func complete(set id: UUID, in exerciseIndex: Int) {
         guard let s = drafts[exerciseIndex].sets.firstIndex(where: { $0.id == id }) else { return }
+        if swap != nil {
+            // 還沒按「換好了」就直接做：當作換好了，不計休息
+            swap = nil
+            commitRest()
+        }
         if restEnd != nil {
             // 沒按「下一組」直接做完：多給做一組的時間
             scoreRest(grace: RestScreen.comboWindow + 75)
@@ -614,6 +643,7 @@ struct WorkoutView: View {
         } else {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
+        swap = nil
         let set = drafts[exerciseIndex].sets[s]
         if length == .minimal && allDone {
             restEnd = nil
@@ -633,12 +663,11 @@ struct WorkoutView: View {
                 let name = drafts[nextFound.0].item.exercise.name
                 if change > 0 {
                     restAfter = id
-                    restReasons = ["超級組換動作：換重量約 \(change) 秒，換完直接做「\(name)」"]
+                    restReasons = ["超級組換動作：換好重量後直接做「\(name)」，不休息"]
                     restMinimized = false
-                    let rest = change + Superset.transitionExtra
-                    restTotal = Double(rest)
+                    restEnd = nil
                     withAnimation(.spring(duration: 0.4)) {
-                        restEnd = Date().addingTimeInterval(TimeInterval(rest))
+                        swap = PendingSwap(rest: nil, estimate: change)
                     }
                 } else {
                     restEnd = nil
@@ -656,12 +685,6 @@ struct WorkoutView: View {
                     rest += 30
                     reasons.append("這組做到力竭，多休息 30 秒")
                 }
-                // 換重量也算休息，但換完至少還要喘一下
-                let needed = change + (set.kind == .warmup ? 20 : 30)
-                if needed > rest {
-                    rest = needed
-                    reasons.append("換重量約 \(change) 秒，換完再喘一下")
-                }
                 if cur?.group != nil && nextStep?.group == cur?.group && nextStep?.exercise != cur?.exercise {
                     reasons.append("\(groupName(of: exerciseIndex))這一輪做完了，現在才休息")
                 }
@@ -669,8 +692,17 @@ struct WorkoutView: View {
                 restReasons = reasons
                 restMinimized = false
                 restTotal = Double(rest)
-                withAnimation(.spring(duration: 0.4)) {
-                    restEnd = Date().addingTimeInterval(TimeInterval(rest))
+                if change > 0 {
+                    // 要換重量：先換，按「換好了」才開始倒數
+                    restEnd = nil
+                    withAnimation(.spring(duration: 0.4)) {
+                        swap = PendingSwap(rest: rest, estimate: change)
+                    }
+                } else {
+                    swap = nil
+                    withAnimation(.spring(duration: 0.4)) {
+                        restEnd = Date().addingTimeInterval(TimeInterval(rest))
+                    }
                 }
             } else {
                 restEnd = nil
@@ -1109,6 +1141,7 @@ struct WorkoutView: View {
             return
         }
         restEnd = nil
+        swap = nil
         restAfter = nil
         let shards = comboShards
         let bonus = bonusShards

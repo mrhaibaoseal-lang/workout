@@ -105,9 +105,19 @@ enum ExerciseCues {
 // MARK: - 全螢幕休息頁
 
 /// 休息時蓋滿整個畫面：大圓環倒數、下一組（可以直接改重量）、換重量圖解、動作要點。
+/// 換重量中：先換，按「換好了」才開始休息倒數（沒有壓力）。
+struct PendingSwap: Equatable {
+    /// 換好後的休息秒數；nil = 超級組輪內換動作，換好直接做、不休息
+    let rest: Int?
+    /// 換重量大約要多久（只當說明，不倒數）
+    let estimate: Int
+}
+
 struct RestScreen: View {
     let end: Date
     let total: Double
+    var swap: PendingSwap? = nil
+    var onSwapDone: () -> Void = {}
     let next: RestNext?
     @Binding var nextSet: SetDraft
     let changes: [RigChange]
@@ -129,6 +139,9 @@ struct RestScreen: View {
             header
             ScrollView {
                 VStack(spacing: 14) {
+                    if let swap {
+                        swapHero(swap)
+                    } else {
                     TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
                         let left = end.timeIntervalSince(ctx.date)
                         VStack(spacing: 12) {
@@ -145,6 +158,7 @@ struct RestScreen: View {
                         }
                     }
                     .frame(minHeight: 290)
+                    }
                     // 要動手的放最上面：休息一開始就換重量，接著看下一組
                     ForEach(changes) { c in
                         PlateChangeCard(change: c)
@@ -186,6 +200,7 @@ struct RestScreen: View {
 
     private var header: some View {
         HStack {
+            if swap == nil {
             Button(action: onMinimize) {
                 Image(systemName: "chevron.down")
                     .font(.headline)
@@ -194,8 +209,13 @@ struct RestScreen: View {
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .accessibilityLabel("縮小休息頁，回到課表")
+            } else {
+                Color.clear.frame(width: 44, height: 44)
+            }
             Spacer()
-            if combo > 0 {
+            if swap != nil {
+                Text("換重量").font(.headline.weight(.heavy)).foregroundStyle(Theme.fg)
+            } else if combo > 0 {
                 Label("連擊 ×\(combo)", systemImage: "flame.fill")
                     .font(.headline.weight(.black))
                     .foregroundStyle(Theme.gold)
@@ -212,6 +232,34 @@ struct RestScreen: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+
+    // MARK: 換重量
+
+    /// 換重量：不倒數，換完按大按鈕才開始休息（或直接做下一個動作）。
+    private func swapHero(_ sw: PendingSwap) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 44, weight: .bold))
+                .foregroundStyle(Theme.accent)
+            Text("先換重量，不急")
+                .font(.title2.weight(.heavy))
+                .foregroundStyle(Theme.fg)
+            Text(sw.rest == nil
+                 ? "照下面的步驟換好（大約 \(sw.estimate) 秒），按「換好了」就直接做下一個動作。"
+                 : "照下面的步驟換好（大約 \(sw.estimate) 秒），按「換好了」才開始休息倒數。")
+                .font(.subheadline)
+                .foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.center)
+            Button(action: onSwapDone) {
+                Label("換好了", systemImage: "checkmark.circle.fill")
+            }
+            .buttonStyle(HotButtonStyle(height: 64))
+            .shadow(color: Theme.hot.opacity(0.45), radius: 14)
+            .padding(.top, 4)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: 倒數
