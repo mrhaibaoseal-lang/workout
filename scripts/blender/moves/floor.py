@@ -8,6 +8,7 @@ MOVE_META = {
     'pikePushup': {'angles': {'elbow': {'min': (85, 105), 'max': (165, 180)}, 'hip': (70, 105), 'knee': (165, 180), 'trunk_lean': (110, 145)}},
     'reverseCrunch': {'lean_back': True, 'angles': {'knee': (85, 100), 'hip': {'min': (45, 60), 'max': (85, 95)}, 'trunk_lean': (85, 95), 'elbow': (165, 180)}},
     'deadBug': {'lean_back': True, 'angles': {'hip': {'min': (85, 95), 'max': (160, 178)}, 'knee': {'min': (85, 95), 'max': (160, 178)}, 'trunk_lean': (85, 95), 'elbow': (165, 180)}},
+    'legCurl': {'angles': {'knee': {'min': (75, 95), 'max': (140, 165)}, 'hip': (160, 180), 'trunk_lean': (85, 95)}},
     'floorPress': {'bell': True, 'lean_back': True, 'angles': {'elbow': {'min': (65, 85), 'max': (165, 178)}, 'uarm_trunk': {'min': (45, 60)}, 'knee': (85, 105), 'trunk_lean': (85, 95)}},
 }
 
@@ -288,3 +289,63 @@ if MOVE == 'floorPress':
     for f in range(N):
         sc.frame_set(f); pose(profile(f, N, 22, 4, 15)); keyall(f)
     CAM = dict(loc=(3.2, -1.3, 0.95), tgt=(0, 0.1, 0.36), lens=52, stage=(0, 0.1, 1.0))
+
+# ======================= 啞鈴俯臥腿後彎舉（App：db_leg_curl；使用者 2026-11-25 定案：趴在一體機椅子上、整台轉 180°、兩腳夾一顆啞鈴） =======================
+# 椅子轉 180°（立柱在 +y，人面朝下趴著、頭朝 -y，雙手平放在座墊兩側），靠背放平；膝蓋在座墊上、小腿懸空越過座墊前緣；
+# 兩腳（腳弓）夾住一顆直立的啞鈴（握把垂直、槓片在腳的上下）。大腿貼墊不動、骨盆不抬；只有膝蓋彎：從約 150° 彎到約 85°（小腿接近垂直）再慢慢放下。
+# 啞鈴是另做的道具（使用者的快鎖啞鈴：黑色槓片），不是角色的 bell 裝備部位（bell 綁在手骨頭上）；父物件叫 bar（clipcheck 不算夾在腳間的接觸）。
+def fl_place_bench(back_deg, rotz_deg):
+    """呼叫 build_bench（不改它），再把新增的物件整組掛到一個轉向的空物件上"""
+    before = set(bpy.data.objects)
+    build_bench(back_deg)
+    root = bpy.data.objects.new('benchroot', None); sc.collection.objects.link(root)
+    root.rotation_euler = (0, 0, D(rotz_deg))
+    for o in bpy.data.objects:
+        if o not in before and o.parent is None and o is not root: o.parent = root
+    return root
+
+def fl_build_dumbbell():
+    """使用者的快鎖啞鈴（直立）：握把沿 z、上下各兩片黑色槓片＋紅色固定螺帽。回傳父物件 bar"""
+    bar = bpy.data.objects.new('bar', None); sc.collection.objects.link(bar)
+    own = [pcyl('chrome', (0, 0, 0), 0.018, 0.19, (0, 0, 1), n=12)]
+    for sg in (1, -1):
+        for zz, rr in ((0.10, 0.115), (0.128, 0.103)):
+            own.append(pcyl('plate', (0, 0, zz * sg), rr, 0.028, (0, 0, 1), n=32, bevel=0.006))
+        own.append(pcyl('red', (0, 0, 0.158 * sg), 0.03, 0.035, (0, 0, 1), n=6, bevel=0.004))
+    for o_ in own: o_.parent = bar
+    return bar
+
+if MOVE == 'legCurl':
+    N = 48
+    fl_place_bench(90, 180)
+    bpy.data.objects['stack'].location.z += 0.55           # 配重啞鈴組滑到立柱上方（拿走手邊那顆，也不擋小腿）
+    bar = fl_build_dumbbell()
+    ZS, YK, ALPHA = 0.625, -0.02, D(9)                    # 脊椎線高度、膝蓋 y、大腿略往下垂（座墊比靠背低 3 cm）
+    LT, LS = blen['thigh.L'], blen['shin.L']
+    def pose(t):
+        K = D(150 + (85 - 150) * t); phi = math.pi - K          # 膝蓋內角、彎曲量
+        hjy = YK - LT * math.cos(ALPHA)
+        hh = Vector((0, hjy - 0.04, ZS))
+        _, sh = trunk(hh, D(90), D(90), D(90) - D(8))
+        th = phi - ALPHA                                        # 小腿離水平往上的角度
+        ank = {}
+        for s, sx in SX:
+            hj = Vector((HIPX[s], hjy, ZS))
+            kn = hj + Vector((-0.01 * sx, math.cos(ALPHA), -math.sin(ALPHA))).normalized() * LT
+            sv = Vector((-0.085 * sx, math.cos(th), math.sin(th))).normalized()
+            an = kn + sv * LS
+            aim(f'thigh.{s}', hj, kn - hj); aim(f'shin.{s}', kn, an - kn); aim(f'foot.{s}', an, sv)
+            ank[s] = (an, sv)
+        # 雙手放在身體兩側、腰旁（手掌朝下，手肘約 100°；不去握頭枕的把手，手臂會穿過支架）
+        for s, sx in SX:
+            wrist = Vector((0.27 * sx, sh[s].y + 0.40, 0.50))
+            arm_to(s, sh[s], wrist, Vector((1.0 * sx, -0.2, 0.4)), Vector((0.05 * sx, -1.0, -0.12)))
+        # 啞鈴夾在兩腳弓之間（跟著小腿轉）
+        mid = sum((ank[s][0] + ank[s][1] * 0.085 for s, _ in SX), Vector()) / 2
+        sv = (ank['L'][1] + ank['R'][1]).normalized()
+        axis = Vector((0, -sv.z, sv.y))
+        bar.location = mid; bar.rotation_mode = 'QUATERNION'; bar.rotation_quaternion = UP.rotation_difference(axis)
+        bar.keyframe_insert('location'); bar.keyframe_insert('rotation_quaternion')
+    for f in range(N):
+        sc.frame_set(f); pose(profile(f, N, 15, 7, 22)); keyall(f)       # 向上彎 15 格（約 1.2 秒）、頂端停 7 格、慢放 22 格、起點停 4 格
+    CAM = dict(loc=(3.6, -1.6, 1.15), tgt=(0, -0.3, 0.5), lens=52, stage=(0, -0.3, 1.3))
