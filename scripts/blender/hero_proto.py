@@ -425,10 +425,11 @@ for _n in _reads:
     _bad = [skinbody.data.vertices[i].co.z for i in _low if _a.data[i].value > 0]
     assert not _bad, f'身體塗色 {_n} 染到腰以下露出的皮膚 {len(_bad)} 個頂點（最低 z={min(_bad):.2f}）'
 
-# ---------- 轉成 A 字靜止姿勢（§6-1）：手臂外展 45°、腿外展 4° ----------
+# ---------- 轉成 A 字靜止姿勢（§6-1）：手臂外展 45°（腿不動） ----------
 # 靜止姿勢越接近動作的中間，最大轉角越小、線性蒙皮越不會塌。全部照建模姿勢建好之後才轉：
 # 身體和衣服網格用建模姿勢的權重彎過去（保持體積），剛性零件（手、鞋、裝備）整塊跟骨頭轉，再把這個姿勢設成靜止姿勢、重算身體權重。
-APOSE_ARM, APOSE_LEG = 45.0, 4.0           # 上臂離垂直幾度、大腿往外張幾度
+APOSE_ARM, APOSE_LEG = 45.0, 0.0           # 上臂離垂直幾度、大腿往外張幾度
+# 腿不外張：動作檔會拿靜止的腳踝位置當腳的位置（深蹲的 rest['shin'][1]），外張 4° 腳就站寬 6 cm、大腿撞到啞鈴（2026-11-24 clipcheck 抓到）
 def to_apose():
     global B, APOSE_DONE
     def about(pt, ang): return Matrix.Translation(pt) @ Matrix.Rotation(ang, 4, 'Y') @ Matrix.Translation(-pt)
