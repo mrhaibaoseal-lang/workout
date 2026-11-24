@@ -9,8 +9,7 @@ using namespace metal;
 constant float3 kLight = float3(-0.45, 0.75, 0.55);   // 世界座標：左上前方
 constant float3 kRim = float3(0.55, 0.75, 1.0);
 
-[[visible]]
-void toonSurface(realitykit::surface_parameters params)
+static half3 toonColor(realitykit::surface_parameters params)
 {
     auto mc = params.material_constants();
     float4 cp = params.uniforms().custom_parameter();
@@ -32,7 +31,21 @@ void toonSurface(realitykit::surface_parameters params)
         float3 h = normalize(l + v);
         if (pow(saturate(dot(n, h)), 40.0) > 0.5) c += 0.55;
     }
-    params.surface().set_base_color(half3(saturate(c)));
+    return half3(saturate(c));
+}
+
+// 「著色」選項：B＝寫 base color、E＝寫 emissive（自發光），用來確認 unlit 吃哪一個
+[[visible]]
+void toonSurface(realitykit::surface_parameters params)
+{
+    params.surface().set_base_color(toonColor(params));
+}
+
+[[visible]]
+void toonSurfaceE(realitykit::surface_parameters params)
+{
+    params.surface().set_base_color(half3(0));
+    params.surface().set_emissive_color(toonColor(params));
 }
 
 // 發光、眼睛、描邊：純色
@@ -40,4 +53,11 @@ void toonSurface(realitykit::surface_parameters params)
 void flatSurface(realitykit::surface_parameters params)
 {
     params.surface().set_base_color(half3(params.material_constants().base_color_tint()));
+}
+
+[[visible]]
+void flatSurfaceE(realitykit::surface_parameters params)
+{
+    params.surface().set_base_color(half3(0));
+    params.surface().set_emissive_color(half3(params.material_constants().base_color_tint()));
 }
