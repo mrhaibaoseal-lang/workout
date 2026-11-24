@@ -24,7 +24,7 @@
 | 誰 | 做什麼 | 只改這些檔案 | 工作分支 |
 |---|---|---|---|
 | **Gemini** | 動作：站姿啞鈴 → 地板徒手 → 伸展 | `moves/standing_dumbbell.py`、`moves/floor.py`、`moves/stretch.py`、新的 `moves/props_<器材>.py`（例如啞鈴架、瑜伽墊）、`docs/3d-moves/` 同名卡片 | 使用者指定 |
-| **Claude（動作）** | 動作：椅子 → 滑輪 → 熱身 | `moves/bench.py`、`moves/cable.py`、`moves/warmup.py`、`moves/props_bench.py`（啞鈴椅＋下拉架）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
+| **Claude（動作）** | 動作：椅子 → 滑輪 → 熱身 → 弓步／臀橋（2026-11-24 使用者決定這批改由 Claude 做） | `moves/bench.py`、`moves/cable.py`、`moves/warmup.py`、`moves/lunge_bridge.py`、`moves/props_bench.py`（啞鈴椅＋下拉架）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
 | **Claude（裝備）** | 裝備造型，一個系列一個 `gear_<id>.py` | `gear_*.py`、`gear_util.py` | `claude/3d-*` |
 
 （檔案都在 `scripts/blender/` 底下。）
@@ -41,6 +41,7 @@
   - **檔案分開**：照上表。`hero_proto.py` 只做小改，改了要在 commit 訊息寫清楚。
   - **交叉檢查**：每批結束跑 `clipcheck.py`（**所有**已完成的動作 × 基本款＋每個已完成的系列，不只自己這批）。
     動作和裝備撞到時，**改裝備，不改動作**（動作照專業標準，不能為了造型變形）；改不了就在該動作隱藏那個部位並記錄。
+    **（使用者 2026-11-24 決定，以這條為準）系列裝備和動作／器材的穿模可以接受：不改裝備、不改動作，只記錄數字。基本款（不穿系列裝備）仍要通過檢查。**
 - **例外（使用者 2026-11-24 同意）**：為了修肩膀變形，允許照 §6-1 改骨架與權重（A 字靜止姿勢、加 `clavicle.L/R`、肩膀權重）。
   身體外形（`P`、`E` 的半徑）、比例、塗色仍然不准改。改完要通知 Claude（裝備），裝備檔要確認都是用 `B[...]` 取骨頭位置，沒有寫死座標。
 
@@ -161,6 +162,7 @@
 - 有厚度的衣服（短褲、緊身衣、外套）：沿用身體權重（Data Transfer）、只比身體大 5～8%、邊緣底下的身體塗成衣服色。**不准把衣服放大到 10% 以上**。
 - 硬殼裝備只綁一根骨頭、放在肢段中段、不跨關節；往外凸的零件要收窄（大腿側板 ≤ 7 cm）。
 - 接地修正（自動）；背靠椅背或躺椅子的動作隱藏 `back` 部位（在動作檔的 `MOVE_META` 寫 `lean_back: True`）。
+- **使用者 2026-11-24 決定：系列裝備和動作／器材的穿模可以接受，不改裝備、不改動作、只記錄數字；基本款仍要通過檢查（角度 PASS、身體 × 器材／地板硬碰撞個位數、`deformcheck.py` 只剩關節處正常擠壓）。**
 - 每個動作跑 `clipcheck.py`：**基本款＋每一個系列整套**都要跑。目標：硬碰撞（裝備 × 其他骨頭、身體 × 硬器材、沉入地板）為 0 或只剩個位數；
   碰軟墊（座墊、滾筒）是正常接觸。修不掉的寫進進度。
 
@@ -287,6 +289,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 2026-11-24 | Claude（骨架） | 修肩膀變形（§6-1）：`hero_proto.py` 加 `clavicle.L/R`、A 字靜止姿勢（建模姿勢不變，合併前才轉）、去掉截斷權重改成平滑漸變、保持體積；`moves3d.py` 的 `keyall` 每格自動做鎖骨跟轉＋上臂／前臂滾轉校正（`aim` 的滾轉規則會讓上臂多扭到 178°）；`clipcheck.py` 加鎖骨的相鄰關節；新增 `deformcheck.py`、`rigtest.py`。動作檔不用改，但沒釘手腕的手臂（直接 `aim`）在手抬高時會跟著肩膀上移幾公分 | 使用者同意（§0-1 例外）。**採用 Claude 版，Gemini 版（2bd70d6）不合併，使用者 2026-11-24 決定** |
 | 2026-11-24 | Claude | `moves3d.py` 的 `aim()` 加選用參數 `roll`、`arm_to()` 加選用參數 `hand_roll`（手繞自己的軸轉，決定握把朝向；預設 0，既有動作不受影響）。為了搬站姿啞鈴 1（Gemini 的動作檔用它） | 使用者同意（搬動作的指示） |
 | 2026-11-24 | Claude（驗收工具） | `moves3d.py` 結尾**新增**量測函式 `measure_pose`（不改既有函式）；`clipbatch.py` 加角度判定、指紋拿掉 `angles` 欄位、`group_stamp`／`collect_meta`；新增 `anglecheck.py`、`review_sheet.py`、`review_render.py`、`compose.py`；`.gitignore` 加 `/out/`；`standing_dumbbell.py`、`bench.py`、`floor.py`、`cable.py` 只在 `MOVE_META` 加 `angles` 欄位，姿勢程式沒動 | 使用者指示（工具工作） |
+| 2026-11-24 | Claude（動作） | `moves3d.py` 在 `MOVE =` 之前**新增**弓步／臀橋共用函式：`solve_hip_z`、`rear_toe`、`rear_fixed`、`rear_step_back`、`rear_air`、`lunge_pose`、`hang_arms`、`bridge_pose`（不改任何既有函式） | 使用者指示（這批改由 Claude 做） |
 
 ### 動作：Gemini（站姿啞鈴 → 地板徒手 → 伸展）
 
@@ -299,6 +302,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 批次 | 內容 | 狀態 |
 |---|---|---|
 | 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格，使用者 2026-11-24 看過截圖，接受、不改）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。鈦甲胸甲那點交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
+| 弓步／臀橋 | `lunge`、`splitSquat`（保加利亞，後腳放椅子）、`reverseLunge`、`stepUp`、`bridge`、`hipThrust`（動作卡 `docs/3d-moves/lunge_bridge.md`，含檢查結果；共用姿勢函式 `moves3d.py` 的 `lunge_pose`、`bridge_pose`）。基本款角度全 PASS、硬碰撞個位數；deformcheck 只剩膝窩／肩膀的正常擠壓（每部位 ≤ 46 面）；系列裝備穿模使用者接受、只記錄。總覽圖 `out/review/lunge_bridge/`（不進 git） | 完成待審查（§8-1 由主對話安排）（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 

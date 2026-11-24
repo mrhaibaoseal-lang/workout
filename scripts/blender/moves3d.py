@@ -179,6 +179,99 @@ def pori(mat, c, s, d, bevel=0.012, roll=0.0):
 def tube(a, b, w=0.025, mat='frame'):
     a, b = Vector(a), Vector(b); return pori(mat, (a + b) / 2, (w, w, (b - a).length / 2), b - a, 0.006)
 
+# ---------- 弓步／臀橋族群共用（2026-11-24，Claude，moves/lunge_bridge.py；只新增，不改上面任何函式）----------
+# 弓步族群範本 lunge_pose：前腳踝釘住、前膝內角決定髖高，後腳由 rear(t, H) 回傳（腳尖著地／踩椅子／往後踏／抬空）。
+# 臀橋族群範本 bridge_pose：上背接觸點釘住（地板或椅子邊緣）、腳踝釘住，軀幹傾角 phi 決定髖高。
+def _knee_in(hj, k, a):
+    u, v = (hj - k).normalized(), (a - k).normalized()
+    return math.degrees(math.acos(max(-1.0, min(1.0, u.dot(v)))))
+
+def solve_hip_z(hx, hy, A, knee_deg, pole):
+    """髖關節在 (hx, hy, ?)、腳踝 A 釘住：二分法找髖高 hz，讓這條腿的膝蓋內角 ＝ knee_deg"""
+    L = blen['thigh.L'] + blen['shin.L']
+    lo = A.z + 0.05
+    hi = A.z + math.sqrt(max((L * 0.9995) ** 2 - (hy - A.y) ** 2 - (hx - A.x) ** 2, 0.01))
+    for _ in range(40):
+        mid = (lo + hi) / 2; hj = Vector((hx, hy, mid))
+        k = ik2(hj, A, blen['thigh.L'], blen['shin.L'], pole)
+        if _knee_in(hj, k, A) < knee_deg: lo = mid
+        else: hi = mid
+    return (lo + hi) / 2
+
+FOOT_REST = math.atan2(0.07, 0.14)       # 鞋子靜止時腳尖比腳踝低的角度（26.6°）
+def rear_toe(toe, heel_deg):
+    """後腳：鞋尖點 toe 著地、腳跟抬起（腳掌和水平夾 heel_deg）。回傳 rear(t, H)"""
+    d = Vector((0, -math.cos(D(heel_deg)), -math.sin(D(heel_deg))))
+    return lambda t, H: (toe - d * blen['foot.L'], d)
+
+def rear_fixed(ankle, fdir):
+    """後腳固定在 ankle，腳方向 fdir（例如腳背踩椅子）"""
+    return lambda t, H: (ankle.copy(), fdir.normalized())
+
+def rear_step_back(toe0, toe1, heel_deg, lift=0.07, split=0.5):
+    """後跨：起點腳平放（鞋尖在 toe0），t 從 0 到 split 時腳往後踏到 toe1、腳跟漸抬到 heel_deg（中途抬離地面 lift 公尺）"""
+    def f(t, H):
+        tf = ease(min(1.0, t / split))
+        toe = toe0.lerp(toe1, tf) + Vector((0, 0, lift * math.sin(math.pi * tf)))
+        a = FOOT_REST + (D(heel_deg) - FOOT_REST) * tf
+        d = Vector((0, -math.cos(a), -math.sin(a)))
+        return toe - d * blen['foot.L'], d
+    return f
+
+def rear_air(toe0, heel_deg, rel1, split=0.45):
+    """登階的後腳：t（深度）從 1 降到 split 之前腳尖都在地板 toe0（腳跟抬 heel_deg）；之後離地，往「髖 + rel1」收（膝蓋抬起），腳尖朝下垂"""
+    d0 = Vector((0, -math.cos(D(heel_deg)), -math.sin(D(heel_deg)))); d1 = Vector((0, -0.55, -0.83)).normalized()
+    def f(t, H):
+        ta = ease(max(0.0, min(1.0, (split - t) / split)))
+        a0 = toe0 - d0 * blen['foot.L']
+        a1 = H + rel1
+        tz = ease(min(1.0, ta * 1.8))                      # 先抬高、再往前（不切過椅子邊角）
+        return Vector((a0.x + (a1.x - a0.x) * ta, a0.y + (a1.y - a0.y) * ta * ta, a0.z + (a1.z - a0.z) * tz)), d0.lerp(d1, ta).normalized()
+    return f
+
+def lunge_pose(t, front, rear, hy, knee, lean, front_side='L', head=0.5):
+    """弓步族群範本。t＝0 頂端 → 1 最深（呼叫端先過 ease）。
+    front＝前腳踝位置（Vector，釘住）；rear＝rear(t, H) 回傳 (後腳踝, 後腳方向)；
+    hy＝(頂端, 最深) 髖中心的 y；knee＝(頂端, 最深) 前膝內角（度）；lean＝軀幹前傾（弧度，髖 0.6 倍、胸 1 倍）。
+    前膝內角決定髖高（二分法）。回傳 (髖中心 H, 肩位置)；手臂由呼叫端擺。"""
+    sf = 1 if front_side == 'L' else -1; sr = -sf; sd = 'R' if front_side == 'L' else 'L'
+    h_y = hy[0] + (hy[1] - hy[0]) * t
+    kn = knee[0] + (knee[1] - knee[0]) * t
+    pole_f = Vector((0.12 * sf, -1.0, 0))
+    hz = solve_hip_z(HIPX[front_side], h_y, front, kn, pole_f)
+    ra0, _ = rear(t, Vector((0, h_y, hz)))                     # 後腳伸直也構不到時，髖就別再升高（否則腳會被拉離釘點）
+    d2 = ((blen['thigh.R'] + blen['shin.R']) * 0.9985) ** 2 - (h_y - ra0.y) ** 2 - (HIPX[sd] - ra0.x) ** 2
+    hz = min(hz, ra0.z + math.sqrt(max(d2, 0.01)))
+    H = Vector((0, h_y, hz))
+    _, sh = trunk(H + Vector((0, 0, 0.04)), lean * 0.6, lean, lean * head)
+    leg_to(front_side, H + Vector((HIPX[front_side], 0, 0)), front, pole_f)
+    ra, rd = rear(t, H)
+    leg_to(sd, H + Vector((HIPX[sd], 0, 0)), ra, Vector((0.10 * sr, -0.5, -0.85)), rd)
+    return H, sh
+
+def hang_arms(sh, spread=0.09, back=0.0, roll=0.0):
+    """雙手垂在身側（拿啞鈴站姿的手臂）：手腕在肩膀正下方偏外 spread、偏後 back"""
+    for s, sx in SX:
+        wrist = sh[s] + Vector((spread * sx, back, -(blen[f'upper_arm.{s}'] + blen[f'forearm.{s}']) * 0.992))
+        arm_to(s, sh[s], wrist, Vector((0.25 * sx, 1.0, 0.1)), Vector((0.02 * sx, 0.05, -1.0)), hand_roll=roll)
+
+def bridge_pose(phi, C, foot_y, lam_pelvis=0.0, foot_x=0.12, trunk_c=0.40):
+    """臀橋族群範本。軀幹線（髖→頭）仰角 phi（弧度，頭端較低為正；0＝躺平，負＝頭端較高）。
+    C＝上背接觸點（脊椎線上，世界座標；地板臀橋＝(0, yC, 0.155)、靠椅邊緣＝椅面高 + 0.155）；
+    trunk_c＝髖骨頭到接觸點沿軀幹的距離。腳踝釘在 (±foot_x, foot_y, 0.11)。
+    人頭朝 +Y、腳朝 -Y（和 bench.py 的 supine 一樣）。回傳 (髖骨頭 hh, 軀幹方向 c（髖→頭）, 肩位置, 髖關節)"""
+    c = Vector((0, math.cos(phi), -math.sin(phi)))
+    hh = C - c * trunk_c
+    lam = -D(90) - phi
+    _, sh = trunk(hh, lam + lam_pelvis, lam, lam + D(14))
+    J = {}
+    for s, sx in SX:
+        hj = hh + RX(lam + lam_pelvis) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
+        an = Vector((foot_x * sx, foot_y, 0.11))
+        leg_to(s, hj, an, Vector((0.25 * sx, -0.6, 1.0)))     # 膝蓋朝腳尖方向、略往外
+        J[s] = hj
+    return hh, c, sh, J
+
 MOVE = os.environ.get('MOVE', 'squat')
 CAM = dict(loc=(4.2, -3.9, 1.7), tgt=(0, 0, 0.95), lens=70, stage=(0, 0, 0.62))
 

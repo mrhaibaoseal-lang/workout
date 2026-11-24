@@ -57,3 +57,9 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   `review_render.py`（Blender 端：量角度選格、4 個鏡頭渲染）、`compose.py`（用 Blender 的影片剪輯器拼圖和標字，不需要 PIL）。「最深」＝變化最大的那個量離起始最遠的格，中段／回程＝去程／回程走到一半的格。
 
 用途定位（使用者 2026-11-22）：3D 主要用在**訓練中的動作示範**；角色換裝 3D 只是測試。
+
+弓步／臀橋批次（2026-11-24，`moves/lunge_bridge.py`，動作卡 `docs/3d-moves/lunge_bridge.md`）：
+- `moves3d.py` 新增共用姿勢函式（不改既有函式）：`lunge_pose(t, front, rear, hy, knee, lean)` ＝弓步族群範本（前腳踝釘住、**前膝內角決定髖高**，後腳用 `rear_toe`／`rear_fixed`／`rear_step_back`／`rear_air` 回傳的函式決定；後腳構不到時髖不再升高）；
+  `hang_arms` 手臂垂在身側拿啞鈴；`bridge_pose(phi, C, foot_y, …)` ＝臀橋族群範本（上背接觸點 C 和腳踝釘住，軀幹仰角 phi 決定髖高）。
+- 動作：`lunge`（原地分腿站姿）、`splitSquat`（保加利亞，椅子轉 90° 放人後面）、`reverseLunge`（後跨）、`stepUp`（踩上椅子靠背那段）、`bridge`（地板，兩顆啞鈴各壓一側髖骨）、`hipThrust`（上背靠座墊前緣、槓鈴）。
+  變化版只換 `front`／`rear`／`hy`／`knee`／`lean`；椅子用 `place_bench(back_deg, 轉角, 位置)`（呼叫 `build_bench` 再把新物件掛到轉向的空物件上）；臀推的槓鈴 `build_barbell()` 在這個檔裡。
