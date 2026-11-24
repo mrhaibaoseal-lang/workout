@@ -39,5 +39,5 @@ void toonSurface(realitykit::surface_parameters params)
 [[visible]]
 void flatSurface(realitykit::surface_parameters params)
 {
-    params.surface().set_base_color(params.material_constants().base_color_tint());
+    params.surface().set_base_color(half3(params.material_constants().base_color_tint()));
 }
