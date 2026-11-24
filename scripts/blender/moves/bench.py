@@ -2,14 +2,16 @@
 # MOVE_META：這個檔案有哪些動作（hero_proto.py 用 ast 讀，只能寫字面值）。
 #   bell＝手上拿啞鈴（裝備的啞鈴部位）；lean_back＝背靠椅背／躺椅子，隱藏背部裝備（披風、背包、尾巴）。
 MOVE_META = {
-    'benchPress': {'bell': True, 'lean_back': True},
-    'inclinePress': {'bell': True, 'lean_back': True},
-    'inclineFly': {'bell': True, 'lean_back': True},
-    'skullCrusher': {'bell': True, 'lean_back': True},
-    'pullover': {'bell': True, 'lean_back': True},
-    'inclineCurl': {'bell': True, 'lean_back': True},
-    'chestRow': {'bell': True},
-    'chestRearFly': {'bell': True},
+    # angles：動作卡 docs/3d-moves/bench.md 的角度範圍（寫法見 scripts/blender/README.md；範圍照卡片，不照量到的值）。
+    # uarm_trunk＝上臂和「軀幹往下」的夾角（躺著也適用）；uarm_vert＝上臂離世界垂直往下（180＝垂直朝上）。
+    'benchPress': {'bell': True, 'lean_back': True, 'angles': {'elbow': {'min': (80, 95)}, 'uarm_trunk': {'min': (45, 60)}}},
+    'inclinePress': {'bell': True, 'lean_back': True, 'angles': {'uarm_trunk': {'min': (45, 60)}}},
+    'inclineFly': {'bell': True, 'lean_back': True, 'angles': {'elbow': (160, 165)}},
+    'skullCrusher': {'bell': True, 'lean_back': True, 'angles': {'elbow': {'min': (70, 80)}, 'uarm_vert': (165, 175)}},
+    'pullover': {'bell': True, 'lean_back': True, 'angles': {'elbow': (155, 165)}},
+    'inclineCurl': {'bell': True, 'lean_back': True, 'angles': {'elbow': {'min': (40, 50)}, 'uarm_vert': (0, 15)}},
+    'chestRow': {'bell': True, 'angles': {'uarm_trunk': {'min': (20, 30)}}},
+    'chestRearFly': {'bell': True, 'angles': {'elbow': (160, 170), 'uarm_vert': {'max': (80, 95)}}},
 }
 
 # ---------- 這批共用 ----------

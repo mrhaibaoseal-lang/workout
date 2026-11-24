@@ -2,12 +2,14 @@
 # MOVE_META：這個檔案有哪些動作（hero_proto.py 用 ast 讀，只能寫字面值）。
 #   bell＝手上拿啞鈴（裝備的啞鈴部位）；lean_back＝背靠椅背／躺椅子，隱藏背部裝備（披風、背包、尾巴）。
 MOVE_META = {
-    'squat': {'bell': True},
-    'press': {'bell': True},
-    'rdl': {'bell': True},
-    'row': {'bell': True},
-    'curl': {'bell': True},
-    'lateral': {'bell': True},
+    # angles＝動作卡「關鍵關節角度」的範圍（clipbatch.py 判定；寫法見 scripts/blender/README.md）。
+    # 'knee': (70, 180)＝整個循環最小值不小於 70、最大值不大於 180；{'min': (70, 85)}＝最小值要落在 70～85（抓蹲不夠深）。
+    'squat': {'bell': True, 'angles': {'knee': {'min': (70, 85)}, 'trunk_lean': (0, 45)}},
+    'press': {'bell': True, 'angles': {'elbow': (80, 172), 'uarm_trunk': (75, 170), 'trunk_lean': (0, 5)}},
+    'rdl': {'bell': True, 'angles': {'trunk_lean': (5, 72), 'knee': (160, 170), 'hip': (85, 170), 'elbow': (170, 180)}},
+    'row': {'bell': True, 'angles': {'trunk_lean': (42, 48), 'knee': (150, 160), 'elbow': (75, 172)}},
+    'curl': {'bell': True, 'angles': {'elbow': (44, 168), 'uarm_vert': (0, 8), 'trunk_lean': (0, 3)}},
+    'lateral': {'bell': True, 'angles': {'uarm_vert': (12, 88), 'elbow': (152, 162), 'trunk_lean': (4, 6)}},
 }
 
 def _ang_deg(u, v):

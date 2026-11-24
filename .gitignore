@@ -6,3 +6,6 @@ Payload/
 xcuserdata/
 WorkoutWidget/Info.plist
 *.entitlements
+
+# 3D 工具輸出（clipbatch 快取、review_sheet 總覽圖）
+/out/

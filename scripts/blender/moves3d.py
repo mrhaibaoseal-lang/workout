@@ -202,3 +202,39 @@ for f in range(N):
     rig.location.z = max(0.0, -low - 0.002) if low < -0.004 else 0.0
     rig.keyframe_insert('location', index=2, frame=f)
 for m in _sol: m.show_viewport = True
+
+# ---------- 關節角度量測（2026-11-24 加，BLENDER_BRIEF §5-2／§9-1）----------
+# 只從「骨頭姿勢」量（骨頭頭尾向量），不看動作程式內部的變數 → 每個動作都能共用。
+# 動作登記在 MOVE_META 的 'angles' 欄位，由 clipbatch.py 判定過或不過；單獨抽出這一段的是 anglecheck.py
+# （所以這一段只能依賴 math、Vector，不能用這個檔其他地方的名稱）。
+# ANGLE-MEASURE-BEGIN
+ANGLE_NAMES = ('knee.L', 'knee.R', 'hip.L', 'hip.R', 'elbow.L', 'elbow.R', 'trunk_lean',
+               'uarm_trunk.L', 'uarm_trunk.R', 'uarm_vert.L', 'uarm_vert.R')
+
+def _ms_vec(pbones, name):
+    b = pbones[name]
+    return (b.tail - b.head).normalized()
+
+def _ms_ang(u, v):
+    return math.degrees(math.acos(max(-1.0, min(1.0, u.normalized().dot(v.normalized())))))
+
+def measure_pose(pbones):
+    """目前姿勢的關節角度（度）。pbones＝骨架的 pose.bones（要用動畫算好之後的姿勢）。
+    knee／hip／elbow：內角，伸直＝180°。hip＝胸骨頭往上的軸和大腿的夾角（站直 180°、坐 90°）。
+    trunk_lean：胸骨頭離垂直幾度（0＝直立；躺平約 90°；往前傾往後仰都是正值）。
+    uarm_trunk：上臂和「軀幹往下」的夾角（0＝手臂貼身；90＝與軀幹垂直，跟身體怎麼躺無關）。
+    uarm_vert：上臂離世界垂直往下幾度（0＝垂下；90＝水平；180＝舉過頭）。
+    """
+    up, down = Vector((0, 0, 1)), Vector((0, 0, -1))
+    chest = _ms_vec(pbones, 'chest')
+    out = {'trunk_lean': _ms_ang(up, chest)}
+    for s in ('L', 'R'):
+        thigh, shin = _ms_vec(pbones, f'thigh.{s}'), _ms_vec(pbones, f'shin.{s}')
+        ua, fa = _ms_vec(pbones, f'upper_arm.{s}'), _ms_vec(pbones, f'forearm.{s}')
+        out[f'knee.{s}'] = _ms_ang(-thigh, shin)
+        out[f'hip.{s}'] = _ms_ang(chest, thigh)
+        out[f'elbow.{s}'] = _ms_ang(-ua, fa)
+        out[f'uarm_trunk.{s}'] = _ms_ang(ua, -chest)
+        out[f'uarm_vert.{s}'] = _ms_ang(ua, down)
+    return out
+# ANGLE-MEASURE-END
