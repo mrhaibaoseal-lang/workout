@@ -15,7 +15,13 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 - `gear_frost.py`：冰霜系列（`GEAR=frost`，史詩）：冰晶毛帽、冰柱領 T 恤（塗在身體上，`tank`＋`frst` 兩個屬性）、冰裂紋長褲、高筒冰刀鞋、霜凍手套、冰柱披肩＋冰晶立領、冰塊啞鈴。預覽 `docs/art/blender/frost.png`。
 - `gear_pig.py`：小豬系列（`GEAR=pig`，撲滿主題）：豬耳豬鼻帽、粉紅 T 恤＋奶油肚皮＋金幣（塗在身體上，`tank`＋`pgbelly`＋`pgtrim`）、玫瑰短褲＋捲尾巴＋塗色反摺（`pgcuff`）、
   豬蹄靴、豬蹄手套、陶瓷撲滿背包（背墊貼背）、豬臉啞鈴。背靠椅背的動作（`LEAN_BACK`）尾巴也隱藏。預覽 `docs/art/blender/pig.png`。
-- `gear_util.py`：各系列共用的造型工具（`obox`、`cyl`、`shell`、身體塗色 `add_layer`、T 恤形狀 `tee_parts`），hero_proto 在載入系列檔前 exec；新系列加進 hero_proto 的系列清單。
+- 英雄類四系列（2026-11-25，`GEAR=night|dawn|rune|astral`，都不含特效）：
+  - `gear_night.py` 夜巡者（史詩）：義警兜帽＋眼罩、長袖戰術背心（塗色 `tank`＋`ntvest`，雙 V 徽章、斜背帶、工具腰帶）、戰術長褲（側袋、護膝）、戰術靴、手套＋前臂鰭刃、扇形下緣斗篷（橘內裡、立領）、手裏劍啞鈴。
+  - `gear_dawn.py` 曙光（傳說）：旭日頭環、白藍長袖戰衣（`tank`＋`dwblue`，金高領、星章、金肩飾、太陽扣腰帶）、藍長褲＋金側線（`dwstripe`）、及膝長靴、金色喇叭護手、金邊藍長披風、旭日啞鈴。
+  - `gear_rune.py` 符文戰神（傳說）：青銅角盔、無袖戰甲（胸甲片、毛皮披肩、尖刺圓肩甲、發光符文）、腿甲（鱗片、膝刺、脛甲）、青銅戰靴、尖刺拳套、背負巨劍、符石啞鈴。
+  - `gear_astral.py` 星界魔導（傳說）：漂浮星晶冠、靛藍法袍（`tank`＋`astrim`，扇形立領、菱形寶石、喇叭袖、燕尾後擺）、星點長褲（`asdot`）＋尖角褲口、捲尖巫師鞋、手背漂浮行星、能量羽翼、星核啞鈴。
+  - 材質名前綴 `nt`／`dw`／`rn`／`as` 在 `clipcheck.py` 算硬裝備；身體塗色叫 `skin_<系列>`、長褲叫 `pants_<系列>`（算身體）。長褲系列和底色在 `hero_proto.py` 的 `PANTS`。
+- `gear_util.py`：各系列共用的造型工具（`obox`、`cyl`、`shell`、身體塗色 `add_layer`、T 恤形狀 `tee_parts`、袖長可調 `sleeve_paint`、臉 `face`、頭髮 `hair`、頭盔殼 `cap_shell`、圓管 `tube`、面片 `panel`、星形 `star`、寶石 `gem`、披風 `back_drape`），hero_proto 在載入系列檔前 exec；新系列加進 hero_proto 的 `SERIES_FILES`。
 
 混搭：`GEAR="head=titan,hands=titan"` 逐部位指定（head top bottom feet hands back bell fx），沒寫的用基本款。
 每個部位是獨立零件；上衣／下身換鈦甲時，緊身衣袖子／褲管和底下身體的顏色一起換。預覽 `docs/art/blender/mix.png`。

@@ -1,6 +1,6 @@
 """原型：程序化 3D 角色（玩具公仔風）+ 骨架 + 啞鈴深蹲動畫，EEVEE 卡通著色。
 GEAR=titan xvfb-run -a blender -b -P hero_proto.py -- <outdir> [frames...]
-GEAR：basic（示範用）、titan（整套，不含特效）、或逐部位混搭，例如 GEAR="head=titan,hands=titan"
+GEAR：basic（示範用）、titan／frost／pig／night／dawn／rune／astral（整套，不含特效）、或逐部位混搭，例如 GEAR="head=titan,hands=titan"
 部位：head top bottom feet hands back bell fx（沒寫的部位用基本款）"""
 import bpy, bmesh, math, sys, os
 from mathutils import Vector, Matrix
@@ -11,7 +11,8 @@ FRAMES = [int(a) for a in argv[1:]]
 GEAR = os.environ.get('GEAR', 'basic')
 SLOTS = ('head', 'top', 'bottom', 'feet', 'hands', 'back', 'bell', 'fx')
 G = {k: 'basic' for k in SLOTS}
-if GEAR in ('titan', 'frost', 'pig'):
+SERIES_FILES = ('titan', 'frost', 'pig', 'night', 'dawn', 'rune', 'astral')   # 有 3D 版的系列，各一個 gear_<id>.py
+if GEAR in SERIES_FILES:
     G.update({k: GEAR for k in SLOTS if k != 'fx'})
 elif '=' in GEAR:
     for kv in GEAR.split(','):
@@ -46,7 +47,9 @@ def want(slot, series):
         if CUR[0] not in PART_NAMES: PART_NAMES.append(CUR[0])
     return ok
 TOP = G['top'] == 'titan'                       # 全身緊身衣（冰霜 T 恤是塗色，不算）
-BOT = G['bottom'] in ('titan', 'frost')          # 長褲：褲管到腳踝
+# 長褲（褲管到腳踝）的系列和褲子底色；身體在褲子底下的面也塗這個顏色
+PANTS = {'titan': '#2A3340', 'frost': '#4FB8FF', 'night': '#1C2230', 'dawn': '#2E6BFF', 'rune': '#2C2F3A', 'astral': '#22184A'}
+BOT = G['bottom'] in PANTS
 def hexc(h):
     h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))
 os.makedirs(OUT, exist_ok=True)
@@ -134,7 +137,7 @@ M = {
 }
 M['skintank'] = toon('skintank', (0.50, 0.53, 0.58), alt=hexc('#FF6B35'), alt_attr='tank', alt_shade=0.62)
 if TOP: M['shirt'] = M['tisuit']
-if BOT: M['shorts'] = M['tisuit'] if G['bottom'] == 'titan' else toon('frpant', hexc('#4FB8FF'), 0.6)
+if BOT: M['shorts'] = M['tisuit'] if G['bottom'] == 'titan' else toon('pants_' + G['bottom'], hexc(PANTS[G['bottom']]), 0.6)
 if G['bottom'] == 'pig': M['shorts'] = toon('pgshorts', hexc('#E8668F'), 0.6)   # 小豬：玫瑰粉短褲
 OUTLINE = flat('outline', (0.01, 0.01, 0.02))
 OUTLINE.use_backface_culling = True
@@ -410,7 +413,7 @@ for s, sx in (('L', 1), ('R', -1)):
 
 _GD = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1]))
 exec(open(os.path.join(_GD, 'gear_util.py'), encoding='utf-8').read())
-for _ser in ('titan', 'frost', 'pig'):   # 每個系列一個 gear_<id>.py
+for _ser in SERIES_FILES:   # 每個系列一個 gear_<id>.py
     if _ser in G.values() or _ser in EXP_SERIES:
         exec(open(os.path.join(_GD, f'gear_{_ser}.py'), encoding='utf-8').read())
 
