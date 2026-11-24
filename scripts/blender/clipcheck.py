@@ -21,6 +21,7 @@ for md in hero.modifiers:
 GEAR_MATS = {'ti', 'tidk', 'glow', 'flame', 'iron', 'grip',
              'fr1', 'fr2', 'fr3', 'frice', 'frblade', 'frglow',   # 冰霜（衣服塗色和長褲不算，那些是 body）
              'pg1', 'pg2', 'pghoof', 'pgnose', 'pggold', 'pggolddk', 'pgbank'}   # 小豬（短褲不算）
+GEAR_PREFIX = ('nt', 'dw', 'rn', 'as')   # 英雄類四系列：材質名用這些前綴的都是硬裝備（塗色叫 skin_*、長褲叫 pants_*，算 body）
 SKIP_PROPS = {'bar', 'cable'}                                    # 手本來就握著
 mats = [m.name if m else '' for m in hero.data.materials]
 parent = {b.name: (b.parent.name if b.parent else None) for b in rig.data.bones}
@@ -43,7 +44,7 @@ for p in hero.data.polygons:
             n = hero.vertex_groups[g.group].name
             if n in parent: acc[n] = acc.get(n, 0) + g.weight      # 只算骨頭（lbs 之類的混合群組不算）
     bone = max(acc, key=acc.get) if acc else '?'
-    cat = 'gear' if re.sub(r'\.\d+$', '', mats[p.material_index]) in GEAR_MATS else 'body'   # 只去掉 Blender 的 .001（不能 rstrip 數字：fr1 會變 fr）
+    cat = 'gear' if re.sub(r'\.\d+$', '', mats[p.material_index]) in GEAR_MATS or mats[p.material_index].startswith(GEAR_PREFIX) else 'body'   # 只去掉 Blender 的 .001（不能 rstrip 數字：fr1 會變 fr）
     labels.append((cat, bone))
 groups = sorted(set(labels))
 

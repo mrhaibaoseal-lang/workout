@@ -1,4 +1,4 @@
-# 練壯 3D 美術與動作示範：工作規範（給 Gemini 與 Claude）
+# 練壯 3D 美術與動作示範：工作規範（給 Claude；2026-11-24 起動作不再交給 Gemini）
 
 > 這份是**唯一的工作規範**。動手前從頭讀完，也要讀 `docs/3d-system.md`、`scripts/blender/README.md`、
 > `CLAUDE.md` 的「角色、裝備、牌位的美術規定」。規範和你的習慣衝突時，**照規範**。
@@ -17,14 +17,14 @@
 5. **器材照使用者自己的**（見 §4）：不要畫使用者沒有的器材。使用者沒有深蹲架、沒有單槓、不用彈力繩。
 6. 做不到、不確定的地方，**寫在進度裡並問使用者**，不要自己猜一個然後說做好了。
 
-## 0-1. 分工（使用者 2026-11-22 決定，2026-11-24 改成三方）
+## 0-1. 分工（使用者 2026-11-22 決定；2026-11-24 改成動作全部由 Claude 做）
 
-三個 agent 同時做，**按器材分批、按檔案分工**，誰建的器材誰負責：
+**2026-11-24 起動作全部由 Claude 做，Gemini 不再接動作。** 同時可以有好幾個 Claude session，**按器材分批、按檔案分工**，
+同一個批次檔一次只給一個 session 改：
 
 | 誰 | 做什麼 | 只改這些檔案 | 工作分支 |
 |---|---|---|---|
-| **Gemini** | 動作：站姿啞鈴 → 地板徒手 → 伸展 | `moves/standing_dumbbell.py`、`moves/floor.py`、`moves/stretch.py`、新的 `moves/props_<器材>.py`（例如啞鈴架、瑜伽墊）、`docs/3d-moves/` 同名卡片 | 使用者指定 |
-| **Claude（動作）** | 動作：椅子 → 滑輪 → 熱身 | `moves/bench.py`、`moves/cable.py`、`moves/warmup.py`、`moves/props_bench.py`（啞鈴椅＋下拉架）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
+| **Claude（動作）** | 全部動作：站姿啞鈴、椅子、滑輪、弓步／臀橋、地板徒手、熱身、伸展、休息頁 | `moves/<批次>.py`、`moves/props_*.py`（器材）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
 | **Claude（裝備）** | 裝備造型，一個系列一個 `gear_<id>.py` | `gear_*.py`、`gear_util.py` | `claude/3d-*` |
 
 （檔案都在 `scripts/blender/` 底下。）
@@ -34,13 +34,14 @@
 - **共用檔案**（`moves3d.py` 的 IK／軀幹／道具工具、`hero_proto.py`、`clipcheck.py`）：可以**新增**函式；改既有函式的行為、或改別人的器材，
   先寫在 §10 的「共用檔案異動」問對方和使用者，同意才改，commit 訊息寫清楚。
 - **合併**：每批使用者說好就併進 main（`git fetch origin main` → `git merge origin/main` → 確認是快轉 → `git push origin HEAD:main`；
-  不能快轉就停下來問，不強推、不改寫歷史）。開始新的一批前先 `git merge origin/main`，拿到另外兩邊的最新成果。
+  不能快轉就停下來問，不強推、不改寫歷史）。開始新的一批前先 `git merge origin/main`，拿到其他 session 的最新成果。
 - 能貼合的原因：裝備綁在骨頭上，動作只轉骨頭 → 任何動作都會帶著任何裝備動。所以：
   - **骨架和身體凍結**：`hero_proto.py` 的 `BONES`（骨頭名稱、位置、長度、父子關係）、身體形狀（`P`、`E` 的節點和半徑）、
     基本款塗色都**不准改**。真的需要改（例如要多一根骨頭），先寫在進度裡問使用者，雙方同意才改。
   - **檔案分開**：照上表。`hero_proto.py` 只做小改，改了要在 commit 訊息寫清楚。
   - **交叉檢查**：每批結束跑 `clipcheck.py`（**所有**已完成的動作 × 基本款＋每個已完成的系列，不只自己這批）。
     動作和裝備撞到時，**改裝備，不改動作**（動作照專業標準，不能為了造型變形）；改不了就在該動作隱藏那個部位並記錄。
+    **（使用者 2026-11-24 決定，以這條為準）系列裝備和動作／器材的穿模可以接受：不改裝備、不改動作，只記錄數字。基本款（不穿系列裝備）仍要通過檢查。**
 - **例外（使用者 2026-11-24 同意）**：為了修肩膀變形，允許照 §6-1 改骨架與權重（A 字靜止姿勢、加 `clavicle.L/R`、肩膀權重）。
   身體外形（`P`、`E` 的半徑）、比例、塗色仍然不准改。改完要通知 Claude（裝備），裝備檔要確認都是用 `B[...]` 取骨頭位置，沒有寫死座標。
 
@@ -161,6 +162,7 @@
 - 有厚度的衣服（短褲、緊身衣、外套）：沿用身體權重（Data Transfer）、只比身體大 5～8%、邊緣底下的身體塗成衣服色。**不准把衣服放大到 10% 以上**。
 - 硬殼裝備只綁一根骨頭、放在肢段中段、不跨關節；往外凸的零件要收窄（大腿側板 ≤ 7 cm）。
 - 接地修正（自動）；背靠椅背或躺椅子的動作隱藏 `back` 部位（在動作檔的 `MOVE_META` 寫 `lean_back: True`）。
+- **使用者 2026-11-24 決定：系列裝備和動作／器材的穿模可以接受，不改裝備、不改動作、只記錄數字；基本款仍要通過檢查（角度 PASS、身體 × 器材／地板硬碰撞個位數、`deformcheck.py` 只剩關節處正常擠壓）。**
 - 每個動作跑 `clipcheck.py`：**基本款＋每一個系列整套**都要跑。目標：硬碰撞（裝備 × 其他骨頭、身體 × 硬器材、沉入地板）為 0 或只剩個位數；
   碰軟墊（座墊、滾筒）是正常接觸。修不掉的寫進進度。
 
@@ -242,7 +244,7 @@
 ## 8-1. 獨立審查（動作正確性；使用者 2026-11-24 決定）
 
 使用者是新手，看不出動作錯在哪，所以正確性不能只靠做動作的人自己檢查。每一批交給使用者之前，另找一個審查者：
-- **審查者不是做這批的人**（Gemini 做的給 Claude 審，Claude 做的另開一個 session 審），可以用 Sonnet。
+- **審查者不是做這批的人**（做的 session 以外，另開一個 session 審），可以用 Sonnet。
 - **只給它**：動作卡、卡上的來源、總覽圖（每個動作 4 個角度 × 4 個時間點）、`[angles]` 輸出。**不給程式碼**，
   它要像教練一樣看「示範長得對不對」，而不是看程式寫得對不對。
 - **逐條檢查**，每個動作都要回答：
@@ -287,18 +289,35 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 2026-11-24 | Claude（骨架） | 修肩膀變形（§6-1）：`hero_proto.py` 加 `clavicle.L/R`、A 字靜止姿勢（建模姿勢不變，合併前才轉）、去掉截斷權重改成平滑漸變、保持體積；`moves3d.py` 的 `keyall` 每格自動做鎖骨跟轉＋上臂／前臂滾轉校正（`aim` 的滾轉規則會讓上臂多扭到 178°）；`clipcheck.py` 加鎖骨的相鄰關節；新增 `deformcheck.py`、`rigtest.py`。動作檔不用改，但沒釘手腕的手臂（直接 `aim`）在手抬高時會跟著肩膀上移幾公分 | 使用者同意（§0-1 例外）。**採用 Claude 版，Gemini 版（2bd70d6）不合併，使用者 2026-11-24 決定** |
 | 2026-11-24 | Claude | `moves3d.py` 的 `aim()` 加選用參數 `roll`、`arm_to()` 加選用參數 `hand_roll`（手繞自己的軸轉，決定握把朝向；預設 0，既有動作不受影響）。為了搬站姿啞鈴 1（Gemini 的動作檔用它） | 使用者同意（搬動作的指示） |
 | 2026-11-24 | Claude（驗收工具） | `moves3d.py` 結尾**新增**量測函式 `measure_pose`（不改既有函式）；`clipbatch.py` 加角度判定、指紋拿掉 `angles` 欄位、`group_stamp`／`collect_meta`；新增 `anglecheck.py`、`review_sheet.py`、`review_render.py`、`compose.py`；`.gitignore` 加 `/out/`；`standing_dumbbell.py`、`bench.py`、`floor.py`、`cable.py` 只在 `MOVE_META` 加 `angles` 欄位，姿勢程式沒動 | 使用者指示（工具工作） |
+| 2026-11-24 | Claude（動作） | `moves3d.py` 在 `MOVE =` 之前**新增**弓步／臀橋共用函式：`solve_hip_z`、`rear_toe`、`rear_fixed`、`rear_step_back`、`rear_air`、`lunge_pose`、`hang_arms`、`bridge_pose`（不改任何既有函式） | 使用者指示（這批改由 Claude 做） |
+| 2026-11-24 | Claude（滑輪 A） | `moves3d.py` 在 `MOVE = …` 之前**新增**函式 `stand_legs`（站姿腿，先擺軀幹再擺腿）、`elbow_hinge`（三頭／直臂下拉共用：上臂固定方向、手肘角度參數、不釘手腕）；新增 `moves/props_cable.py`（`bench_scene` 一體機可轉 180°、`build_rope` 三頭繩、`build_latbar`、鋼索配重 `make_cables`／`key_cables`）。沒改既有函式 | 使用者指示（滑輪 A 批） |
 
-### 動作：Gemini（站姿啞鈴 → 地板徒手 → 伸展）
+### 動作：還沒做的（2026-11-24 盤點；做一批就從這裡刪掉、移到下面的表）
+
+以 `CharacterPose.swift` 的 `CharacterMove` 為準。`latPulldown` 共用已完成的 `pulldown`。
+
+| 批次 | 動作 | 備註 |
+|---|---|---|
+| 滑輪 B | `seatedCableRow`、`cableCurl`、`cableLateral` | 照滑輪 A 的一體機做法（`props_cable.py`） |
+| 站姿啞鈴 2 | `calf`、`triceps`、`rearFly`、`kickback`、`slRdl` | |
+| 地板 | `plank`、`pikePushup`、`reverseCrunch`、`deadBug`、`floorPress`、`legCurl` | `legCurl` 趴地或趴椅開工前定 |
+| 熱身 | `armCircle`、`hipHinge`、`bwSquat`、`lungeStep`、`armSwing`、`wallSlide`、`legSwing`、`bwBridge` | |
+| 伸展 | `chestStretch`、`crossBody`、`tricepsStretch`、`childPose`、`quadStretch`、`seatedFold`、`kneeHug`、`calfStretch`、`hipFlexor`、`cobra` | |
+| 休息頁 | `breathe`、`drink`、`ready` | |
+
+### 動作：Gemini（已停止；2026-11-24 起改由 Claude 做）
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
 | 站姿啞鈴 1 | `squat`、`press`、`rdl`、`row`、`curl`、`lateral`（動作卡 `docs/3d-moves/standing_dumbbell.md`）。**已搬到 Claude 骨架（`claude/3d-rig-standing`）**：`[angles]` 全部落在動作卡範圍；彎舉改成上臂固定的旋後彎舉。預覽 `docs/art/blender/standing_batch1.png`、各動作 GIF | 搬完待使用者看（Claude，2026-11-24） |
 
-### 動作：Claude（椅子 → 滑輪 → 熱身）
+### 動作：Claude
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
 | 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格，使用者 2026-11-24 看過截圖，接受、不改）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。鈦甲胸甲那點交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
+| 弓步／臀橋 | `lunge`、`splitSquat`（保加利亞，後腳放椅子）、`reverseLunge`、`stepUp`、`bridge`、`hipThrust`（動作卡 `docs/3d-moves/lunge_bridge.md`，含檢查結果；共用姿勢函式 `moves3d.py` 的 `lunge_pose`、`bridge_pose`）。基本款角度全 PASS、硬碰撞個位數；deformcheck 只剩膝窩／肩膀的正常擠壓（每部位 ≤ 46 面）；系列裝備穿模使用者接受、只記錄。總覽圖 `out/review/lunge_bridge/`（不進 git） | 完成待審查（§8-1 由主對話安排）（Claude，2026-11-24） |
+| 滑輪 A | `closePulldown`（窄握下拉＝`pulldown` 握窄，使用者決定；clipcheck 基本款 3、鈦甲前臂×胸甲約 167 留給裝備端）、`tricepsPushdown`（三頭範本）、`overheadCableExt`（坐姿，機器轉 180°）、`straightArmPulldown`、`facePull`、`cableCrunch`（坐姿）（動作卡 `docs/3d-moves/cable.md`）。**椅子和立柱一體、鋼索只從椅子側出且不長（使用者 2026-11-24）**：站姿的三個動作把靠背放平、人跨站在椅子兩側；過頭伸展和捲腹因此和標準（站姿／跪姿）不同，卡片已寫差別、待教練確認。`latPulldown` 和已完成的 `pulldown` 是同一個動作，不另做（App 端共用）。`[angles]` 全 PASS；deformcheck 單格壞面 80～760，和已完成動作（pulldown 550、skullCrusher 718）同量級，不是 0（骨架權重，不是這批姿勢）。clipcheck（單格最大）：基本款／小豬 ≤2；冰霜長褲大腿互碰 ≤11，直臂下拉冰霜靴×椅子後底座約 64；鈦甲（留給裝備端）：過頭伸展上臂×頭盔約 113、三頭下壓前臂×胸甲約 37、直臂下拉靴×底座約 56、捲腹胸甲×大腿約 32。**（2026-11-25 已處理、使用者看圖決定：手舉過頭的動作〔`gear_titan.py` 的 `OVERHEAD_MOVES`：press、overheadCableExt、straightArmPulldown、pulldown、closePulldown，新增這類動作要加進去〕肩甲上層亮殼＋發光條綁鎖骨；其他動作（例如側平舉）維持整個綁 `upper_arm`，使用者覺得好看，不要再改。clipcheck 數字和修前相同。）原回報：鈦甲肩甲（`gear_titan.py` 的 `ellipsoid(upper_arm…)`）綁在 `upper_arm`、中心在肩關節上，手舉過頭時只在原地轉，沒有跟著肩膀上提（過頭伸展、直臂下拉起點最明顯）；建議改綁 `clavicle.L/R`（鎖骨手舉時會自動上轉到 20°）或拆成兩塊一塊跟鎖骨**。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
@@ -307,3 +326,4 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 0 | 角色、基本款、鈦甲、深蹲、伏地挺身、高位下拉、防穿模工具 | 完成（Claude，2026-11-22） |
 | 裝備 1 | 冰霜（frost）8 部位（不含特效）；clipcheck：三個動作只剩長褲大腿內側布料互碰（≤11）和下拉碰軟墊 | 完成，使用者定案（Claude，2026-11-24） |
 | 裝備 2 | 小豬（pig，撲滿主題）7 部位；clipcheck：同基本款（大腿互碰 3、下拉碰軟墊），另外下拉時豬蹄鞋底貼椅子前底座 6 對（可接受）；下拉隱藏撲滿背包和尾巴 | 完成，使用者定案（Claude，2026-11-24） |
+| 裝備 3 | 英雄類四套：夜巡者 night、曙光 dawn、符文戰神 rune、星界魔導 astral（各 7 部位，不含特效）；預覽 `docs/art/blender/heroes.png`（每列：正面、背面、臉、深蹲、伏地挺身、下拉）；clipcheck（每 4 格）：碰軟墊是坐姿正常接觸；深蹲時大腿碰腹甲／彈匣袋（夜巡者 23、符文 32）、夜巡者鰭刃碰大腿 22；曙光伏地挺身兩腿金褲環互碰 42；下拉時符文毛皮披肩戳進椅背 360、星界燕尾壓進座墊 194（系列穿模，使用者 2026-11-24 已決定可接受）。斗篷收窄到 ±52°（原本站姿就碰啞鈴），斜背帶縮到腰上（原本深蹲切進大腿） | 完成，使用者定案（Claude，2026-11-25） |
