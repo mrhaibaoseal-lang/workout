@@ -29,6 +29,7 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 - 自動權重會讓手臂影響延伸到胸口：軀幹 |x|<0.235 的手臂權重改給胸部，0.235～0.29 漸變（肩關節外側才跟手臂）。
 - 基本款背心＝身體軀幹塗色（不另做網格，含肩帶）：頂點屬性 `tank`（在背心裡多深，公尺）由著色器判斷 >0，邊緣平滑不鋸齒（`tank_field`），身型是使用者選定的平直倒三角；身體細分 3 級讓塗色邊緣平滑。
 - 自動檢查：`blender -b <輸出>/hero.blend -P scripts/blender/clipcheck.py -- 報告.json 2`（見 docs/3d-system.md「防穿模」）。
+  全部動作 × 系列一次跑、只重跑有變動的組：`python scripts/blender/clipbatch.py`（結果在 `out/clipcache/`）。
 - 接地修正（moves3d.py 結尾）、背靠椅背的動作隱藏背部裝備（動作檔 `MOVE_META` 的 `lean_back`）。
 - 檢查方法：從正上方看伏地挺身（上背最容易穿）；依頂點最大權重骨頭上色找是哪根骨頭帶出來的。
 預覽：`docs/art/blender/`（`squat_basic.gif`、`squat_titan.gif`、`cmp.png`）。
