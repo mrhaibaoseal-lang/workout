@@ -1,7 +1,8 @@
 # 給 App（RealityKit）用的匯出：hero.blend → USDZ（骨架＋動畫）＋ 材質表 JSON ＋ 動作 JSON。
 #   blender -b <輸出>/hero.blend -P scripts/blender/export_app.py -- <目標資料夾> <動作名> [full|clip]
 # full：所有零件（用 EXPORT=frost,titan 建出來的 hero.blend），App 逐件開關；clip：只取動作，不輸出模型。
-# 拆法：hero 網格依「零件(part 面屬性) × 材質」拆成獨立網格，名稱 <部位>_<系列>__<材質>；描邊外殼烘成 <零件>__ol。
+# 拆法：hero 網格依「零件(part 面屬性) × 材質」拆成獨立網格，名稱 <部位>_<系列>__<材質>。
+# 描邊不烘外殼（0.39.0 起）：App 用著色器把同一份網格沿平均法線外撐再畫一次，USDZ 省一半頂點。
 # 卡通著色不靠 USD 材質（RealityKit 不認 Blender 節點），App 依名稱查 materials.json 用自己的 Metal 著色器。
 import bpy, bmesh, json, os, sys
 from mathutils import Matrix
@@ -56,11 +57,10 @@ def mat_info(m):
         info['altShade'] = round(a[0].color[0] / a[1].color[0], 3) if a[1].color[0] > 0 else 0.6
     return info
 
-# ---------- 先回到靜止姿勢，把描邊外殼烘進網格 ----------
+# ---------- 回到靜止姿勢；原型用的描邊外殼（solidify）不要 ----------
 rig.data.pose_position = 'REST'; bpy.context.view_layer.update()
-bpy.ops.object.select_all(action='DESELECT'); bpy.context.view_layer.objects.active = hero; hero.select_set(True)
 for md in list(hero.modifiers):
-    if md.type == 'SOLIDIFY': md.show_viewport = True; bpy.ops.object.modifier_apply(modifier=md.name)
+    if md.type == 'SOLIDIFY': hero.modifiers.remove(md)
 
 # 塗色欄位（tank）放進 UV（App 的著色器讀 uv0.x）
 me = hero.data
@@ -76,7 +76,8 @@ part_attr = me.attributes['part']
 groups = {}
 for p in me.polygons:
     part = PART_NAMES[part_attr.data[p.index].value]
-    mname = 'ol' if mats[p.material_index] == 'outline' else mats[p.material_index]
+    mname = mats[p.material_index]
+    if mname == 'outline': continue
     groups.setdefault((part, mname), []).append(p.index)
 
 made = []
@@ -89,7 +90,7 @@ for (part, mname), faces in sorted(groups.items()):
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context='FACES')
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
     bm.to_mesh(ob.data); bm.free()
-    keepmat = me.materials[mats.index('outline' if mname == 'ol' else mname)]
+    keepmat = me.materials[mats.index(mname)]
     ob.data.materials.clear(); ob.data.materials.append(keepmat)
     if mname != 'skintank':
         while ob.data.uv_layers: ob.data.uv_layers.remove(ob.data.uv_layers[0])
@@ -104,14 +105,13 @@ for (part, mname), faces in sorted(groups.items()):
     for n in drop: ob.vertex_groups.remove(ob.vertex_groups[n])
     made.append(ob)
 
-# 接地：每個零件每格的最低點（不含整體抬高；描邊外殼不算）
-low = {o.name.split('__')[0]: [] for o in made if not o.name.endswith('__ol')}
+# 接地：每個零件每格的最低點（不含整體抬高）
+low = {o.name.split('__')[0]: [] for o in made}
 rig.data.pose_position = 'POSE'
 for f in range(sc.frame_start, sc.frame_end + 1):
     sc.frame_set(f); rig.location.z = 0; bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get(); cur = {}
     for o in made:
-        if o.name.endswith('__ol'): continue
         ev = o.evaluated_get(dg); m = ev.to_mesh()
         z = min((o.matrix_world @ v.co).z for v in m.vertices); ev.to_mesh_clear()
         k = o.name.split('__')[0]; cur[k] = min(cur.get(k, 9), z)
