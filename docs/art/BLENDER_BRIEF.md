@@ -219,7 +219,7 @@
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
-| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`）。上斜照 App 提示用離地 30°（`back_deg` 60）；胸靠的兩個動作把椅子轉 180° 趴上去，頭超出頭枕。骨架尚未改 A 字姿勢（§6-1），肩膀變形照舊 | 交給使用者看（Claude，2026-11-24） |
+| 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`）。上斜照 App 提示用離地 30°（`back_deg` 60）；胸靠的兩個動作把椅子轉 180° 趴上去，頭超出頭枕。骨架尚未改 A 字姿勢（§6-1），肩膀變形照舊。clipcheck（每 4 格，basic/frost/pig/titan）待修：①`pullover` 手臂和啞鈴穿過頭（400～1000 對）：人要往頭端移、弧線要繞過頭頂；②`inclineCurl` 啞鈴打到大腿（150～280）：手臂往外垂或抬高髖；③`chestRow`／`chestRearFly` 底部啞鈴碰大腿（30～120）：S0 再往上或腳往後；④frost 臥推／上斜頂端兩顆冰塊互碰（96）：頂端握距放寬。其餘只剩大腿內側互碰（≤11）和碰軟墊 | 初版，等骨架修正（§6-1，另一個 session）後再修上面 4 點、出 GIF 交付（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
