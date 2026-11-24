@@ -7,6 +7,11 @@ on:
 permissions:
   contents: write
 
+# 同一分支有新的推送時，取消還在跑的舊編譯（只留最新一版會編完、發佈到 Feather）
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-15

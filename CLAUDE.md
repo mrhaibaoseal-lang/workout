@@ -18,6 +18,7 @@
   - **先不推**：還在試做、等使用者看預覽決定；編譯失敗或還沒編完；使用者明說先不要。
   - 推的方法：先 `git fetch origin main`，確認能快轉（main 是 HEAD 的祖先）再 `git push origin HEAD:main`；
     不能快轉就先停下來，跟使用者說明，不要強推或改寫歷史。
+  - **推送後不用等編譯**：可以繼續改、繼續推。workflow 有 `concurrency`，同一分支新的推送會取消還在跑的舊編譯，所以被取消（cancelled）不算失敗；要推 main 前，看該分支**最新 commit** 那一輪有沒有成功（`gh run list --branch <分支> -L 3`）。
   - 每次推完或決定不推，都在回報裡用一句話說明（例如「已推上 main」或「試做中，先不推 main」）。
   - session 一開始，先檢查有沒有比 main 新、但還沒合進去的 `claude/*` 分支，有的話告訴使用者。
 - App 圖示：`Workout/Assets.xcassets/AppIcon.appiconset/AppIcon.png`，由 `scripts/make_icon.py` 產生（1024px、不透明），同一張也傳給 Feather 來源的 `icon:`。
