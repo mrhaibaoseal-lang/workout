@@ -180,10 +180,12 @@ def tube(a, b, w=0.025, mat='frame'):
     a, b = Vector(a), Vector(b); return pori(mat, (a + b) / 2, (w, w, (b - a).length / 2), b - a, 0.006)
 
 # ---------- 滑輪 A 批共用（Claude 動作，2026-11-24 新增；moves/cable.py 用）----------
-def stand_legs(width=0.14, hip_z=0.925, hip_y=0.0, stagger=0.0):
-    """雙腳站、膝蓋微彎，腳踝在髖正下方。stagger＝前後錯開的距離（左腳在前、右腳在後各一半；髖要降低才踩得到）。回傳髖中心位置。"""
+def stand_legs(width=0.14, hip_z=0.925, hip_y=0.0, stagger=0.0, ankle_w=None):
+    """雙腳站、膝蓋微彎。width＝髖關節左右位置、ankle_w＝腳踝左右位置（預設同 width；跨站在椅子兩側時腳踝要比髖寬）。
+    stagger＝前後錯開的距離（左腳在前、右腳在後各一半；髖要降低才踩得到）。回傳髖中心位置。"""
+    aw = width if ankle_w is None else ankle_w
     for s, sx in SX:
-        hj = Vector((width * sx, hip_y, hip_z)); an = Vector((width * sx, hip_y + 0.01 - stagger / 2 * sx, 0.11))
+        hj = Vector((width * sx, hip_y, hip_z)); an = Vector((aw * sx, hip_y + 0.01 - stagger / 2 * sx, 0.11))
         leg_to(s, hj, an, Vector((0.12 * sx, -1, 0)))
     return Vector((0, hip_y, hip_z))
 

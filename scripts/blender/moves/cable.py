@@ -5,10 +5,10 @@ MOVE_META = {
     'pulldown': {'lean_back': True},
     # angles＝動作卡 docs/3d-moves/cable.md 的範圍（寫法見 scripts/blender/README.md；範圍照卡片，不照量到的值）。
     'tricepsPushdown': {'angles': {'elbow': {'min': (75, 90), 'max': (160, 175)}, 'uarm_vert': (0, 15), 'uarm_trunk': (0, 20), 'trunk_lean': (0, 15)}},
-    'overheadCableExt': {'angles': {'elbow': {'min': (55, 75), 'max': (160, 175)}, 'uarm_vert': (150, 180), 'trunk_lean': (0, 20)}},
+    'overheadCableExt': {'lean_back': True, 'angles': {'elbow': {'min': (55, 75), 'max': (160, 175)}, 'uarm_vert': (150, 180), 'trunk_lean': (0, 20)}},
     'straightArmPulldown': {'angles': {'elbow': (150, 168), 'uarm_vert': {'min': (0, 20), 'max': (130, 155)}, 'trunk_lean': (25, 45), 'knee': (130, 170)}},
     'facePull': {'angles': {'elbow': {'min': (55, 90), 'max': (165, 180)}, 'uarm_vert': {'min': (80, 100), 'max': (95, 120)}, 'trunk_lean': (0, 10)}},
-    'cableCrunch': {'angles': {'trunk_lean': {'min': (15, 35), 'max': (65, 85)}, 'knee': (75, 95)}},
+    'cableCrunch': {'lean_back': True, 'angles': {'trunk_lean': {'min': (0, 15), 'max': (45, 65)}}},
 }
 
 # ======================= 高位下拉 =======================
@@ -65,71 +65,75 @@ if MOVE == 'pulldown':
     CAM = dict(loc=(4.0, -2.2, 1.45), tgt=(0, -0.12, 1.02), lens=58, stage=(0, -0.05, 1.0))
 
 # ======================= 繩索三頭下壓（三頭族群的範本）=======================
-# 站在立柱前面（椅子移開），高位滑輪＋三頭繩。上臂貼身固定、只動手肘：從前臂水平（手肘約 80°）壓到手臂接近打直、手到大腿前。
+# 一體機（靠背放平）：人跨站在椅子兩側、面向立柱，高位滑輪＋三頭繩。上臂貼身固定、只動手肘：從前臂水平（手肘約 80°）壓到手臂接近打直、手到大腿前。
 # 姿勢函式 elbow_hinge 在 moves3d.py，overheadCableExt 用同一個函式。
 if MOVE == 'tricepsPushdown':
     N = 48
-    HY, LEAN = -0.02, D(8)
-    stack = build_tower(); rp = build_rope(); cbl = make_cables()
+    HY, LEAN = -0.05, D(8)
+    stack, XF = bench_scene(90); rp = build_rope(); cbl = make_cables()
     def pose(t):
         hm = Vector((0, HY, 0.925))
         _, sh = trunk(hm + Vector((0, 0, 0.04)), LEAN * 0.5, LEAN, 0)
-        stand_legs(0.14, 0.925, HY)
+        stand_legs(0.15, 0.925, HY, ankle_w=0.27)
         elbow_hinge(sh, t, Vector((0.06, -0.14, -1)), Vector((-0.35, -1, 0)), D(80), D(168))
     for f in range(N):
         sc.frame_set(f); t = profile(f, N, 15, 5, 22); pose(t); keyall(f)
         cp_ = key_rope(rp, f, WHEEL_FRONT); key_cables(cbl, stack, f, WHEEL_FRONT, cp_)
-    CAM = dict(loc=(3.2, -2.6, 1.35), tgt=(0, -0.20, 1.05), lens=58, stage=(0, -0.10, 0.7))
+    CAM = dict(loc=(3.2, -2.6, 1.35), tgt=(0, -0.20, 1.05), lens=58, stage=(0, 0.0, 0.8))
 
-# ======================= 繩索過頭三頭伸展（用 elbow_hinge，和三頭下壓同一個範本）=======================
-# 背對立柱、弓步站（左腳在前）、上身微前傾，雙手握三頭繩在頭後面，上臂指向上方貼著耳朵固定，只動手肘：從手肘約 65° 伸到接近打直。
-# 站得離立柱遠（約 1.1 m），讓鋼索接近水平，伸直時才是把鋼索往前拉出去。
+# ======================= 坐姿繩索過頭三頭伸展（同範本 elbow_hinge，換上臂方向）=======================
+# 站姿的標準做法要鋼索從立柱另一側出來，這台做不到（鋼索只從椅子這一側出）。改成：靠背放平，人騎坐在椅面上、背對立柱（機器轉 180°），
+# 上身坐直微前傾，雙手握三頭繩在頭後面，上臂指向上方貼著耳朵固定，只動手肘：從手肘約 65° 伸到接近打直。
+# 和站姿的差別：鋼索從身後上方斜向上拉（約 35°），伸到頂端時阻力比站姿小。
 if MOVE == 'overheadCableExt':
     N = 48
-    HY, LEAN = -1.75, D(12)
-    stack = build_tower(); rp = build_rope(); cbl = make_cables()
+    HY, LEAN = -0.42, D(8)
+    stack, XF = bench_scene(90, flip=True); rp = build_rope(); cbl = make_cables()
+    WX = XF @ WHEEL_FRONT
     def pose(t):
-        hm = Vector((0, HY, 0.88))
+        hm = Vector((0, HY, 0.60))
         _, sh = trunk(hm + Vector((0, 0, 0.04)), LEAN * 0.8, LEAN, LEAN * 0.7)
-        stand_legs(0.12, 0.88, HY, stagger=0.30)
+        for s, sx in SX:                                      # 騎坐：大腿往前、膝蓋在兩側，小腿垂直
+            hj = Vector((0.11 * sx, HY, 0.60)); kn = hj + Vector((0.10 * sx, -0.39, -0.08)); an = Vector((kn.x, kn.y - 0.02, 0.11))
+            leg_to(s, hj, an, Vector((0, -1, 0.3)))
         elbow_hinge(sh, t, Vector((0.03, -0.10, 1)), Vector((0.0, 1, 0)), D(65), D(168))
     for f in range(N):
         sc.frame_set(f); t = profile(f, N, 18, 5, 22); pose(t); keyall(f)
-        cp_ = key_rope(rp, f, WHEEL_BACK); key_cables(cbl, stack, f, WHEEL_BACK, cp_)
-    CAM = dict(loc=(3.6, -2.9, 1.5), tgt=(0, -1.45, 1.1), lens=58, stage=(0, -1.55, 0.75))
+        cp_ = key_rope(rp, f, WX); key_cables(cbl, stack, f, WX, cp_, XF)
+    CAM = dict(loc=(3.4, -1.9, 1.3), tgt=(0, -0.35, 1.0), lens=58, stage=(0, -0.4, 0.8))
 
 # ======================= 直臂下拉（下拉的變化版）=======================
-# 面向立柱站、髖往後坐上身前傾約 35°，手臂幾乎打直（手肘約 155°，全程固定），直槓握距略比肩寬；
-# 手臂像鐘擺繞肩膀從前上方（離垂直約 145°）弧線下壓到大腿前（約 10°）。
+# 一體機（靠背放平）：人跨站在長長的椅面兩側、面向立柱，髖往後坐上身前傾約 35°，手臂幾乎打直（手肘約 155°，全程固定），直槓握距略比肩寬；
+# 手臂像鐘擺繞肩膀從前上方（離垂直約 145°）弧線下壓到大腿前（約 10°）。鋼索要拉出約 0.9 m（要使用者確認拉得出來）。
 if MOVE == 'straightArmPulldown':
     N = 48
-    HY, LEAN, GX = 0.50, D(35), 0.30
-    stack = build_tower(); bar = build_latbar(GX); cbl = make_cables()
+    HY, LEAN, GX = 0.44, D(35), 0.30   # 腳踩在椅子後底座（y≈0.6）前面
+    stack, XF = bench_scene(90); bar = build_latbar(GX); cbl = make_cables()
     def pose(t):
         hm = Vector((0, HY, 0.90))
         _, sh = trunk(hm + Vector((0, 0, 0.04)), LEAN * 0.85, LEAN, D(22))
-        stand_legs(0.13, 0.90, HY)
+        stand_legs(0.15, 0.90, HY, ankle_w=0.27)
         a = D(145) + (D(10) - D(145)) * t                      # 手臂離垂直的角度（像鐘擺繞肩膀）
-        elbow_hinge(sh, 0, Vector((0.04, -math.sin(a), -math.cos(a))), Vector((0, math.cos(a), -math.sin(a))), D(155), D(155))
+        elbow_hinge(sh, 0, Vector((0.04, -math.sin(a), -math.cos(a))), Vector((0, -math.cos(a), math.sin(a))), D(155), D(155))   # 前臂往「手肘正常彎曲」的方向折（手垂下時往前），反過來就是手肘過度伸展、看起來像骨折
     for f in range(N):
         sc.frame_set(f); t = profile(f, N, 18, 4, 24); pose(t); keyall(f)
         w = [pb[f'hand.{s}'].matrix.translation + pb[f'hand.{s}'].matrix.col[1].xyz.normalized() * 0.06 for s, _ in SX]
         P = (w[0] + w[1]) / 2
         bar.location = P; bar.keyframe_insert('location', frame=f)
         key_cables(cbl, stack, f, WHEEL_FRONT, P + Vector((0, 0, 0.06)))
-    CAM = dict(loc=(3.4, -2.2, 1.3), tgt=(0, -0.05, 1.0), lens=58, stage=(0, 0.0, 0.75))
+    CAM = dict(loc=(3.4, -2.2, 1.3), tgt=(0, 0.05, 1.0), lens=58, stage=(0, 0.1, 0.8))
 
 # ======================= 繩索面拉（划船族群的變化版）=======================
-# 站、離立柱約 1 m，上身微後仰，雙手握三頭繩從前方、手臂接近打直，拉到臉兩側、手肘高（高過手腕）往外往後，
-# 肩胛骨往後收；末端雙手在耳朵旁、掌心朝下巴方向。
+# 一體機（靠背放平）：人跨站在椅面兩側、面向立柱，離立柱約 0.9 m，上身微後仰，雙手握三頭繩從前方、手臂接近打直，
+# 拉到臉兩側、手肘高（約和肩同高）往外往後，肩胛骨往後收；末端雙手在耳朵旁。鋼索從前上方約 40° 斜下來（滑輪比頭高很多）。
 if MOVE == 'facePull':
     N = 48
-    HY, LEAN = 0.55, D(-4)
-    stack = build_tower(); rp = build_rope(); cbl = make_cables()
+    HY, LEAN = 0.40, D(-4)   # 腳踩在椅子後底座（y≈0.6）前面；再近鋼索會更陡
+    stack, XF = bench_scene(90); rp = build_rope(); cbl = make_cables()
     def pose(t):
         hm = Vector((0, HY, 0.925))
         cp, sh = trunk(hm + Vector((0, 0, 0.04)), LEAN * 0.5, LEAN, 0)
-        stand_legs(0.14, 0.925, HY)
+        stand_legs(0.15, 0.925, HY, ankle_w=0.27)
         for s, sx in SX:
             w0 = sh[s] + Vector((-0.17 * sx, -0.50, 0.10))
             w1 = sh[s] + Vector((-0.02 * sx, -0.23, 0.17))
@@ -139,24 +143,22 @@ if MOVE == 'facePull':
     for f in range(N):
         sc.frame_set(f); t = profile(f, N, 20, 5, 20); pose(t); keyall(f)
         cp_ = key_rope(rp, f, WHEEL_FRONT); key_cables(cbl, stack, f, WHEEL_FRONT, cp_)
-    CAM = dict(loc=(3.2, -1.2, 1.4), tgt=(0, 0.12, 1.15), lens=58, stage=(0, 0.15, 0.8))
+    CAM = dict(loc=(3.2, -1.2, 1.4), tgt=(0, 0.12, 1.15), lens=58, stage=(0, 0.15, 0.85))
 
-# ======================= 跪姿繩索捲腹（新範本）=======================
-# 跪在墊子上、面向立柱，髖中心在膝蓋正上方，三頭繩握在頭兩側（耳朵旁），髖固定不動、脊椎一節一節捲起來把胸口往下往骨盆捲；
-# 手肘往膝蓋的方向走，不是只把頭往下點。
+# ======================= 坐姿繩索捲腹（新範本）=======================
+# 跪姿的標準做法在這台做不到（跪在椅子旁拉不到：鋼索不夠長）。改成坐姿繩索捲腹：靠背放平，人騎坐在椅面後段（離立柱約 0.9 m，頭捲下去才不會撞到立柱和配重）、
+# 面向立柱、兩腿跨在椅子兩側，三頭繩握在頭兩側（耳朵旁），髖固定不動、把脊椎一節一節往下捲（胸口往骨盆靠）；手肘往膝蓋的方向走，不是只把頭往下點。
 if MOVE == 'cableCrunch':
     N = 48
-    HY = 0.40
-    KZ = 0.105
-    stack = build_tower(); build_mat(HY + 0.15); rp = build_rope(); cbl = make_cables()
+    HIP_Y, HIP_Z = 0.35, 0.60
+    stack, XF = bench_scene(90); rp = build_rope(); cbl = make_cables()
     def pose(t):
-        lh, lc, lhd = D(20) + D(12) * t, D(25) + D(50) * t, D(25) + D(55) * t
-        hm = Vector((0, HY, KZ + blen['thigh.L'] * 0.995))
-        cp, sh = trunk(hm + Vector((0, 0, 0.04)), lh, lc, lhd)          # 先骨盆、胸、頭，再擺腿（子骨頭相對父骨頭）
-        for s, sx in SX:
-            K = Vector((0.13 * sx, HY - 0.04, KZ)); H = K + Vector((0, 0.04, blen[f'thigh.{s}'] * 0.995))
-            A = K + Vector((0, blen[f'shin.{s}'], 0))
-            aim(f'thigh.{s}', H, K - H); aim(f'shin.{s}', K, A - K); aim(f'foot.{s}', A, Vector((0, 1, -0.25)))
+        lh, lc, lhd = D(3) + D(12) * t, D(5) + D(50) * t, D(5) + D(55) * t
+        hm = Vector((0, HIP_Y, HIP_Z))
+        cp, sh = trunk(hm + Vector((0, 0, 0.04)), lh, lc, lhd)      # 先骨盆、胸、頭，再擺腿（子骨頭相對父骨頭）
+        for s, sx in SX:                                           # 騎坐：大腿往前、膝蓋在椅子兩側，小腿垂直
+            hj = Vector((0.11 * sx, HIP_Y, HIP_Z)); kn = hj + Vector((0.11 * sx, -0.38, -0.08)); an = Vector((kn.x, kn.y - 0.02, 0.11))
+            leg_to(s, hj, an, Vector((0, -1, 0.3)))
         R = RX(lc)
         for s, sx in SX:
             wrist = cp((0.27 * sx, -0.09, 1.58))
@@ -164,4 +166,4 @@ if MOVE == 'cableCrunch':
     for f in range(N):
         sc.frame_set(f); t = profile(f, N, 22, 5, 17); pose(t); keyall(f)
         cp_ = key_rope(rp, f, WHEEL_FRONT); key_cables(cbl, stack, f, WHEEL_FRONT, cp_)
-    CAM = dict(loc=(3.4, -1.7, 1.1), tgt=(0, 0.15, 0.8), lens=58, stage=(0, 0.15, 0.7))
+    CAM = dict(loc=(4.0, -2.2, 1.45), tgt=(0, 0.1, 1.0), lens=58, stage=(0, 0.2, 0.9))

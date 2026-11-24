@@ -1,38 +1,23 @@
-# 器材：滑輪 A 批要用的塔柱（只有立柱和配重，沒有椅子）、三頭繩、跪墊。負責：Claude（動作）。
-# 站、跪在高位滑輪前面的動作（三頭下壓、過頭伸展、面拉、跪姿捲腹）用這裡的 build_tower()：
-# 使用者的機器是椅子和立柱一體的，站在立柱前面時椅子會擋到腿，所以這些動作假設把椅子移開／轉到一邊（見 docs/3d-moves/cable.md「器材假設」）。
-# 立柱、滑輪、配重的尺寸和 props_bench.py 的 build_bench 一樣（POST_Y、POST_TOP 共用）。
+# 器材：滑輪 A 批的三頭繩、下拉槓、鋼索配重動畫、「機器轉 180°」。負責：Claude（動作）。
+# 機器一律是使用者的一體機（props_bench.py 的 build_bench，椅子和立柱不能分開，使用者 2026-11-24 確認）：
+# 鋼索只能從椅子這一側出來（握把鋼索和配重鋼索跨在滑輪兩側），鋼索不長（離立柱越遠越拉不出來）。
+# 站姿動作：靠背放平（back_deg 90），人跨站在椅子兩側（腳踝比髖寬）；坐姿動作：坐在座墊上。
 
 PM['rope'] = toon('rope', hexc('#4B5563'), 0.7)
 
-# 鋼索從滑輪出來的位置：+Y 側（面向立柱的動作）、-Y 側（背對立柱的動作）
+# 鋼索從滑輪出來的位置（椅子這一側，機器本身的座標；機器轉 180° 時要再乘 bench_scene 回傳的 xf）
 WHEEL_FRONT = Vector((0, POST_Y + 0.15, POST_TOP - 0.03))
-WHEEL_BACK = Vector((0, POST_Y - 0.075, POST_TOP - 0.03))
 
-def build_tower():
-    """立柱＋頂部滑輪盒＋配重，不含椅子。回傳配重組（動畫移動它）。"""
-    pbox('frame', (0, POST_Y, 0.03), (0.22, 0.05, 0.03), 0.008)
-    for x_ in (-0.19, 0.19): pbox('rubber', (x_, POST_Y, 0.008), (0.03, 0.05, 0.008), 0.003)
-    tube((0, POST_Y, 0.06), (0, POST_Y + 0.40, 0.03), 0.028)      # 往後一支底樑，免得立柱站不穩
-    pbox('frame', (0, POST_Y, POST_TOP / 2), (0.032, 0.032, POST_TOP / 2), 0.006)
-    pbox('frame', (0, POST_Y + 0.02, POST_TOP - 0.03), (0.05, 0.085, 0.07), 0.02)
-    for sx in (1, -1): pcyl('frame', (0.05 * sx, POST_Y + 0.02, POST_TOP - 0.03), 0.07, 0.01, (1, 0, 0), n=32)
-    pcyl('chrome', (0, POST_Y + 0.02, POST_TOP - 0.03), 0.02, 0.11, (1, 0, 0), n=12)
-    stack = bpy.data.objects.new('stack', None); sc.collection.objects.link(stack)
-    own = [pbox('frame', (0, POST_Y, 0.82), (0.05, 0.05, 0.27), 0.01),
-           pcyl('chrome', (0, POST_Y + 0.055, 1.10), 0.012, 0.035, (0, 1, 0), n=12)]
-    for z_ in (0.98, 0.66):
-        own.append(pcyl('chrome', (0, POST_Y, z_), 0.016, 0.36, (1, 0, 0), n=12))
-        for sx in (1, -1):
-            for i_, x_ in enumerate((0.075, 0.105)):
-                own.append(pcyl('plate', (x_ * sx, POST_Y, z_), 0.115 - i_ * 0.012, 0.028, (1, 0, 0), n=32, bevel=0.006))
-            own.append(pcyl('red', (0.15 * sx, POST_Y, z_), 0.032, 0.04, (1, 0, 0), n=6, bevel=0.004))
-    for o_ in own: o_.parent = stack
-    return stack
-
-def build_mat(y, w=0.26, l=0.55):
-    """跪墊（跪姿捲腹）：地上一塊厚墊，中心 y"""
-    return pbox('pad', (0, y, 0.02), (w, l / 2, 0.02), 0.012)
+def bench_scene(back_deg, flip=False):
+    """使用者的一體機（build_bench）。flip＝整台繞 Z 轉 180°：人照一般的「面向 -Y」寫，機器轉到人背後，
+    人面向椅子後方、背對立柱（過頭三頭伸展）。回傳 (配重組, 座標轉換 xf)：xf 把機器本身的座標（滑輪、配重鋼索）轉成世界座標。"""
+    before = set(bpy.data.objects)
+    stack = build_bench(back_deg)
+    xf = Matrix.Rotation(math.pi, 4, 'Z') if flip else Matrix.Identity(4)
+    if flip:
+        root = bpy.data.objects.new('benchflip', None); sc.collection.objects.link(root); root.rotation_euler = (0, 0, math.pi)
+        for o_ in [o for o in bpy.data.objects if o not in before and o.parent is None and o is not root]: o_.parent = root
+    return stack, xf
 
 # ---------- 三頭繩 ----------
 # 中間一個扣環（接鋼索），兩條粗繩，握把段包膠，末端一顆橡膠球擋。每隻手一段「繩子（扣環→拳頭）＋握把段＋球擋」。
@@ -79,14 +64,15 @@ def key_rope(rp, f, cable_pt, clip_len=0.30, ball_out=0.10, grip_len=0.12, hand_
 def make_cables():
     return dict(a=stretch('cable', 0.006), w=stretch('cable', 0.006), L0=None)
 
-def key_cables(cb, stack, f, cable_pt, clip_pos):
+def key_cables(cb, stack, f, cable_pt, clip_pos, xf=None):
     cable_pt = Vector(cable_pt)
+    xf = xf if xf is not None else Matrix.Identity(4)
     L = (cable_pt - clip_pos).length
     if cb['L0'] is None: cb['L0'] = L
     rise = max(0.0, L - cb['L0'])
     stack.location = (0, 0, rise); stack.keyframe_insert('location', frame=f)
     key_stretch(cb['a'], cable_pt, clip_pos, f)
-    key_stretch(cb['w'], Vector((0, POST_Y + 0.055, POST_TOP - 0.10)), Vector((0, POST_Y + 0.055, 1.10 + rise)), f)
+    key_stretch(cb['w'], xf @ Vector((0, POST_Y + 0.055, POST_TOP - 0.10)), xf @ Vector((0, POST_Y + 0.055, 1.10 + rise)), f)
     return rise
 
 # ---------- 下拉槓（直槓，兩端下彎，握把包膠）：同 pulldown 用的那支，握距可調 ----------

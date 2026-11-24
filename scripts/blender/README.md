@@ -57,8 +57,9 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   `review_render.py`（Blender 端：量角度選格、4 個鏡頭渲染）、`compose.py`（用 Blender 的影片剪輯器拼圖和標字，不需要 PIL）。「最深」＝變化最大的那個量離起始最遠的格，中段／回程＝去程／回程走到一半的格。
 
 滑輪 A 批（2026-11-24，`moves/cable.py`、`moves/props_cable.py`、動作卡 `docs/3d-moves/cable.md`）：
-- 站、跪在高位滑輪前的動作用 `build_tower()`（立柱＋滑輪＋配重，**沒有椅子**；假設椅子可以移開，待使用者確認）；`build_rope()` 三頭繩（`key_rope` 照手骨頭位置擺繩、握把段順著手的握把軸）、`build_latbar(gx)` 下拉槓、`build_mat(y)` 跪墊、`make_cables()`／`key_cables()` 鋼索和配重（配重升起的高度＝鋼索被拉出的長度）。繩子和槓子的父物件叫 `bar`（clipcheck 不算手握東西的穿透）。
+- 一律用使用者的一體機 `build_bench`（椅子和立柱不能分開；鋼索只從椅子側出、不長）。`bench_scene(back_deg, flip)` 包裝它（`flip`＝整台繞 Z 轉 180°，人背對立柱；回傳的 `xf` 要乘在機器座標上）；站姿動作靠背放平、人跨站在椅面兩側（`stand_legs` 的 `ankle_w`）。`build_rope()` 三頭繩（`key_rope` 照手骨頭位置擺繩、握把段順著手的握把軸）、`build_latbar(gx)` 下拉槓、`make_cables()`／`key_cables()` 鋼索和配重。繩子和槓子的父物件叫 `bar`（clipcheck 不算手握東西的穿透）。
 - `moves3d.py` 新增 `stand_legs`、`elbow_hinge`（三頭下壓／過頭伸展／直臂下拉共用：上臂方向＋手肘內角，**不釘手腕**：手臂舉高時鎖骨把肩膀抬高，釘手腕會把手肘硬壓彎）。
 - **骨頭擺放順序**：骨頭矩陣是相對父骨頭算的，要先擺骨盆／胸（`trunk`），再擺腿；反過來第 0 格（骨盆從靜止姿勢轉過來）腿會飛掉。
+- 手肘彎的方向：手臂垂下時前臂往前折，一路照這個旋轉方向（`elbow_hinge` 的 `flex`）；反過來就是手肘過度伸展，像骨折。
 
 用途定位（使用者 2026-11-22）：3D 主要用在**訓練中的動作示範**；角色換裝 3D 只是測試。
