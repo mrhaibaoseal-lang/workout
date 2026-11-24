@@ -1223,7 +1223,9 @@ struct WorkoutView: View {
                 sets: drafts.reduce(0) { $0 + $1.sets.filter { $0.done && $0.kind == .work }.count },
                 seconds: session.durationSeconds,
                 prs: prCount.count,
-                points: max(0, RankEngine.points(for: length) - paidToday) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
+                points: min(max(0, RankEngine.points(for: length) - paidToday) + min(RankEngine.prCap, prCount.count * RankEngine.prPoints),
+                            max(0, RankEngine.total(RankEngine.ledger(sessions: [session] + sessions.filter { $0 !== session }, goal: weeklyGoal))
+                                   - RankEngine.total(RankEngine.ledger(sessions: sessions.filter { $0 !== session }, goal: weeklyGoal)))),
                 weekDone: SharedStore.countThisWeek(dates + [now]),
                 weekGoal: GoalEngine.current(dates: dates + [now], goal: weeklyGoal, ctx: .load()).goal,
                 streakBefore: GoalEngine.streak(dates: dates),

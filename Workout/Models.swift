@@ -134,6 +134,7 @@ enum Keys {
     static let lastRankPoints = "lastRankPoints"
     /// 上次看到分數的時間（找出這段時間新增的加減分）。
     static let lastRankCheck = "lastRankCheck"
+    static let rankRules = "rankRules"
     /// 已經播過結算動畫的最後一週（結算時間）。
     static let lastSettledWeek = "lastSettledWeek"
     /// 請假、保護卡、週任務等新規則從哪一天開始算（秒）。
