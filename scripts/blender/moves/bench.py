@@ -179,7 +179,7 @@ if MOVE == 'pullover':
     def pose(t):
         dv, nv, cp, sh = supine(90, -0.10, -0.30)
         mid = (sh['L'] + sh['R']) / 2
-        phi = D(4) + D(38) * t                          # 從胸口正上方往頭後畫弧到額頭上方約 42°（公仔頭大、手短，再往後前臂會穿過臉；待使用者決定）
+        phi = D(4) + D(38) * t                          # 從胸口正上方往頭後畫弧到額頭上方約 42°（公仔頭大、手短，再往後前臂會穿過臉；使用者 2026-11-24 選半幅度，App 文字補完整幅度）
         a = Z_ * math.cos(phi) + dv * math.sin(phi)
         close = Z_ * math.sin(phi) - dv * math.cos(phi)
         hold = mid + a * 0.49 + close * 0.04  # 兩手在啞鈴握把中段
