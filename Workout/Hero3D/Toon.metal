@@ -1,7 +1,7 @@
 // 3D 角色的卡通著色（RealityKit CustomMaterial，unlit 自己算光）。
 // 對照 Blender 原型 hero_proto.py 的 toon()：兩階明暗＋亮面＋邊緣光，金屬多一塊硬邊高光。
 // 參數：base_color_tint＝亮面色；custom_parameter＝(塗色 rgb, 暗面倍率)；roughness＝塗色的暗面倍率；metallic > 0.5＝有高光。
-// 塗在身體上的衣服：0.43.0 起身體改用 outfitSurface（換裝貼圖）；toonSurface 的 uv0.x 塗色留著沒用到。
+// 塗在身體上的衣服：0.44.0 起身體改用 outfitSurface（換裝貼圖）；toonSurface 的 uv0.x 塗色留著沒用到。
 // 泛光（Bloom.metal）靠亮度挑出發光部位：specular_scale＝一般材質的亮度上限（開泛光時 < 1），
 // 發光材質（flat、custom_parameter.w = 1）不設上限、還把最亮的通道拉到 1，只有它們超過門檻。
 #include <metal_stdlib>
