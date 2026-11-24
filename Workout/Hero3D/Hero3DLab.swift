@@ -5,6 +5,7 @@ import Metal
 
 // 3D 技術驗證頁（設定 → 3D 測試）。確認 Blender 匯出的 USDZ 能在 RealityKit 即時播放：
 // 卡通著色（Toon.metal）、描邊外殼、逐件開關裝備、切換動作、效能和檔案大小。
+// 0.38 試做：著色器描邊（同一份網格畫兩次、沿平均法線外撐，取代烘好的 __ol 外殼）、泛光後處理（Hero3DBloom）。
 // 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架＋全部零件）、hero3d.json（材質表）、hero3d_clip_<動作>.json。
 
 struct Hero3DInfo: Decodable {
@@ -61,9 +62,15 @@ final class Hero3DModel: ObservableObject {
     @Published var move = "squat"
     @Published var useUSDAnimation = false
     @Published var paused = false
-    @Published var outlineCull = 1           // 0 不剔除、1 剔除背面、2 剔除正面
+    @Published var outlineCull = 1           // 0 不剔除、1 剔除背面、2 剔除正面（只對烘好的外殼）
+    @Published var outlineMode = 2           // 0 無、1 烘好的外殼（__ol）、2 著色器外撐（同一份網格畫兩次）
+    @Published var outlineWidth: Float = 10  // 著色器描邊厚度（毫米，模型座標）
+    @Published var bloomOn = true
+    @Published var bloomStrength: Float = 1.2
+    @Published var bloomThreshold: Float = 0.95
     @Published var showStats = true
     @Published var report: [String] = []
+    @Published var vertexLine = ""
 
     let arView: ARView
     private var holder = Entity()            // 轉向用
@@ -81,6 +88,10 @@ final class Hero3DModel: ObservableObject {
     private var mats: [any RealityKit.Material] = []
     private var matIndex: [String: Int] = [:]
     private var fallbackMat = 0
+    private var olShaderMat: CustomMaterial?
+    private var outlines: [ObjectIdentifier: Entity] = [:]       // 本體 → 著色器描邊用的複本
+    private var smoothCache: [String: MeshResource.Part] = [:]   // 描邊用的 part（法線已平均）
+    private let bloom = Hero3DBloom()
     private var jointMap: [ObjectIdentifier: [Int?]] = [:]
     private var time: Double = 0
     private var yaw: Float = 0
@@ -90,7 +101,40 @@ final class Hero3DModel: ObservableObject {
         arView = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
         arView.environment.background = .color(UIColor(red: 0.07, green: 0.08, blue: 0.13, alpha: 1))
         arView.debugOptions = [.showStatistics]
+        let pass = bloom
+        arView.renderCallbacks.prepareWithDevice = { device in pass.prepare(device) }
         load()
+        applyBloom()
+    }
+
+    /// 泛光開關：一般材質亮度上限（specular_scale）＋後處理
+    func applyBloom() {
+        bloom.strength = bloomStrength
+        bloom.threshold = bloomThreshold
+        let cap: Float = bloomOn ? min(0.88, bloomThreshold - 0.05) : 1
+        for i in mats.indices {
+            guard var m = mats[i] as? CustomMaterial else { continue }
+            m.specular = .init(floatLiteral: cap)
+            mats[i] = m
+        }
+        for b in bodies {
+            guard var mc = b.entity.components[ModelComponent.self] else { continue }
+            mc.materials = mats
+            b.entity.components.set(mc)
+        }
+        let pass = bloom
+        arView.renderCallbacks.postProcess = bloomOn ? { ctx in pass.run(ctx) } : nil
+    }
+
+    func applyOutlineWidth() {
+        guard var m = olShaderMat else { return }
+        m.custom.value = SIMD4(outlineWidth / 1000, 0, 0, 0)
+        olShaderMat = m
+        for ol in outlines.values {
+            guard var mc = ol.components[ModelComponent.self] else { continue }
+            mc.materials = [m]
+            ol.components.set(mc)
+        }
     }
 
     func options(for slot: String) -> [String] {
@@ -174,6 +218,25 @@ final class Hero3DModel: ObservableObject {
             for ch in e.children { walk(ch, chain) }
         }
         walk(root, "")
+        // 著色器描邊：每個本體做一個不遞迴的複本（帶同一副骨架），網格在 applyChoice 裡從本體的 part 組
+        for b in bodies {
+            let ol = b.entity.clone(recursive: false)
+            ol.name = b.entity.name + "_outline"
+            ol.isEnabled = false
+            b.entity.parent?.addChild(ol)
+            outlines[ObjectIdentifier(b.entity)] = ol
+        }
+        var vAll = 0, vOl = 0
+        for b in bodies {
+            for m in b.contents.models {
+                for p in m.parts {
+                    let n = p.positions.count
+                    vAll += n
+                    if b.tags[m.id + "|" + p.id]?.mat == "ol" { vOl += n }
+                }
+            }
+        }
+        log.append("USDZ 頂點 \(vAll)，其中烘好的描邊外殼 \(vOl)")
         log.append("實體 \(all) 個，有網格 \(bodies.count) 個，part \(partCount) 個，認出零件 \(matched) 個")
         log.append(contentsOf: samples)
     }
@@ -207,12 +270,23 @@ final class Hero3DModel: ObservableObject {
                 m = try CustomMaterial(surfaceShader: flat, lightingModel: .unlit)
                 let k = min(mi.strength ?? 1, 2)
                 m.baseColor = .init(tint: srgb(mi.color.map { min($0 * k, 1) }))
+                // 強度 ≥ 2 的算發光（flame、glow、frglow、ring），開泛光時不設亮度上限
+                m.custom.value = SIMD4(0, 0, 0, (mi.strength ?? 1) >= 2 ? 1 : 0)
             } else {
                 log.append("⚠️ 材質表沒有 \(name)"); continue
             }
+            m.specular = .init(floatLiteral: 1)
             matIndex[name] = mats.count
             mats.append(m)
         }
+        var ol = try CustomMaterial(surfaceShader: flat,
+                                    geometryModifier: CustomMaterial.GeometryModifier(named: "outlineGeom", in: lib),
+                                    lightingModel: .unlit)
+        ol.baseColor = .init(tint: UIColor(red: 0.01, green: 0.01, blue: 0.02, alpha: 1))
+        ol.specular = .init(floatLiteral: 1)
+        ol.faceCulling = .front
+        ol.custom.value = SIMD4(outlineWidth / 1000, 0, 0, 0)
+        olShaderMat = ol
         fallbackMat = mats.count            // 認不出的 part 用灰色，方便看出來
         mats.append(UnlitMaterial(color: .gray))
         setOutlineCull()
@@ -248,39 +322,87 @@ final class Hero3DModel: ObservableObject {
     /// 依目前選的裝備，從原始內容篩出要顯示的 part，重組網格並指定材質
     func applyChoice() {
         let active = activeParts
+        let shaderOL = outlineMode == 2
+        var vBody = 0, vLine = 0
         for b in bodies {
-            var c = b.contents
             var models: [MeshResource.Model] = []
-            for var m in b.contents.models {
-                let parts: [MeshResource.Part] = m.parts.compactMap { p in
-                    let t = b.tags[m.id + "|" + p.id]
-                    if let t, !active.contains(t.part) { return nil }
+            var olModels: [MeshResource.Model] = []
+            for m in b.contents.models {
+                var parts: [MeshResource.Part] = []
+                var olParts: [MeshResource.Part] = []
+                for p in m.parts {
+                    let key = m.id + "|" + p.id
+                    let t = b.tags[key]
+                    if let t, !active.contains(t.part) { continue }
+                    let isOl = t?.mat == "ol"
+                    if isOl && outlineMode != 1 { continue }
                     var q = p
                     q.materialIndex = t.flatMap { matIndex[$0.mat] } ?? fallbackMat
-                    return q
+                    parts.append(q)
+                    if isOl { vLine += p.positions.count } else { vBody += p.positions.count }
+                    // 著色器描邊只套卡通材質（眼睛、發光不描）
+                    if shaderOL, let t, info?.materials[t.mat]?.kind == "toon" {
+                        let op = outlinePart(key, p)
+                        olParts.append(op)
+                        vLine += op.positions.count
+                    }
                 }
-                if parts.isEmpty { continue }
-                m.parts = MeshPartCollection(parts)
-                models.append(m)
+                if !parts.isEmpty { var mm = m; mm.parts = MeshPartCollection(parts); models.append(mm) }
+                if !olParts.isEmpty { var mm = m; mm.parts = MeshPartCollection(olParts); olModels.append(mm) }
             }
-            let keep = Set(models.map(\.id))
-            c.models = MeshModelCollection(models)
-            c.instances = MeshInstanceCollection(b.contents.instances.filter { keep.contains($0.model) })
-            do {
-                let mesh = try MeshResource.generate(from: c)
-                var mc = b.entity.components[ModelComponent.self] ?? ModelComponent(mesh: mesh, materials: mats)
-                mc.mesh = mesh
-                mc.materials = mats
-                b.entity.components.set(mc)
-            } catch {
-                report.append("❌ 重組網格失敗：\(error.localizedDescription)")
+            setMesh(b.entity, b.contents, models, mats)
+            if let ol = outlines[ObjectIdentifier(b.entity)] {
+                if shaderOL, !olModels.isEmpty, let olm = olShaderMat {
+                    setMesh(ol, b.contents, olModels, [olm])
+                    ol.isEnabled = true
+                } else {
+                    ol.isEnabled = false
+                }
             }
         }
+        vertexLine = "畫面上頂點：本體 \(vBody)，描邊 \(vLine)" + (shaderOL ? "（著色器描邊與本體共用頂點資料，USDZ 不用存）" : "")
         if useUSDAnimation, let root = model.children.first, let anim = root.availableAnimations.first {
             root.playAnimation(anim.repeat())
         } else {
             model.children.first?.stopAllAnimations()
         }
+    }
+
+    private func setMesh(_ e: Entity, _ base: MeshResource.Contents, _ models: [MeshResource.Model], _ materials: [any RealityKit.Material]) {
+        var c = base
+        let keep = Set(models.map(\.id))
+        c.models = MeshModelCollection(models)
+        c.instances = MeshInstanceCollection(base.instances.filter { keep.contains($0.model) })
+        do {
+            let mesh = try MeshResource.generate(from: c)
+            var mc = e.components[ModelComponent.self] ?? ModelComponent(mesh: mesh, materials: materials)
+            mc.mesh = mesh
+            mc.materials = materials
+            e.components.set(mc)
+        } catch {
+            report.append("❌ 重組網格失敗：\(error.localizedDescription)")
+        }
+    }
+
+    /// 描邊用的 part：同位置的頂點法線取平均（硬邊撐開不裂），材質固定第 0 個
+    private func outlinePart(_ key: String, _ p: MeshResource.Part) -> MeshResource.Part {
+        if let c = smoothCache[key] { return c }
+        var q = p
+        q.materialIndex = 0
+        if let normals = p.normals?.elements {
+            let pos = p.positions.elements
+            var acc: [SIMD3<Int32>: SIMD3<Float>] = [:]
+            func k(_ v: SIMD3<Float>) -> SIMD3<Int32> { SIMD3<Int32>(v * 10000, rounding: .toNearestOrAwayFromZero) }
+            for i in pos.indices where i < normals.count { acc[k(pos[i]), default: .zero] += normals[i] }
+            let smooth = pos.map { v -> SIMD3<Float> in
+                let s = acc[k(v)] ?? .zero
+                let l = simd_length(s)
+                return l > 1e-6 ? s / l : .zero
+            }
+            q.normals = MeshBuffer(smooth)
+        }
+        smoothCache[key] = q
+        return q
     }
 
     private var activeParts: Set<String> {
@@ -302,6 +424,10 @@ final class Hero3DModel: ObservableObject {
         for b in bodies {
             guard let map = jointMap[ObjectIdentifier(b.entity)], !map.isEmpty else { continue }
             Self.setJoints(b.entity, pose, map)
+            if let ol = outlines[ObjectIdentifier(b.entity)], ol.isEnabled { Self.setJoints(ol, pose, map) }
+        }
+        if bloomOn, !bloom.formatNote.isEmpty, !report.contains(where: { $0.hasPrefix("泛光") }) {
+            report.append("泛光 " + bloom.formatNote)
         }
         model.position.y = clip.lift(at: t, parts: activeParts)
     }
@@ -368,11 +494,37 @@ struct Hero3DLabView: View {
                     }
                 }
                 Section("描邊") {
-                    Picker("剔除", selection: $m.outlineCull) {
-                        Text("不剔除").tag(0); Text("背面").tag(1); Text("正面").tag(2)
+                    Picker("描邊", selection: $m.outlineMode) {
+                        Text("無").tag(0); Text("烘好的外殼").tag(1); Text("著色器外撐").tag(2)
                     }
                     .pickerStyle(.segmented)
+                    if m.outlineMode == 1 {
+                        Picker("剔除", selection: $m.outlineCull) {
+                            Text("不剔除").tag(0); Text("背面").tag(1); Text("正面").tag(2)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    if m.outlineMode == 2 {
+                        HStack {
+                            Text("厚度 \(m.outlineWidth, specifier: "%.0f") mm").font(.caption.monospacedDigit())
+                            Slider(value: $m.outlineWidth, in: 2...30, step: 1)
+                        }
+                    }
+                    Text(m.vertexLine).font(.caption.monospaced())
                     Toggle("顯示效能數字", isOn: $m.showStats)
+                }
+                Section("泛光") {
+                    Toggle("泛光", isOn: $m.bloomOn)
+                    if m.bloomOn {
+                        HStack {
+                            Text("強度 \(m.bloomStrength, specifier: "%.1f")").font(.caption.monospacedDigit())
+                            Slider(value: $m.bloomStrength, in: 0...3, step: 0.1)
+                        }
+                        HStack {
+                            Text("門檻 \(m.bloomThreshold, specifier: "%.2f")").font(.caption.monospacedDigit())
+                            Slider(value: $m.bloomThreshold, in: 0.7...1, step: 0.01)
+                        }
+                    }
                 }
                 Section("診斷（截圖給 Claude）") {
                     ForEach(m.report, id: \.self) { Text($0).font(.caption.monospaced()) }
@@ -385,6 +537,11 @@ struct Hero3DLabView: View {
         .onChange(of: m.move) { _, _ in m.applyChoice() }
         .onChange(of: m.useUSDAnimation) { _, _ in m.applyChoice() }
         .onChange(of: m.outlineCull) { _, _ in m.setOutlineCull() }
+        .onChange(of: m.outlineMode) { _, _ in m.applyChoice() }
+        .onChange(of: m.outlineWidth) { _, _ in m.applyOutlineWidth() }
+        .onChange(of: m.bloomOn) { _, _ in m.applyBloom() }
+        .onChange(of: m.bloomStrength) { _, _ in m.applyBloom() }
+        .onChange(of: m.bloomThreshold) { _, _ in m.applyBloom() }
         .onChange(of: m.showStats) { _, _ in m.toggleStats() }
     }
 }
