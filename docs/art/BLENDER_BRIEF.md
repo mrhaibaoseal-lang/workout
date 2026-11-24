@@ -290,6 +290,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 2026-11-24 | Claude | `moves3d.py` 的 `aim()` 加選用參數 `roll`、`arm_to()` 加選用參數 `hand_roll`（手繞自己的軸轉，決定握把朝向；預設 0，既有動作不受影響）。為了搬站姿啞鈴 1（Gemini 的動作檔用它） | 使用者同意（搬動作的指示） |
 | 2026-11-24 | Claude（驗收工具） | `moves3d.py` 結尾**新增**量測函式 `measure_pose`（不改既有函式）；`clipbatch.py` 加角度判定、指紋拿掉 `angles` 欄位、`group_stamp`／`collect_meta`；新增 `anglecheck.py`、`review_sheet.py`、`review_render.py`、`compose.py`；`.gitignore` 加 `/out/`；`standing_dumbbell.py`、`bench.py`、`floor.py`、`cable.py` 只在 `MOVE_META` 加 `angles` 欄位，姿勢程式沒動 | 使用者指示（工具工作） |
 | 2026-11-24 | Claude（動作） | `moves3d.py` 在 `MOVE =` 之前**新增**弓步／臀橋共用函式：`solve_hip_z`、`rear_toe`、`rear_fixed`、`rear_step_back`、`rear_air`、`lunge_pose`、`hang_arms`、`bridge_pose`（不改任何既有函式） | 使用者指示（這批改由 Claude 做） |
+| 2026-11-24 | Claude（滑輪 A） | `moves3d.py` 在 `MOVE = …` 之前**新增**函式 `stand_legs`（站姿腿，先擺軀幹再擺腿）、`elbow_hinge`（三頭／直臂下拉共用：上臂固定方向、手肘角度參數、不釘手腕）；新增 `moves/props_cable.py`（`bench_scene` 一體機可轉 180°、`build_rope` 三頭繩、`build_latbar`、鋼索配重 `make_cables`／`key_cables`）。沒改既有函式 | 使用者指示（滑輪 A 批） |
 
 ### 動作：還沒做的（2026-11-24 盤點；做一批就從這裡刪掉、移到下面的表）
 
@@ -297,7 +298,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 
 | 批次 | 動作 | 備註 |
 |---|---|---|
-| 滑輪（重做中） | `straightArmPulldown`、`tricepsPushdown`、`overheadCableExt`、`facePull`、`cableCrunch`、`seatedCableRow`、`cableCurl`、`cableLateral` | 舊的 A 批用了沒有椅子的塔柱，作廢 |
+| 滑輪 B | `seatedCableRow`、`cableCurl`、`cableLateral` | 照滑輪 A 的一體機做法（`props_cable.py`） |
 | 站姿啞鈴 2 | `calf`、`triceps`、`rearFly`、`kickback`、`slRdl` | |
 | 地板 | `plank`、`pikePushup`、`reverseCrunch`、`deadBug`、`floorPress`、`legCurl` | `legCurl` 趴地或趴椅開工前定 |
 | 熱身 | `armCircle`、`hipHinge`、`bwSquat`、`lungeStep`、`armSwing`、`wallSlide`、`legSwing`、`bwBridge` | |
@@ -316,6 +317,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 |---|---|---|
 | 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格，使用者 2026-11-24 看過截圖，接受、不改）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。鈦甲胸甲那點交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
 | 弓步／臀橋 | `lunge`、`splitSquat`（保加利亞，後腳放椅子）、`reverseLunge`、`stepUp`、`bridge`、`hipThrust`（動作卡 `docs/3d-moves/lunge_bridge.md`，含檢查結果；共用姿勢函式 `moves3d.py` 的 `lunge_pose`、`bridge_pose`）。基本款角度全 PASS、硬碰撞個位數；deformcheck 只剩膝窩／肩膀的正常擠壓（每部位 ≤ 46 面）；系列裝備穿模使用者接受、只記錄。總覽圖 `out/review/lunge_bridge/`（不進 git） | 完成待審查（§8-1 由主對話安排）（Claude，2026-11-24） |
+| 滑輪 A | `closePulldown`（窄握下拉＝`pulldown` 握窄，使用者決定；clipcheck 基本款 3、鈦甲前臂×胸甲約 167 留給裝備端）、`tricepsPushdown`（三頭範本）、`overheadCableExt`（坐姿，機器轉 180°）、`straightArmPulldown`、`facePull`、`cableCrunch`（坐姿）（動作卡 `docs/3d-moves/cable.md`）。**椅子和立柱一體、鋼索只從椅子側出且不長（使用者 2026-11-24）**：站姿的三個動作把靠背放平、人跨站在椅子兩側；過頭伸展和捲腹因此和標準（站姿／跪姿）不同，卡片已寫差別、待教練確認。`latPulldown` 和已完成的 `pulldown` 是同一個動作，不另做（App 端共用）。`[angles]` 全 PASS；deformcheck 單格壞面 80～760，和已完成動作（pulldown 550、skullCrusher 718）同量級，不是 0（骨架權重，不是這批姿勢）。clipcheck（單格最大）：基本款／小豬 ≤2；冰霜長褲大腿互碰 ≤11，直臂下拉冰霜靴×椅子後底座約 64；鈦甲（留給裝備端）：過頭伸展上臂×頭盔約 113、三頭下壓前臂×胸甲約 37、直臂下拉靴×底座約 56、捲腹胸甲×大腿約 32。**留給裝備端（使用者 2026-11-24 回報）：鈦甲肩甲（`gear_titan.py` 的 `ellipsoid(upper_arm…)`）綁在 `upper_arm`、中心在肩關節上，手舉過頭時只在原地轉，沒有跟著肩膀上提（過頭伸展、直臂下拉起點最明顯）；建議改綁 `clavicle.L/R`（鎖骨手舉時會自動上轉到 20°）或拆成兩塊一塊跟鎖骨**。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
