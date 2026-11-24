@@ -220,12 +220,14 @@
 | 日期 | 誰 | 要改什麼、為什麼 | 對方／使用者同意 |
 |---|---|---|---|
 | 2026-11-24 | Claude | 把 `moves3d.py` 拆成共用工具＋`moves/<批次>.py`＋`moves/props_bench.py`；動作清單改由 `MOVE_META` 自動收集。三個動作輸出逐格比對完全相同 | 使用者同意 |
-| 2026-11-24 | Claude（骨架） | 修肩膀變形（§6-1）：`hero_proto.py` 加 `clavicle.L/R`、A 字靜止姿勢（建模姿勢不變，合併前才轉）、去掉截斷權重改成平滑漸變、保持體積；`moves3d.py` 的 `keyall` 每格自動做鎖骨跟轉＋上臂／前臂滾轉校正（`aim` 的滾轉規則會讓上臂多扭到 178°）；`clipcheck.py` 加鎖骨的相鄰關節；新增 `deformcheck.py`、`rigtest.py`。動作檔不用改，但沒釘手腕的手臂（直接 `aim`）在手抬高時會跟著肩膀上移幾公分 | 使用者同意（§0-1 例外） |
+| 2026-11-24 | Claude（骨架） | 修肩膀變形（§6-1）：`hero_proto.py` 加 `clavicle.L/R`、A 字靜止姿勢（建模姿勢不變，合併前才轉）、去掉截斷權重改成平滑漸變、保持體積；`moves3d.py` 的 `keyall` 每格自動做鎖骨跟轉＋上臂／前臂滾轉校正（`aim` 的滾轉規則會讓上臂多扭到 178°）；`clipcheck.py` 加鎖骨的相鄰關節；新增 `deformcheck.py`、`rigtest.py`。動作檔不用改，但沒釘手腕的手臂（直接 `aim`）在手抬高時會跟著肩膀上移幾公分 | 使用者同意（§0-1 例外）。**採用 Claude 版，Gemini 版（2bd70d6）不合併，使用者 2026-11-24 決定** |
+| 2026-11-24 | Claude | `moves3d.py` 的 `aim()` 加選用參數 `roll`、`arm_to()` 加選用參數 `hand_roll`（手繞自己的軸轉，決定握把朝向；預設 0，既有動作不受影響）。為了搬站姿啞鈴 1（Gemini 的動作檔用它） | 使用者同意（搬動作的指示） |
 
 ### 動作：Gemini（站姿啞鈴 → 地板徒手 → 伸展）
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
+| 站姿啞鈴 1 | `squat`、`press`、`rdl`、`row`、`curl`、`lateral`（動作卡 `docs/3d-moves/standing_dumbbell.md`）。**已搬到 Claude 骨架（`claude/3d-rig-standing`）**：`[angles]` 全部落在動作卡範圍；彎舉改成上臂固定的旋後彎舉。預覽 `docs/art/blender/standing_batch1.png`、各動作 GIF | 搬完待使用者看（Claude，2026-11-24） |
 
 ### 動作：Claude（椅子 → 滑輪 → 熱身）
 
