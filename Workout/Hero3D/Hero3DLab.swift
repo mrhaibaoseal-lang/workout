@@ -6,7 +6,7 @@ import Metal
 // 3D 技術驗證頁（設定 → 3D 測試）。確認 Blender 匯出的 USDZ 能在 RealityKit 即時播放：
 // 卡通著色（Toon.metal）、描邊外殼、逐件開關裝備、切換動作、效能和檔案大小。
 // 0.38 試做：著色器描邊（同一份網格畫兩次、沿平均法線外撐；0.39.0 起 USDZ 不再烘外殼）、泛光後處理（Hero3DBloom）。
-// 0.40.0 上衣／下身換裝：身體只有一份網格（base__body），換裝＝換貼圖（hero3d_top_<系列>.png、hero3d_bottom_<系列>.png，Toon.metal 的 outfitSurface）；
+// 0.42.0 上衣／下身換裝：身體只有一份網格（base__body），換裝＝換貼圖（hero3d_top_<系列>.png、hero3d_bottom_<系列>.png，Toon.metal 的 outfitSurface）；
 // 長褲、短褲、鈦甲緊身衣是另外的網格（bottom_long／bottom_short／top_suit），各系列一張貼圖；胸章、腿甲這類小零件是 top_<系列>／bottom_<系列>。
 // 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架＋全部零件）、hero3d.json（材質表、換裝表）、hero3d_clip_<動作>.json、換裝貼圖。
 

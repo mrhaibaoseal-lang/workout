@@ -10,6 +10,8 @@ struct RestCard: View {
     let onSkip: () -> Void
     var onExpand: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
             let left = end.timeIntervalSince(ctx.date)
@@ -26,10 +28,11 @@ struct RestCard: View {
         let warm = FXMath.seg(10 - left, 0, 7)
         let col = FXMath.mix(Theme.green, Theme.hot, warm)
         let last3 = left < 3
-        let beat = last3 ? 1 + 0.08 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
+        let beat = last3 && !reduceMotion ? 1 + 0.08 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
         let p = left / max(total, 1)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
+                HStack(spacing: 14) {
                 ZStack {
                     Ring(progress: p, color: col, lineWidth: 7)
                     // 圓環頭端的光點
@@ -51,13 +54,19 @@ struct RestCard: View {
                 .shadow(color: col.opacity(last3 ? 0.6 : 0), radius: 10)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(last3 ? "準備！" : "休息中").font(.subheadline.weight(.bold)).foregroundStyle(last3 ? col : Theme.fg)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                     Text("共 \(Int(total)) 秒").font(.caption).foregroundStyle(Theme.muted)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                     if onExpand != nil {
                         Label("展開", systemImage: "chevron.up").font(.caption2.weight(.bold)).foregroundStyle(Theme.accentSoft)
                     }
                 }
+                }
                 .contentShape(Rectangle())
                 .onTapGesture { onExpand?() }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(onExpand != nil ? .isButton : [])
+                .accessibilityLabel(onExpand != nil ? "展開休息畫面" : "休息中")
                 Spacer(minLength: 0)
                 Button("+30 秒", action: onAdd)
                     .buttonStyle(GhostButtonStyle())
@@ -80,8 +89,8 @@ struct RestCard: View {
     }
 
     private func finished(over: Double) -> some View {
-        let pop = 1 + 0.12 * exp(-over * 5) * cos(over * 16)
-        let glow = 0.4 + 0.3 * sin(over * 5)
+        let pop = reduceMotion ? 1 : 1 + 0.12 * exp(-over * 5) * cos(over * 16)
+        let glow = reduceMotion ? 0.5 : 0.4 + 0.3 * sin(over * 5)
         return Button(action: onSkip) {
             Label("休息結束，下一組！", systemImage: "bolt.fill")
                 .font(.headline.weight(.heavy))
@@ -89,14 +98,16 @@ struct RestCard: View {
                 .frame(maxWidth: .infinity, minHeight: 56)
                 .background(Theme.green, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay {
-                    // 一道光掃過按鈕
-                    GeometryReader { g in
-                        LinearGradient(colors: [.white.opacity(0), .white.opacity(0.5), .white.opacity(0)],
-                                       startPoint: .leading, endPoint: .trailing)
-                            .frame(width: 60)
-                            .offset(x: -60 + (Double(g.size.width) + 120) * FXMath.fract(over / 1.6))
+                    // 一道光掃過按鈕（減少動態效果時不顯示）
+                    if !reduceMotion {
+                        GeometryReader { g in
+                            LinearGradient(colors: [.white.opacity(0), .white.opacity(0.5), .white.opacity(0)],
+                                           startPoint: .leading, endPoint: .trailing)
+                                .frame(width: 60)
+                                .offset(x: -60 + (Double(g.size.width) + 120) * FXMath.fract(over / 1.6))
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .shadow(color: Theme.green.opacity(glow), radius: 14)
         }

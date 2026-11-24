@@ -42,6 +42,8 @@ struct RankIntake: Identifiable {
 struct RankCard: View {
     let rank: Rank
     var intake: RankIntake? = nil
+    /// 下一階有晉級條件時的進度
+    var gate: RankEngine.GateProgress? = nil
 
     var body: some View {
         NavigationLink {
@@ -135,7 +137,11 @@ struct RankCard: View {
     }
 
     private func nextText(_ r: Rank) -> String {
-        if let n = r.toNext, let t = r.nextTitle { return "再 \(n) 分升到 \(t)" }
+        if let g = gate, !g.met, r.points == g.tier.floor - 1 { return "升\(g.tier.name)：\(g.summary)" }
+        if let n = r.toNext, let t = r.nextTitle {
+            if let g = gate, !g.met, Rank(points: r.points + n).tier == g.tier { return "再 \(n) 分＋晉級條件升到 \(t)" }
+            return "再 \(n) 分升到 \(t)"
+        }
         return "已經是最高牌位"
     }
 }
@@ -191,9 +197,10 @@ struct RankDetailView: View {
     var body: some View {
         let events = RankEngine.ledger(sessions: sessions, goal: weeklyGoal)
         let rank = Rank(points: RankEngine.total(events))
+        let gate = RankEngine.nextGate(sessions: sessions, goal: weeklyGoal, rank: rank)
         ScrollView {
             VStack(spacing: 12) {
-                hero(rank)
+                hero(rank, gate: gate)
                 rules
                 ladder(rank)
                 history(events)
@@ -212,15 +219,17 @@ struct RankDetailView: View {
 
     private var rank: Rank { RankEngine.rank(sessions: sessions, goal: weeklyGoal) }
 
-    private func hero(_ rank: Rank) -> some View {
+    private func hero(_ rank: Rank, gate: RankEngine.GateProgress?) -> some View {
         VStack(spacing: 10) {
             RankBadge(tier: rank.tier, division: rank.division, size: 140, motion: .live)
             Text(rank.title).font(.system(size: 30, weight: .black)).foregroundStyle(rank.tier.light)
             Text("\(rank.points) 分").font(Theme.number(17, .bold)).foregroundStyle(Theme.muted)
             RankBar(rank: rank).padding(.horizontal, 30)
-            if let n = rank.toNext, let t = rank.nextTitle {
+            if let n = rank.toNext, let t = rank.nextTitle,
+               !(gate.map { !$0.met && rank.points == $0.tier.floor - 1 } ?? false) {
                 Text("再 \(n) 分升到 \(t)").font(.subheadline).foregroundStyle(Theme.muted)
             }
+            if let g = gate { gateBox(g) }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
@@ -230,6 +239,42 @@ struct RankDetailView: View {
             in: RoundedRectangle(cornerRadius: 20, style: .continuous)
         )
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.line, lineWidth: 1))
+    }
+
+    private func gateBox(_ g: RankEngine.GateProgress) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(g.met ? "升\(g.tier.name)的條件已達成" : "升\(g.tier.name)前要先達成")
+                .font(.subheadline.weight(.bold)).foregroundStyle(g.met ? Theme.green : g.tier.light)
+            gateLine("連續達標 \(g.gate.weeks) 週", "\(min(g.streak, g.gate.weeks))/\(g.gate.weeks)", ok: g.streakMet)
+            if g.needFull > 0 {
+                gateLine("這幾週完整訓練 \(g.needFull) 天", "\(min(g.full, g.needFull))/\(g.needFull)", ok: g.fullMet)
+            }
+            if !g.met {
+                Text("分數夠了也會停在上一階的最後 1 分，條件達成後才升上去。")
+                    .font(.caption).foregroundStyle(Theme.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Theme.bg.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private func gateLine(_ title: String, _ value: String, ok: Bool) -> some View {
+        HStack {
+            Image(systemName: ok ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(ok ? Theme.green : Theme.muted)
+            Text(title).font(.subheadline)
+            Spacer()
+            Text(value).font(Theme.number(15, .bold)).foregroundStyle(ok ? Theme.green : Theme.muted)
+        }
+    }
+
+    private static func gateText(_ g: RankEngine.Gate) -> String {
+        var s = "連續達標 \(g.weeks) 週"
+        if g.fullShare >= 1 { s += "，期間每次目標都做完整" }
+        else if g.fullShare > 0 { s += "，期間完整訓練佔週目標 \(Int(g.fullShare * 100))%" }
+        return s
     }
 
     private var rules: some View {
@@ -245,6 +290,13 @@ struct RankDetailView: View {
             rule("逆轉：漏掉排好的日子後練回來", "+\(GoalEngine.comebackPoints)")
             rule("這週只練 1 次", "−\(RankEngine.lightWeekPenalty)", bad: true)
             rule("整週沒練", "−\(RankEngine.emptyWeekPenalty)", bad: true)
+            rule("越高扣越多", "金、白金 ×1.5・鑽石 ×2・大師以上 ×3", bad: true)
+            sectionTitle("晉級條件")
+            ForEach(RankEngine.gates, id: \.tier) { g in
+                rule("升\(g.tier.name)", Self.gateText(g))
+            }
+            Text("分數夠了但條件還沒達成，會停在上一階的最後 1 分，多的分數不會存起來。")
+                .font(.caption).foregroundStyle(Theme.muted)
             Text("請假：每請 2 天，那週目標少 1 次；請假 4 天以上那週不結算。排程本來就排不出時間的週不扣分。保護卡在沒達標的週自動抵銷，連續不中斷。")
                 .font(.caption).foregroundStyle(Theme.muted)
             Text("每週一結算上一週。分數由訓練紀錄即時算出，刪紀錄或改每週目標都會重算。")
@@ -273,6 +325,10 @@ struct RankDetailView: View {
                              : t.hasDivisions ? "\(t.floor) 分起 · III → II → I 每段 \(t.divisionSize) 分"
                              : "\(t.floor) 分起")
                             .font(.caption).foregroundStyle(Theme.muted)
+                        if let g = RankEngine.gate(for: t) {
+                            Text("晉級條件：\(Self.gateText(g))")
+                                .font(.caption2).foregroundStyle(t.light.opacity(0.8))
+                        }
                     }
                     Spacer()
                     if t == rank.tier {

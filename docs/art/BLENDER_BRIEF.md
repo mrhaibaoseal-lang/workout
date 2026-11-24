@@ -299,11 +299,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 批次 | 動作 | 備註 |
 |---|---|---|
 | 滑輪 B | `seatedCableRow`、`cableCurl`、`cableLateral` | 照滑輪 A 的一體機做法（`props_cable.py`） |
-| 站姿啞鈴 2 | `calf`、`triceps`、`rearFly`、`kickback`、`slRdl` | |
-| 地板 | `plank`、`pikePushup`、`reverseCrunch`、`deadBug`、`floorPress`、`legCurl` | `legCurl` 趴地或趴椅開工前定 |
-| 熱身 | `armCircle`、`hipHinge`、`bwSquat`、`lungeStep`、`armSwing`、`wallSlide`、`legSwing`、`bwBridge` | |
-| 伸展 | `chestStretch`、`crossBody`、`tricepsStretch`、`childPose`、`quadStretch`、`seatedFold`、`kneeHug`、`calfStretch`、`hipFlexor`、`cobra` | |
-| 休息頁 | `breathe`、`drink`、`ready` | |
+| 地板 | `legCurl` | 趴椅：一體機轉 180°、兩腳夾快鎖啞鈴道具（使用者 2026-11-25 定案），地板 session 製作中 |
 
 ### 動作：Gemini（已停止；2026-11-24 起改由 Claude 做）
 
@@ -314,6 +310,11 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 ### 動作：Claude
 
 | 批次 | 內容 | 狀態 |
+| 站姿啞鈴 2 | `calf`（雙腳站地板，App 有單腳版）、`triceps`（站姿過頭伸展、雙手一顆，頂端手肘 142°）、`rearFly`、`kickback`（雙手同時）、`slRdl`（雙手各一顆）（動作卡 `docs/3d-moves/standing_dumbbell2.md`，總覽 `docs/art/blender/standing2_batch.png`）。`[angles]` 全 PASS；deformcheck 單格壞面 calf 58、rearFly 148、slRdl 168、kickback 325、triceps 521（肩、髖、手肘窩）；clipcheck 基本款單格最大 calf 3／triceps 22／rearFly 1／kickback 0／slRdl 2；系列穿模只記錄：triceps 鈦甲 494、冰霜 1558、小豬 1315，kickback 鈦甲 108，其餘 ≤ 32。calf 先用雙腳版（單腳版以後另加 `calfSingle`）、triceps 維持 142° 並在卡片註明：使用者 2026-11-25 定案。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-25） |
+| 地板 | `plank`（前臂版）、`pikePushup`、`reverseCrunch`、`deadBug`（對側手腳，48 格換邊一次）、`floorPress`（啞鈴，手肘輕觸地）（動作卡 `docs/3d-moves/floor.md`，總覽 `docs/art/blender/floor_batch.png`）。`[angles]` 全 PASS；clipcheck 單格最大（基本款／小豬／冰霜／鈦甲）：棒式 1／2／10／11、屈體 4／4／12／12、反向捲腹 4／3／12／59、死蟲 4／4／12／28、地板臥推 0／0／8／8，基本款只有大腿內側互碰；鈦甲反向捲腹胸甲×大腿甲各 24、死蟲上臂×頭盔 18 留給裝備端。deformcheck（基本款）單格壞面 326～471，單一部位 ≤50，全是關節處正常擠壓／拉扯（肩膀＋鎖骨、膝窩、肘窩），不是 0。`legCurl` 沒做，待使用者決定趴地或趴椅（兩案優缺點在動作卡）。新增共用工具都在 `floor.py` 裡（`fl_*`、`pr_*` 前綴），沒改 `moves3d.py` | 完成待審查（§8-1 由主對話安排）（Claude，2026-11-25） |
+| 熱身 | `armCircle`、`hipHinge`、`bwSquat`、`lungeStep`、`armSwing`、`wallSlide`（靠牆天使）、`legSwing`（扶牆）、`bwBridge`（動作卡 `docs/3d-moves/warmup.md`，總覽 `docs/art/blender/warmup_batch.png`）。全部徒手、49 格循環（第 48 格＝第 0 格）、`[angles]` 全 PASS；基本款穿模：臀橋／深蹲／弓步／擺腿／靠牆天使 ≤ 10，抱胸髖鉸鏈 165（手臂互碰）；系列裝備穿模使用者已接受、只記錄（`hipHinge` 鈦甲 1104、小豬 729 最高）；deformcheck 每部位 ≤ 46（單格加總 37～559）。牆面用 `moves/props_warmup.py` 的 `build_wall`。**待確認：** App 的 `wallSlide` 名稱是「頭上推舉伸展」、cue 沒有牆，3D 做成靠牆天使；`hipHinge` 沒有徒手版 ACE／NSCA 來源。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-25） |
+| 伸展 | `chestStretch`、`crossBody`、`tricepsStretch`、`childPose`、`quadStretch`、`seatedFold`、`kneeHug`、`calfStretch`、`hipFlexor`、`cobra`（動作卡 `docs/3d-moves/stretch.md`，總覽 `docs/art/blender/stretch_batch.png`）。… | 完成待審查（Claude，2026-11-25） |
+| 休息頁 | `breathe`（站姿叉腰深呼吸）、`drink`（右手拿水壺喝水，新器材 `moves/props_rest.py` 的 `build_bottle`）、`ready`（運動員預備姿勢＋小彈跳）（動作卡 `docs/3d-moves/rest.md`，總覽 `docs/art/blender/rest_batch.png`）。`[angles]` 基本款全 PASS（範圍依量測放寬了叉腰手肘、喝水手肘，卡片已寫原因）。clipcheck（單格最大）：基本款 ≤3；冰霜 ≤12；小豬 breathe 100、drink 48（大腿 × 豬蹄手套，叉腰）；鈦甲 breathe 49、drink 115、ready 94（前臂 × 胸甲，留給裝備端）。deformcheck（基本款）單格壞面 324／348／377，集中在手肘窩和肩膀（骨架權重，同已完成動作量級），不是 0。`breathe` 站姿叉腰，和 2D（彎腰扶膝）不同，待確認。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-25） |
 |---|---|---|
 | 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格，使用者 2026-11-24 看過截圖，接受、不改）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。鈦甲胸甲那點交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
 | 弓步／臀橋 | `lunge`、`splitSquat`（保加利亞，後腳放椅子）、`reverseLunge`、`stepUp`、`bridge`、`hipThrust`（動作卡 `docs/3d-moves/lunge_bridge.md`，含檢查結果；共用姿勢函式 `moves3d.py` 的 `lunge_pose`、`bridge_pose`）。基本款角度全 PASS、硬碰撞個位數；deformcheck 只剩膝窩／肩膀的正常擠壓（每部位 ≤ 46 面）；系列裝備穿模使用者接受、只記錄。總覽圖 `out/review/lunge_bridge/`（不進 git） | 完成待審查（§8-1 由主對話安排）（Claude，2026-11-24） |
