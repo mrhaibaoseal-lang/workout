@@ -84,7 +84,7 @@ def press_path(sh, s, sx, dv, nv, t, top_back, dn=0.30):
     ed = (X_ * (0.66 * sx) - dv * 0.53 - nv * dn).normalized()
     e1 = sh + ed * UL; w1 = e1 + Z_ * FL
     reach = (UL + FL) * 0.965
-    base = sh + X_ * (-0.07 * sx) - dv * top_back
+    base = sh + X_ * (-0.01 * sx) - dv * top_back      # 頂端啞鈴在肩膀正上方（冰霜等大啞鈴不互撞）
     off = base - sh; dz = math.sqrt(max(reach ** 2 - off.x ** 2 - off.y ** 2, 0)) - off.z
     w0 = base + Z_ * dz
     w = w0.lerp(w1, t) + (X_ * sx) * 0.05 * math.sin(math.pi * t)   # 微弧線（往外）
@@ -179,10 +179,10 @@ if MOVE == 'pullover':
     def pose(t):
         dv, nv, cp, sh = supine(90, -0.10, -0.30)
         mid = (sh['L'] + sh['R']) / 2
-        phi = D(4) + D(92) * t                          # 手臂從胸口正上方往頭後畫弧，到約與軀幹一直線（與耳朵同高）
+        phi = D(4) + D(38) * t                          # 從胸口正上方往頭後畫弧到額頭上方約 42°（公仔頭大、手短，再往後前臂會穿過臉；待使用者決定）
         a = Z_ * math.cos(phi) + dv * math.sin(phi)
         close = Z_ * math.sin(phi) - dv * math.cos(phi)
-        hold = mid + a * 0.47 + close * 0.04  # 兩手在啞鈴握把中段
+        hold = mid + a * 0.49 + close * 0.04  # 兩手在啞鈴握把中段
         for s, sx in SX:
             wrist = hold + X_ * (0.075 * sx) - a * 0.03
             pole = (close + X_ * (0.6 * sx)).normalized()
@@ -203,10 +203,10 @@ if MOVE == 'inclineCurl':
         dv, nv, cp, sh = supine(45, 0.05, -0.34)
         down = -Z_; fwd = Vector((0, -1, 0))
         for s, sx in SX:
-            e = sh[s] + (down + X_ * (0.05 * sx)).normalized() * UL   # 上臂垂直地面不動
+            e = sh[s] + (down + X_ * (0.20 * sx)).normalized() * UL   # 上臂垂直地面不動（略往外，啞鈴不掃到大腿）
             th = D(6) + D(128) * t                       # 手肘 174° → 約 46°
             fd = down * math.cos(th) + fwd * math.sin(th)
-            fd = (fd + X_ * (0.04 * sx)).normalized()
+            fd = (fd + X_ * (0.10 * sx)).normalized()
             w = e + fd * FL
             grip(s, sh[s], e, w, fd, X_)                 # 反握：掌心朝前，握把左右向
             stat_arm(s, sh[s], e, w, -dv); stat('上臂離垂直', ang(e - sh[s], down) if s == 'L' else 0)
@@ -231,7 +231,7 @@ if MOVE in ('chestRow', 'chestRearFly'):
         cp, sh = trunk(hpt, lam, lam, lam - D(10))       # 頭跟脊椎一直線（略抬，眼睛看前下方）
         for s, sx in SX:
             hj = hpt + RX(lam) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
-            an = Vector((0.27 * sx, hj.y + 0.16, 0.11))  # 跨坐在座墊兩側，腳踩地
+            an = Vector((0.27 * sx, hj.y + 0.34, 0.11))  # 跨坐在座墊兩側，腳往後踩（膝蓋不往前頂到啞鈴）
             k = ik2(hj, an, blen[f'thigh.{s}'], blen[f'shin.{s}'], Vector((0.3 * sx, -1.0, 0.2)))
             aim(f'thigh.{s}', hj, k - hj); aim(f'shin.{s}', k, an - k)
             aim(f'foot.{s}', an, rest[f'foot.{s}'][1] - rest[f'foot.{s}'][0])
