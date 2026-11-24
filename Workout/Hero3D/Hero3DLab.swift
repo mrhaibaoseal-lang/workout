@@ -257,7 +257,7 @@ final class Hero3DModel: ObservableObject {
         model.position.y = clip.lift(at: t, parts: activeParts)
     }
 
-    private static func setMaterial(_ e: Entity, _ m: Material) {
+    private static func setMaterial(_ e: Entity, _ m: any RealityKit.Material) {
         guard var mc = e.components[ModelComponent.self] else { return }
         mc.materials = Array(repeating: m, count: max(mc.materials.count, 1))
         e.components.set(mc)
