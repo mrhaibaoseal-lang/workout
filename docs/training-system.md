@@ -192,6 +192,7 @@
 - **下次怎麼用**：`makeDraft` 在 `Progression.suggest` 之後呼叫 `NoteNudges.apply`：`.ease` 每組 `ladder.snap(w × 0.8)` 並設 `eased = true`（不當下次加重基準）、
   `.up`／`.down` 用 `ladder.up`／`down`，建議文字前面加一句原因；徒手或重量 0 不套用；熱身組不動。存檔時有做到正式組的動作，它的 nudge 刪掉。
   有提醒的動作，動作卡「上次備註」上面多一行橘色提醒＋✕。
+- 0.37.1：規則版先排除「痠痛」「酸痛」（練完肌肉的痠不當成會痛）；「痛」「刺痛」「不舒服」「卡卡」照舊。
 - 測試：`WorkoutTests/NoteReaderTests.swift`。
 
 ## 排課升級（0.23.0）

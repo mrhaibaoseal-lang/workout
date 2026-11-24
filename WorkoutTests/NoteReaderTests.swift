@@ -23,6 +23,15 @@ final class NoteReaderTests: XCTestCase {
         }
     }
 
+    func testSorenessIsNotPain() {
+        for text in ["肌肉痠痛", "手臂有點酸痛", "昨天練的肩膀還在痠痛"] {
+            XCTAssertEqual(read(["db_bench": text]), [], "「\(text)」是練完的痠，不是會痛")
+        }
+        // 痠痛之外真的有痛，還是要抓到
+        XCTAssertEqual(read(["db_bench": "肩膀痠痛，手肘刺痛"]),
+                       [NoteFinding(kind: .pain, exerciseId: "db_bench", joint: .elbow)])
+    }
+
     func testNegationOnlyRemovesItsOwnPhrase() {
         // 「肩膀不痛」是否定，後面的「太輕」還是要抓到
         let f = read(["db_bench": "肩膀不痛，但是太輕"])
