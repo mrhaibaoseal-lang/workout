@@ -63,7 +63,7 @@ struct ExerciseCard: View {
                 .buttonStyle(.plain)
                 .padding(8)
             }
-            .sheet(isPresented: $showVideo) { DemoVideoSheet(exercise: ex) }
+            .sheet(isPresented: $showVideo) { DemoVideoSheet(exercise: ex).environmentObject(inventory) }
     }
 
     var body: some View {
