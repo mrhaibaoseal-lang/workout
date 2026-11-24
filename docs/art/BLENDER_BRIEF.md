@@ -24,7 +24,7 @@
 | 誰 | 做什麼 | 只改這些檔案 | 工作分支 |
 |---|---|---|---|
 | **Gemini** | 動作：站姿啞鈴 → 地板徒手 → 伸展 | `moves/standing_dumbbell.py`、`moves/floor.py`、`moves/stretch.py`、新的 `moves/props_<器材>.py`（例如啞鈴架、瑜伽墊）、`docs/3d-moves/` 同名卡片 | 使用者指定 |
-| **Claude（動作）** | 動作：椅子 → 滑輪 → 熱身 | `moves/bench.py`、`moves/cable.py`、`moves/warmup.py`、`moves/props_bench.py`（啞鈴椅＋下拉架）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves` |
+| **Claude（動作）** | 動作：椅子 → 滑輪 → 熱身 | `moves/bench.py`、`moves/cable.py`、`moves/warmup.py`、`moves/props_bench.py`（啞鈴椅＋下拉架）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
 | **Claude（裝備）** | 裝備造型，一個系列一個 `gear_<id>.py` | `gear_*.py`、`gear_util.py` | `claude/3d-*` |
 
 （檔案都在 `scripts/blender/` 底下。）
