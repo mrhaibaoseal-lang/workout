@@ -20,8 +20,8 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 混搭：`GEAR="head=titan,hands=titan"` 逐部位指定（head top bottom feet hands back bell fx），沒寫的用基本款。
 每個部位是獨立零件；上衣／下身換鈦甲時，緊身衣袖子／褲管和底下身體的顏色一起換。預覽 `docs/art/blender/mix.png`。
 
-動作：`moves3d.py`，`MOVE=squat｜pushup｜pulldown`（hero_proto 會 exec 它）。手腳釘在地板／握把上，軀幹用角度、手肘膝蓋用兩節 IK。
-伏地挺身：腳尖和手掌固定、身體繞腳尖轉、手肘往後約 45 度。高位下拉：用使用者的「多功能啞鈴椅＋高位下拉架」一體機（`build_bench(back_deg)`：前端立柱＋頂部滑輪盒、兩側兩層槓片收納柱、座墊、可調靠背、頭枕＋把手、前端腳踝滾筒、前後底座；不畫商標和彈力繩）。配重＝立柱上的兩顆啞鈴（裝在套住立柱的滑套上，上下各一顆），拉下時整組沿立柱往上滑（使用者確認）。
+動作：`moves3d.py`（共用工具，hero_proto 會 exec 它）＋`moves/<批次>.py`（動作本身，檔頭 `MOVE_META` 登記，`MOVE=<名稱>` 選）＋`moves/props_*.py`（器材）。誰負責哪個檔見 `docs/art/BLENDER_BRIEF.md` §0-1。手腳釘在地板／握把上，軀幹用角度、手肘膝蓋用兩節 IK。
+伏地挺身：腳尖和手掌固定、身體繞腳尖轉、手肘往後約 45 度。高位下拉：用使用者的「多功能啞鈴椅＋高位下拉架」一體機（`moves/props_bench.py` 的 `build_bench(back_deg)`：前端立柱＋頂部滑輪盒、兩側兩層槓片收納柱、座墊、可調靠背、頭枕＋把手、前端腳踝滾筒、前後底座；不畫商標和彈力繩）。配重＝立柱上的兩顆啞鈴（裝在套住立柱的滑套上，上下各一顆），拉下時整組沿立柱往上滑（使用者確認）。
 使用者決定：之後改成 App 內即時 3D（可顯示自己的裝備）；示範影片不放裝備特效。
 
 穿模處理：
@@ -29,7 +29,7 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 - 自動權重會讓手臂影響延伸到胸口：軀幹 |x|<0.235 的手臂權重改給胸部，0.235～0.29 漸變（肩關節外側才跟手臂）。
 - 基本款背心＝身體軀幹塗色（不另做網格，含肩帶）：頂點屬性 `tank`（在背心裡多深，公尺）由著色器判斷 >0，邊緣平滑不鋸齒（`tank_field`），身型是使用者選定的平直倒三角；身體細分 3 級讓塗色邊緣平滑。
 - 自動檢查：`blender -b <輸出>/hero.blend -P scripts/blender/clipcheck.py -- 報告.json 2`（見 docs/3d-system.md「防穿模」）。
-- 接地修正（moves3d.py 結尾）、背靠椅背的動作隱藏背部裝備（hero_proto.py）。
+- 接地修正（moves3d.py 結尾）、背靠椅背的動作隱藏背部裝備（動作檔 `MOVE_META` 的 `lean_back`）。
 - 檢查方法：從正上方看伏地挺身（上背最容易穿）；依頂點最大權重骨頭上色找是哪根骨頭帶出來的。
 預覽：`docs/art/blender/`（`squat_basic.gif`、`squat_titan.gif`、`cmp.png`）。
 

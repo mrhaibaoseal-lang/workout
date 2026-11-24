@@ -16,10 +16,21 @@ if GEAR in ('titan', 'frost', 'pig'):
 elif '=' in GEAR:
     for kv in GEAR.split(','):
         k, v = kv.split('='); assert k in SLOTS, k; G[k] = v
-if os.environ.get('MOVE', 'squat') != 'squat':
-    G['bell'] = 'none'          # 伏地挺身、下拉不拿啞鈴
+# 動作清單：從 moves/*.py 的 MOVE_META 收集（只讀字面值，不執行），動作檔分開各自維護。
+import ast, glob
+MOVE = os.environ.get('MOVE', 'squat')
+MOVES = {}
+for _f in sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1])), 'moves', '*.py'))):
+    for _n in ast.parse(open(_f, encoding='utf-8').read()).body:
+        if isinstance(_n, ast.Assign) and any(getattr(t_, 'id', '') == 'MOVE_META' for t_ in _n.targets):
+            for _k, _v in ast.literal_eval(_n.value).items():
+                assert _k not in MOVES, f'動作名稱重複：{_k}（{MOVES[_k]["file"]} 和 {os.path.basename(_f)}）'
+                MOVES[_k] = dict(_v, file=os.path.basename(_f))
+assert MOVE in MOVES, f'MOVE={MOVE} 不在任何 moves/*.py 的 MOVE_META 裡：{sorted(MOVES)}'
+if not MOVES[MOVE].get('bell'):
+    G['bell'] = 'none'          # 沒拿啞鈴的動作（伏地挺身、下拉…）
 # 背靠靠背、躺在椅子上的動作：背部裝備（披風、背包）一定會卡進椅背 → 示範時隱藏
-LEAN_BACK = os.environ.get('MOVE', 'squat') in ('pulldown',)   # 背靠椅背的動作（尾巴之類往後凸的零件也要藏）
+LEAN_BACK = bool(MOVES[MOVE].get('lean_back'))   # 尾巴之類往後凸的零件也要藏
 if LEAN_BACK:
     G['back'] = 'none'
 # EXPORT=frost,titan：給 App 匯出用。剛性部位（頭、手、腳、背、啞鈴）把基本款和列出的系列都建出來，
@@ -400,8 +411,8 @@ body.parent = rig
 sol = body.modifiers.new('outline', 'SOLIDIFY'); sol.thickness = -0.014; sol.use_flip_normals = True
 sol.material_offset = len(body.data.materials) - 1; sol.use_rim = False
 
-# ---------- 動畫：見 moves3d.py（MOVE=squat｜pushup｜pulldown） ----------
-exec(open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1])), 'moves3d.py')).read())
+# ---------- 動畫：moves3d.py（共用工具）→ moves/<批次>.py（動作本身） ----------
+exec(open(os.path.join(_GD, 'moves3d.py'), encoding='utf-8').read())
 
 # ---------- 舞台、燈光、相機 ----------
 sc.render.engine = 'BLENDER_EEVEE'
