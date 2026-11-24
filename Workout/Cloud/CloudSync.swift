@@ -12,7 +12,7 @@ extension Keys {
     static let cloudLastHash = "cloudLastHash"
 }
 
-/// 端對端加密雲端備份（0.42.0）。
+/// 端對端加密雲端備份（0.43.0）。
 /// 內容 = `FullBackup` 的 JSON → zlib 壓縮 → AES-256-GCM 加密 → PUT 到 Cloudflare Worker。
 /// 練完按「完成」之後、App 切到背景時各排一次，2 秒內的合併成一次；失敗就默默等下次。
 /// 只有一個使用者：最後上傳的為準，伺服器多留最近 5 個版本。

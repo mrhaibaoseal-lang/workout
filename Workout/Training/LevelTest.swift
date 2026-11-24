@@ -9,7 +9,7 @@ extension Keys {
 /// 取代「體重 × 0.5」的推估（`StartWeight.noviceEstimate`）。每一項都可以跳過。
 /// - 伏地挺身最多幾下：伏地挺身大約推起體重的 64%，換算成臥推的推估最大力量。
 /// - 高腳杯深蹲做 10 下（還剩 2 下左右）用幾公斤。
-/// - 單手啞鈴划船：挑一個重量，左右手各做到還剩 2 下左右，記兩邊各做幾下（0.42.0；兩邊差 2 下以上自動設弱邊）。
+/// - 單手啞鈴划船：挑一個重量，左右手各做到還剩 2 下左右，記兩邊各做幾下（0.43.0；兩邊差 2 下以上自動設弱邊）。
 /// 換算成各動作的 e1RM 後，當作「做過的動作」給 `StartWeight.estimate` 參考；真的練過的動作一律優先。
 enum LevelTest {
     struct Result: Codable, Equatable {
@@ -19,7 +19,7 @@ enum LevelTest {
         var date: Double
         /// 測試當下的體重（0.33.1；伏地挺身換算要用）。舊資料沒有，用目前記的體重
         var bodyWeight: Double? = nil
-        /// 0.42.0：單手划船左右手各做到幾下（同一個重量、還剩 2 下左右）。舊資料沒有，換算用 `testReps`
+        /// 0.43.0：單手划船左右手各做到幾下（同一個重量、還剩 2 下左右）。舊資料沒有，換算用 `testReps`
         var rowLeftReps: Int? = nil
         var rowRightReps: Int? = nil
     }

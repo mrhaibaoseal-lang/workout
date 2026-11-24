@@ -42,7 +42,7 @@ struct ChoiceChips<T: Hashable>: View {
     }
 }
 
-/// 第一次開 App 的問卷（0.42.0）：分頁，每一頁都能略過。
+/// 第一次開 App 的問卷（0.43.0）：分頁，每一頁都能略過。
 /// 身體資料 → 訓練經驗 → 每週幾天、每次多久 → 會痛的部位 → 器材 → 程度評估 → 左右平衡 →（雲端備份）。
 struct OnboardingView: View {
     var mode: OnboardingMode = .first

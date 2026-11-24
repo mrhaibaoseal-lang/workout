@@ -2,7 +2,7 @@ import XCTest
 import CryptoKit
 @testable import Workout
 
-/// 第一次的問卷、加密雲端備份（0.42.0）。
+/// 第一次的問卷、加密雲端備份（0.43.0）。
 final class OnboardingCloudTests: XCTestCase {
     // MARK: 恢復碼
 

@@ -37,6 +37,7 @@ struct TodayView: View {
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
     @State private var showIntervals = false
+    @State private var showPlanCheck = false
     @ObservedObject private var commands = AppCommands.shared
     @AppStorage(Keys.lastRankIndex) private var lastRankIndex = -1
     @AppStorage(Keys.lastRankPoints) private var lastRankPoints = -1
@@ -174,6 +175,9 @@ struct TodayView: View {
                     // 2. 今天的訓練：開始按鈕和動作清單放最上面
                     let plan = self.plan
                     heroCard(today: plans.first, plan: plan)
+                    if !trainedToday, onLeave == nil, length != .minimal, !plan.isEmpty {
+                        PlanCheckRow(findings: planFindings(plan)) { showPlanCheck = true }
+                    }
                     exerciseList(plan)
                     // 3. 教練的提醒（每週、每個區塊才出現一次）
                     weeklySummaryCard
@@ -228,6 +232,11 @@ struct TodayView: View {
             }
             .fullScreenCover(isPresented: $showGraduation) {
                 GraduationCelebration { showGraduation = false }
+            }
+            .sheet(isPresented: $showPlanCheck) {
+                let plan = self.plan
+                PlanCheckSheet(findings: planFindings(plan), plan: plan)
+                    .presentationDetents([.medium, .large])
             }
             .sheet(item: $weeklyFacts) { item in
                 WeeklySummaryView(facts: item.facts) {
@@ -507,6 +516,15 @@ struct TodayView: View {
             .background(Color(gearHex: "#DCE4F7"), in: Capsule())
         }
         .accessibilityLabel("訓練地點：\(place.title)")
+    }
+
+    /// 排課第二意見（`PlanCheck`）：純計算，跟著課表變動重算；AI 說明只在打開畫面時才產生。
+    private func planFindings(_ plan: [PlannedExercise]) -> [PlanFinding] {
+        guard length != .minimal else { return [] }
+        let minutes = ProgramBuilder.estimatedMinutes(plan, sessions: sessions, gym: placeRaw == TrainingPlace.gym.rawValue,
+                                                      increment: increment, autoWarmup: autoWarmup, week: week, length: length)
+        return PlanCheck.run(plan: plan, day: day, length: length, phase: phase, sessions: sessions,
+                             minutes: minutes, equipment: equipment)
     }
 
     private func summaryLine(_ plan: [PlannedExercise]) -> String {

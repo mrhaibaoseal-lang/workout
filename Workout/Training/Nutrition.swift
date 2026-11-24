@@ -35,7 +35,7 @@ enum Nutrition {
         Int((bodyWeight * gramsPerKg).rounded())
     }
 
-    // MARK: 熱量估算（0.42.0：問卷填的身高、年齡、性別）
+    // MARK: 熱量估算（0.43.0：問卷填的身高、年齡、性別）
 
     /// 一週練 3–4 次的活動係數
     static let activityFactor = 1.55
