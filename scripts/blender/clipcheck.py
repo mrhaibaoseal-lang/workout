@@ -26,6 +26,7 @@ mats = [m.name if m else '' for m in hero.data.materials]
 parent = {b.name: (b.parent.name if b.parent else None) for b in rig.data.bones}
 # 關節相連的骨頭（骨架裡腳掌沒有父骨頭，所以手動列出）：在關節處本來就會重疊，不算穿模
 JOINTS = {('hips', 'chest'), ('chest', 'head'), ('chest', 'upper_arm'), ('upper_arm', 'forearm'), ('forearm', 'hand'),
+          ('chest', 'clavicle'), ('clavicle', 'upper_arm'),          # 鎖骨（2026-11-24 加，§6-1）
           ('hips', 'thigh'), ('thigh', 'shin'), ('shin', 'foot')}
 def adjacent(a, b):
     if a == b: return True
@@ -39,7 +40,8 @@ for p in hero.data.polygons:
     acc = {}
     for vi in p.vertices:
         for g in hero.data.vertices[vi].groups:
-            n = hero.vertex_groups[g.group].name; acc[n] = acc.get(n, 0) + g.weight
+            n = hero.vertex_groups[g.group].name
+            if n in parent: acc[n] = acc.get(n, 0) + g.weight      # 只算骨頭（lbs 之類的混合群組不算）
     bone = max(acc, key=acc.get) if acc else '?'
     cat = 'gear' if re.sub(r'\.\d+$', '', mats[p.material_index]) in GEAR_MATS else 'body'   # 只去掉 Blender 的 .001（不能 rstrip 數字：fr1 會變 fr）
     labels.append((cat, bone))
