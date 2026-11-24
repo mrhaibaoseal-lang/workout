@@ -10,7 +10,7 @@ MOVE_META = {
     'skullCrusher': {'bell': True, 'lean_back': True, 'angles': {'elbow': {'min': (70, 80)}, 'uarm_vert': (165, 175)}},
     'pullover': {'bell': True, 'lean_back': True, 'angles': {'elbow': (155, 165)}},
     'inclineCurl': {'bell': True, 'lean_back': True, 'angles': {'elbow': {'min': (40, 50)}, 'uarm_vert': (0, 15)}},
-    'chestRow': {'bell': True, 'angles': {'uarm_trunk': {'min': (20, 30)}}},
+    'chestRow': {'bell': True, 'angles': {'uarm_flare': {'max': (20, 30)}}},   # 卡片「上臂與軀幹約 20～30°」＝手肘往外開的角度（uarm_flare），不是上臂和軀幹軸的夾角（划到頂會越過軀幹軸）
     'chestRearFly': {'bell': True, 'angles': {'elbow': (160, 170), 'uarm_vert': {'max': (80, 95)}}},
 }
 
@@ -99,7 +99,7 @@ if MOVE == 'benchPress':
     def pose(t):
         dv, nv, cp, sh = supine(90, -0.10, -0.30)
         for s, sx in SX:
-            w, pole = press_path(sh[s], s, sx, dv, nv, t, 0.10)
+            w, pole = press_path(sh[s], s, sx, dv, nv, t, 0.10, 0.10)   # dn 小：底部手肘近乎與肩同高，手肘角約 83°（動作卡 80～95°）
             e = elbow_ik(s, sh[s], w, pole)
             grip(s, sh[s], e, w, Z_, X_)                 # 正握：握把左右向、掌心朝腳
             stat_arm(s, sh[s], e, w, -dv)
@@ -153,7 +153,7 @@ if MOVE == 'skullCrusher':
         ua = (Z_ + dv * 0.18).normalized()               # 上臂往頭的方向傾約 10°，整組不動
         for s, sx in SX:
             e = sh[s] + (ua + X_ * (-0.02 * sx)).normalized() * UL
-            flex = D(8) + D(100) * t                     # 手肘從近乎打直（172°）彎到約 72°
+            flex = D(8) + D(106) * t                     # 手肘從近乎打直（172°）彎到約 75°（動作卡 70～80°；實測比算出來的大約 9°）
             fd = (ua * math.cos(flex) + dv * math.sin(flex) * 1.0 - Z_ * 0.0)
             fd = (fd - ua * 0.0).normalized()
             fd = (fd + X_ * (0.06 * sx)).normalized()    # 前臂略往外，啞鈴落在頭兩側
@@ -184,7 +184,7 @@ if MOVE == 'pullover':
         phi = D(4) + D(34) * t                          # 從胸口正上方往頭後畫弧到額頭上方約 42°（公仔頭大、手短，再往後前臂會穿過臉；使用者 2026-11-24 選半幅度，App 文字補完整幅度）
         a = Z_ * math.cos(phi) + dv * math.sin(phi)
         close = Z_ * math.sin(phi) - dv * math.cos(phi)
-        hold = mid + a * 0.49 + close * 0.04  # 兩手在啞鈴握把中段
+        hold = mid + a * 0.52 + close * 0.04  # 兩手在啞鈴握把中段（0.52：手肘微彎約 20°，動作卡 155～165°；0.49 太彎 137°、0.56 打直 175°）
         for s, sx in SX:
             wrist = hold + X_ * (0.10 * sx) - a * 0.03
             pole = (close + X_ * (0.6 * sx)).normalized()

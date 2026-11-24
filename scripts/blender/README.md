@@ -45,7 +45,7 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 
 驗收工具（2026-11-24，BLENDER_BRIEF §5-2、§9-1）：
 - **角度自動判定**：動作的 `MOVE_META` 加 `'angles'`（字面值）。`moves3d.py` 的 `measure_pose(pose.bones)` 從骨頭姿勢量：`knee.L/R`、`hip.L/R`、`elbow.L/R`（內角，伸直＝180°）、
-  `trunk_lean`（胸骨頭離垂直，0＝直立）、`uarm_trunk.L/R`（上臂和「軀幹往下」夾角，躺著也適用）、`uarm_vert.L/R`（上臂離世界垂直往下，90＝水平）。
+  `trunk_lean`（胸骨頭離垂直，0＝直立）、`uarm_trunk.L/R`（上臂和「軀幹往下」夾角，躺著也適用）、`uarm_vert.L/R`（上臂離世界垂直往下，90＝水平）。`uarm_flare.L/R`（手肘往身體左右外開的角度，躺著、趴著也適用）。
   寫法：`{'knee': (70, 180)}`＝整個循環最小值不能小於 70、最大值不能大於 180（任一邊可寫 `None`＝不限）；
   `{'knee': {'min': (70, 85)}}`＝最小值要落在 70～85（`'max'` 同理，可兩個都寫）。名稱不帶左右＝左右都檢查，`'knee.L'`＝只檢查左邊。容差 0.5°。名稱打錯會直接 FAIL。
   `python scripts/blender/clipbatch.py --moves squat --series basic`：先照常跑穿模檢查，再由 `anglecheck.py` 對 hero.blend 量一次（`angles.json`，每個動作只量一個系列），
@@ -63,3 +63,9 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 - 手肘彎的方向：手臂垂下時前臂往前折，一路照這個旋轉方向（`elbow_hinge` 的 `flex`）；反過來就是手肘過度伸展，像骨折。
 
 用途定位（使用者 2026-11-22）：3D 主要用在**訓練中的動作示範**；角色換裝 3D 只是測試。
+
+弓步／臀橋批次（2026-11-24，`moves/lunge_bridge.py`，動作卡 `docs/3d-moves/lunge_bridge.md`）：
+- `moves3d.py` 新增共用姿勢函式（不改既有函式）：`lunge_pose(t, front, rear, hy, knee, lean)` ＝弓步族群範本（前腳踝釘住、**前膝內角決定髖高**，後腳用 `rear_toe`／`rear_fixed`／`rear_step_back`／`rear_air` 回傳的函式決定；後腳構不到時髖不再升高）；
+  `hang_arms` 手臂垂在身側拿啞鈴；`bridge_pose(phi, C, foot_y, …)` ＝臀橋族群範本（上背接觸點 C 和腳踝釘住，軀幹仰角 phi 決定髖高）。
+- 動作：`lunge`（原地分腿站姿）、`splitSquat`（保加利亞，椅子轉 90° 放人後面）、`reverseLunge`（後跨）、`stepUp`（踩上椅子靠背那段）、`bridge`（地板，兩顆啞鈴各壓一側髖骨）、`hipThrust`（上背靠座墊前緣、槓鈴）。
+  變化版只換 `front`／`rear`／`hy`／`knee`／`lean`；椅子用 `place_bench(back_deg, 轉角, 位置)`（呼叫 `build_bench` 再把新物件掛到轉向的空物件上）；臀推的槓鈴 `build_barbell()` 在這個檔裡。
