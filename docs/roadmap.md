@@ -1,6 +1,6 @@
 # 待辦清單（健身系統）
 
-最後更新：2026-11-22，版本 0.35.0。做完一項就從這裡刪掉或移到「已完成」，並升版號。
+最後更新：2026-11-25，版本 0.43.0。做完一項就從這裡刪掉或移到「已完成」，並升版號。
 已經做好的設計細節見 `docs/training-system.md`。
 
 ## 使用者的情況（排功能時要記得）
@@ -157,6 +157,10 @@
 
 ## 已完成
 - 0.42.0（2026-11-25）：排課檢查（`Training/PlanCheck.swift`）。排好今天的課後用獨立規則重算一遍（時間、單日同部位、恢復、重複動作、關節、本週組數、減量週、器材、超級組），今天頁主卡下一小列提醒，點開看條列和 AI 白話說明；只提醒不改課表。細節見 `docs/training-system.md`「排課檢查（0.42.0）」。
+- 0.43.0（2026-11-25）：第一次開 App 的分頁問卷＋端對端加密雲端備份。細節見 `docs/training-system.md`「第一次的問卷、雲端備份（0.43.0）」。
+  - 問卷（`Onboarding/`）：身體資料 → 訓練經驗 → 每週幾天／每次多久 → 會痛的部位 → 器材 → 程度評估 → 左右平衡 →（雲端）。每頁可略過；設定 → 訓練 →「重新填問卷」只更新有填的欄位。
+  - 程度評估的划船改成左右手各測，兩手差 2 下以上自動設弱手；熱量估算接上身高、年齡、性別。
+  - 雲端（`Cloud/`、`cloud/worker/`）：`FullBackup` JSON → zlib → AES-256-GCM → Cloudflare Worker + D1，恢復碼換手機。**Worker 網址還沒填，功能預設整個隱藏，要先做下面「使用者要做的 Cloudflare 設定」。**
 - 0.37.0（2026-11-24）：AI 看懂備註（`Training/NoteReader.swift`）。練完讀每個動作的備註和整次備註，教練講評頁最下面多一張「從備註看到」，
   會痛／太輕／太重／左右差／器材問題，**先問再改**，按了才生效。細節見 `docs/training-system.md`「看懂備註（0.37.0）」、規格 `docs/note-reader.md`。
 - 0.36.0：動作介紹頁（`DemoVideoSheet`，動作卡「看影片」打開的單一動作說明）最上面加示範動畫（穿目前裝備的 2D 角色，200pt，減少動態效果時定格）。
@@ -225,11 +229,36 @@
 - 人體圖的畫法：四肢沿骨頭方向用 (u, v) 座標畫，肌肉裁切在身體裡；比例由 `fixY`／`fix` 統一校正
   （頭 1/8、胯下在一半、身體寬度 ×0.86、腿 ×0.9）。使用者已確認這版比例，改之前先截預覽給他看。
 
+## 使用者要做的 Cloudflare 設定（0.43.0 加密雲端備份）
+
+Claude 不碰你的 Cloudflare 帳號和 GitHub secrets，下面是你要自己做的事。全部做完以前，App 裡的雲端選項是隱藏的，不影響其他功能。
+
+1. **查 Account ID**：登入 <https://dash.cloudflare.com> → 左邊選 Workers & Pages → 右側「Account ID」複製起來。
+2. **建 D1 資料庫**：左邊 Storage & Databases → D1 SQL database → Create database，名稱填 `workout-sync`（要一模一樣，workflow 用這個名字套資料表）。建好後複製 **Database ID**。
+3. **把 Database ID 填進 repo**：`cloud/worker/wrangler.toml` 的 `database_id = "REPLACE_WITH_D1_DATABASE_ID"` 換成剛剛的 ID（不是祕密，可以進 repo；也可以請 Claude 幫你填，貼 ID 給它就好）。
+4. **建 API Token**：右上角頭像 → My Profile → API Tokens → Create Token → Create Custom Token。
+   - 名稱隨意，例如 `workout-sync-deploy`。
+   - Permissions 加三條：`Account` → `Workers Scripts` → `Edit`；`Account` → `D1` → `Edit`；`Account` → `Account Settings` → `Read`。
+   - Account Resources：Include → 你的帳號。其他不用設。建好後**只會顯示一次**，複製起來。
+5. **填 GitHub secrets**：GitHub repo → Settings → Secrets and variables → Actions → New repository secret，建兩個：
+   `CLOUDFLARE_API_TOKEN`（上一步的 token）、`CLOUDFLARE_ACCOUNT_ID`（第 1 步的 ID）。
+6. **第一次部署**：把第 3 步的改動推上 main（或到 Actions → Deploy cloud worker → Run workflow，在 main 上跑）。
+   workflow 會先套 `migrations/0001_init.sql`，再部署 Worker。第一次部署如果提示還沒有 workers.dev 子網域，到 dashboard → Workers & Pages → 右側 Account details 註冊一個。
+7. **記下 Worker 網址**：部署成功後長得像 `https://workout-sync.<你的子網域>.workers.dev`（Worker 頁面或 Actions log 都看得到）。
+   用瀏覽器開 `網址/v1/blob`，看到 `{"error":"unauthorized"}` 就代表活著。
+8. **把網址填回 App**：`Workout/Cloud/CloudClient.swift` 的 `CloudConfig.workerURLString = ""` 填成上面的網址（也可以請 Claude 填），推上去、裝新版。
+9. **在 App 裡開啟**：設定 → 資料 → 加密雲端備份，打開開關，**用紙筆抄下恢復碼**，輸入第 1 組和最後一組確認。換手機時：開 App 第一頁選「我換手機了，用恢復碼還原」。
+
+注意：
+- Workers 免費方案每次請求的 CPU 時間只有 10 ms；一般備份（幾百 KB）夠用，備份長到幾 MB 才可能超過，那時改付費方案（每月 5 美元）即可，程式不用改。
+- 任何人只要有隨機的 token 都能在這個 Worker 上存資料（沒有帳號系統）；只有頻率限制和 5 MB 上限擋濫用。如果之後被亂用，再加一道固定的上傳密碼。
+- 恢復碼弄丟，雲端的資料就永遠解不開（伺服器沒有金鑰）。到時只能重新開啟（會產生新的恢復碼，舊的雲端資料作廢）。
+
 ## 要先確認才能做
 
 - **Apple 健康（HealthKit）、Apple Watch**：要先測 FlareStore 憑證支不支援 HealthKit entitlement、
   未簽名 IPA 用 Feather 能不能裝 Watch App。先做小測試版，不要直接承諾。
-- 不支援 CloudKit，所以沒有 iCloud 同步；換手機靠匯出／匯入。
+- 不支援 CloudKit，所以沒有 iCloud 同步；換手機靠匯出／匯入，或 0.43.0 的加密雲端備份（Cloudflare，見下）。
 
 ## 遠端分支清理（2026-11-22 確認）
 

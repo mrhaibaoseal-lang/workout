@@ -181,7 +181,7 @@ enum Planner {
         var option: PlanOption?
         if allDayEvent {
             option = nil
-        } else if !tired, let f = fit(fullNeeds) {
+        } else if !tired, WorkoutLength.preferred == .full, let f = fit(fullNeeds) {
             option = PlanOption(length: .full, start: f.start, score: 3 - (f.early ? 0.7 : 0) - load)
         } else if let s = fit(shortNeeds) {
             option = PlanOption(length: .short, start: s.start,

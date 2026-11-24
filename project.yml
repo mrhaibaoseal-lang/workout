@@ -35,6 +35,7 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSFaceIDUsageDescription: 查看雲端備份的恢復碼前，先確認是你本人。
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: 練壯會讀取行事曆裡的活動，自動避開有事的時間來排訓練。
 
   WorkoutTests:

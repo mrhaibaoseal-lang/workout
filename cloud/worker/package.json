@@ -1,0 +1,17 @@
+{
+  "name": "workout-sync-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "練壯：端對端加密雲端備份的 Cloudflare Worker（只存密文）",
+  "scripts": {
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/worker.test.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.6.0"
+  },
+  "type": "module"
+}

@@ -11,6 +11,7 @@
 - 發佈方式：workflow 最後呼叫 `mrhaibaoseal-lang/feather-source@main` 的 action，把 IPA 發佈成 Release，私人 Feather 來源（Cloudflare Worker）會自動收錄。repo 必須是 public。
 - Feather 靠版本號判斷「有更新」：build 號用 `${{ github.run_number }}`，每次都會遞增。
 - **每次推送有功能或介面變更，都要升 `project.yml` 的 `MARKETING_VERSION`**（使用者靠它辨認版本）：新功能／改版升次版本（0.5.0 → 0.6.0），小修正升修訂號（0.5.0 → 0.5.1）。回報時寫成「0.5.0（build 號）」。
+  - **版號在合進 main 時才定**（2026-11-25 起，多個 session 平行做時撞過號）：合併前先 `git fetch`，看 `origin/main` 的 `MARKETING_VERSION`，用下一個空號；分支上原本寫的號碼不算數。改完版號要再編譯成功一次才推 main。
 - **推不推 main 由 Claude 自己判斷，不用問**（使用者已授權）。新的 session 是從 main 開始的，
   沒合進 main 的改動，下一次做新功能時就讀不到（之前發生過好幾個分支的工作都沒進 main）。
   - **要推**：改動已完成，而且①這個版本在 GitHub Actions 編譯成功，或②只改文件／說明（`[skip ci]`）。

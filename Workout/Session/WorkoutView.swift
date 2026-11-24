@@ -1189,6 +1189,7 @@ struct WorkoutView: View {
             }
         }
         try? context.save()
+        CloudSync.shared.scheduleUpload()
         WorkoutResume.clear()
         recordJumpState(at: now)
         // 這次發了什麼：刪掉這筆紀錄時收回（`SessionGrants`）

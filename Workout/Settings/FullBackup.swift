@@ -73,8 +73,8 @@ enum FullBackup {
 
     private static var domain: String { Bundle.main.bundleIdentifier ?? "com.mrhaibaoseal.workout" }
 
-    /// 不放進備份的 key：訓練到一半的進度（換手機後接著練沒有意義）
-    static let skippedKeys: Set<String> = [Keys.workoutInProgress]
+    /// 不放進備份的 key：訓練到一半的進度（換手機後接著練沒有意義）、雲端同步的狀態（每次同步都會變，放進去會一直判斷成「有變更」）
+    static let skippedKeys: Set<String> = [Keys.workoutInProgress, Keys.cloudLastSync, Keys.cloudLastError, Keys.cloudLastHash]
 
     static func make(context: ModelContext, now: Date = .now) throws -> File {
         let sessions = try context.fetch(FetchDescriptor<WorkoutSession>(sortBy: [SortDescriptor(\.date)]))

@@ -1,0 +1,72 @@
+name: Deploy cloud worker
+
+# 加密雲端備份的 Cloudflare Worker（cloud/worker）。只在 main 上、而且這個資料夾有變更時部署。
+# 需要 repo secrets：CLOUDFLARE_API_TOKEN、CLOUDFLARE_ACCOUNT_ID（設定步驟見 docs/roadmap.md）。
+# 沒設 secrets 時只跑型別檢查和測試，不會失敗。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cloud/worker/**"
+      - ".github/workflows/deploy-worker.yml"
+  pull_request:
+    paths:
+      - "cloud/worker/**"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud/worker
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: cloud/worker/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test (fake D1 on node:sqlite)
+        run: npm test
+
+      - name: Check secrets and D1 id
+        id: ready
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::notice::沒有設定 CLOUDFLARE_API_TOKEN／CLOUDFLARE_ACCOUNT_ID，跳過部署"
+            echo "deploy=no" >> "$GITHUB_OUTPUT"
+          elif grep -q "REPLACE_WITH_D1_DATABASE_ID" wrangler.toml; then
+            echo "::warning::wrangler.toml 的 database_id 還沒填，跳過部署"
+            echo "deploy=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy
+        if: steps.ready.outputs.deploy == 'yes'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloud/worker
+          wranglerVersion: "4"
+          # 先套用 D1 的資料表（已經套過的會自動略過），再部署
+          preCommands: npx wrangler d1 migrations apply workout-sync --remote

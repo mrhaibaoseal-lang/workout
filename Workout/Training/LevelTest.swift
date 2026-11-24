@@ -9,7 +9,7 @@ extension Keys {
 /// 取代「體重 × 0.5」的推估（`StartWeight.noviceEstimate`）。每一項都可以跳過。
 /// - 伏地挺身最多幾下：伏地挺身大約推起體重的 64%，換算成臥推的推估最大力量。
 /// - 高腳杯深蹲做 10 下（還剩 2 下左右）用幾公斤。
-/// - 單手啞鈴划船做 10 下（還剩 2 下左右）用幾公斤。
+/// - 單手啞鈴划船：挑一個重量，左右手各做到還剩 2 下左右，記兩邊各做幾下（0.43.0；兩邊差 2 下以上自動設弱邊）。
 /// 換算成各動作的 e1RM 後，當作「做過的動作」給 `StartWeight.estimate` 參考；真的練過的動作一律優先。
 enum LevelTest {
     struct Result: Codable, Equatable {
@@ -19,6 +19,18 @@ enum LevelTest {
         var date: Double
         /// 測試當下的體重（0.33.1；伏地挺身換算要用）。舊資料沒有，用目前記的體重
         var bodyWeight: Double? = nil
+        /// 0.43.0：單手划船左右手各做到幾下（同一個重量、還剩 2 下左右）。舊資料沒有，換算用 `testReps`
+        var rowLeftReps: Int? = nil
+        var rowRightReps: Int? = nil
+    }
+
+    /// 划船兩手差幾下以上，就自動把較弱的那手設成弱邊
+    static let weakArmGap = 2
+
+    /// 划船實測哪一手比較弱；兩手都有填、而且差 2 下以上才有結果。
+    static func measuredWeakArm(_ r: Result) -> WeakSide? {
+        guard let l = r.rowLeftReps, let rt = r.rowRightReps, abs(l - rt) >= weakArmGap else { return nil }
+        return l < rt ? .left : .right
     }
 
     /// 伏地挺身撐起的體重比例
@@ -51,7 +63,9 @@ enum LevelTest {
             out["goblet_squat"] = Comeback.e1rm(weight: w, reps: testReps, rir: testRIR)
         }
         if let w = r.rowKg, w > 0 {
-            out["db_row"] = Comeback.e1rm(weight: w, reps: testReps, rir: testRIR)
+            // 兩手都測了就用弱的那手（偏保守）；舊資料沒記次數，當作做了 10 下
+            let reps = [r.rowLeftReps, r.rowRightReps].compactMap { $0 }.filter { $0 > 0 }.min() ?? testReps
+            out["db_row"] = Comeback.e1rm(weight: w, reps: min(reps, maxRepsForE1RM), rir: testRIR)
         }
         return out
     }
@@ -76,7 +90,13 @@ enum LevelTest {
         var parts: [String] = []
         if let n = r.pushups { parts.append("伏地挺身 \(n) 下") }
         if let w = r.gobletKg { parts.append("深蹲 \(Progression.format(w)) kg") }
-        if let w = r.rowKg { parts.append("划船 \(Progression.format(w)) kg") }
+        if let w = r.rowKg {
+            if let l = r.rowLeftReps, let rt = r.rowRightReps {
+                parts.append("划船 \(Progression.format(w)) kg（左 \(l)／右 \(rt) 下）")
+            } else {
+                parts.append("划船 \(Progression.format(w)) kg")
+            }
+        }
         return parts.isEmpty ? "都跳過了" : parts.joined(separator: " · ")
     }
 }
@@ -94,8 +114,19 @@ struct LevelTestView: View {
     @State private var goblet = 8.0
     @State private var doRow = false
     @State private var row = 8.0
+    @State private var rowLeft = 10
+    @State private var rowRight = 10
 
     private var anyOn: Bool { doPushups || doGoblet || doRow }
+
+    private var rowDetail: String {
+        var text = "一手一膝撐在椅子上。挑一個重量，左手做到覺得還能再做 2 下左右就停，記下次數；休息一下，右手用同一個重量再做一次。"
+        if doRow, abs(rowLeft - rowRight) >= LevelTest.weakArmGap {
+            let weak = rowLeft < rowRight ? "左" : "右"
+            text += "\n兩手差 \(abs(rowLeft - rowRight)) 下：存起來以後會把「\(weak)手」設成比較弱的那邊（左右平衡）。"
+        }
+        return text
+    }
 
     var body: some View {
         Form {
@@ -115,18 +146,25 @@ struct LevelTestView: View {
                  detail: "雙手捧一個啞鈴在胸前，挑一個做完 10 下大概還能再做 2 下的重量。") {
                 Stepper("\(Progression.format(goblet)) kg", value: $goblet, in: 1...60, step: 0.5)
             }
-            item(on: $doRow, title: "單手啞鈴划船 10 下用幾公斤",
-                 detail: "一手一膝撐在椅子上，挑一個做完 10 下大概還能再做 2 下的重量（填一支的重量）。") {
-                Stepper("\(Progression.format(row)) kg", value: $row, in: 1...60, step: 0.5)
+            item(on: $doRow, title: "單手啞鈴划船：左右手各做幾下",
+                 detail: rowDetail) {
+                Stepper("\(Progression.format(row)) kg（一支的重量）", value: $row, in: 1...60, step: 0.5)
+                Stepper("左手 \(rowLeft) 下", value: $rowLeft, in: 1...30)
+                Stepper("右手 \(rowRight) 下", value: $rowRight, in: 1...30)
             }
 
             Section {
                 Button(anyOn ? "存起來" : "先打開做過的項目") {
-                    LevelTest.save(LevelTest.Result(pushups: doPushups ? pushups : nil,
-                                                    gobletKg: doGoblet ? goblet : nil,
-                                                    rowKg: doRow ? row : nil,
-                                                    date: Date().timeIntervalSince1970,
-                                                    bodyWeight: doPushups ? bodyWeight : nil))
+                    let result = LevelTest.Result(pushups: doPushups ? pushups : nil,
+                                                  gobletKg: doGoblet ? goblet : nil,
+                                                  rowKg: doRow ? row : nil,
+                                                  date: Date().timeIntervalSince1970,
+                                                  bodyWeight: doPushups ? bodyWeight : nil,
+                                                  rowLeftReps: doRow ? rowLeft : nil,
+                                                  rowRightReps: doRow ? rowRight : nil)
+                    LevelTest.save(result)
+                    // 實測兩手差 2 下以上：以實測為準，自動設成弱邊
+                    if let weak = LevelTest.measuredWeakArm(result) { SideBalance.set(weak, for: .arm) }
                     if doPushups { StartWeight.noteBodyWeight(bodyWeight, date: .now) }
                     finish()
                 }
@@ -161,6 +199,7 @@ struct LevelTestView: View {
         doPushups = r.pushups != nil; pushups = r.pushups ?? pushups
         doGoblet = r.gobletKg != nil; goblet = r.gobletKg ?? goblet
         doRow = r.rowKg != nil; row = r.rowKg ?? row
+        rowLeft = r.rowLeftReps ?? rowLeft; rowRight = r.rowRightReps ?? rowRight
         if let w = r.bodyWeight, w > 0 { bodyWeight = w }
     }
 
