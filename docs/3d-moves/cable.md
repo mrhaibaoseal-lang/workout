@@ -3,7 +3,10 @@
 負責：Claude（動作）。滑輪 A 批：`tricepsPushdown`、`overheadCableExt`、`straightArmPulldown`、`facePull`、`cableCrunch`；`latPulldown` 不另做（結論見最後）。
 節奏：48 格一循環（12 fps 預覽＝4 秒）。角度範圍同時寫在 `cable.py` 檔頭 `MOVE_META` 的 `angles`（`clipbatch.py` 判定），**範圍照本卡，不照量到的值**。
 
-## 器材假設（要使用者確認）
+## 器材假設（使用者 2026-11-24 回覆：**椅子和立柱是一體的，不能分開 → 下面「椅子可移開」的假設不成立，站、跪的 4 個動作要重做**）
+
+重做時椅子一定在場（`build_bench`）：要改成坐在椅子上做、或跨站／跪在椅子旁，姿勢和鋼索角度都要重想；`build_tower()` 只剩舊版預覽用。
+
 
 使用者的機器是「椅子＋高位下拉架一體」，**只有高位滑輪**（頂端，z≈2.0 m），附件：直槓（兩端下彎）、三頭繩、兩個 D 型把手。
 - `pulldown`（已完成）坐在椅子上，用整台機器（`build_bench`）。
