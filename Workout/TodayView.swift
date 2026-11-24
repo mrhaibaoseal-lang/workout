@@ -41,6 +41,7 @@ struct TodayView: View {
     @AppStorage(Keys.lastRankIndex) private var lastRankIndex = -1
     @AppStorage(Keys.lastRankPoints) private var lastRankPoints = -1
     @AppStorage(Keys.lastRankCheck) private var lastRankCheck: Double = 0
+    @AppStorage(Keys.rankRules) private var rankRules = 1
     @AppStorage(Keys.lastSettledWeek) private var lastSettledWeek: Double = 0
     @State private var rankChange: RankChange?
     @State private var intake: RankIntake?
@@ -192,7 +193,9 @@ struct TodayView: View {
                               shields: current.shields,
                               activeBet: ctx.bets.first(where: { $0.week == current.week }),
                               onSheet: { goalSheet = $0 })
-                    RankCard(rank: RankEngine.rank(sessions: sessions, goal: weeklyGoal, ctx: ctx), intake: intake)
+                    let rank = RankEngine.rank(sessions: sessions, goal: weeklyGoal, ctx: ctx)
+                    RankCard(rank: rank, intake: intake,
+                             gate: RankEngine.nextGate(sessions: sessions, goal: weeklyGoal, rank: rank, ctx: ctx))
                     // 5. 其他
                     SectionHeader(title: "更多")
                     weekVolume
@@ -279,6 +282,16 @@ struct TodayView: View {
         let events = RankEngine.ledger(sessions: sessions, goal: weeklyGoal)
         let points = RankEngine.total(events)
         let r = Rank(points: points)
+
+        // 牌位規則改版（門檻、扣分、晉級條件）：分數會整個重算，不要因此播掉段動畫，直接記下新狀態
+        if rankRules != RankEngine.rulesVersion {
+            rankRules = RankEngine.rulesVersion
+            if lastRankPoints >= 0 {
+                lastRankPoints = points
+                lastRankIndex = r.index
+                lastRankCheck = Date().timeIntervalSince1970
+            }
+        }
 
         // 1. 每週結算（週一第一次打開）
         let weekly = events.filter(\.isSettlement)

@@ -15,7 +15,7 @@
 - 動作：`CharacterMove` 約 60 個（訓練 ~40、熱身 8、伸展 10、休息頁 3）。動作庫 99 個動作會對應到這些示範。
   2D 版的角度資料在 `scripts/art/moves.js`，可當作 3D 的參考（側面角度 → 3D 要補左右寬度、手腳釘點）。
 - 裝備：12 系列 × 8 部位 ＝ 96 件（`GearCatalog.swift`）。CLAUDE.md 的美術規定照樣適用（灰階認得出、同部位不撞形、越稀有越華麗）。
-  目前做了 3D 測試版的系列：鈦甲（titan）、冰霜（frost，預覽 `docs/art/blender/frost.png`）、小豬（pig，預覽 `docs/art/blender/pig.png`；2026-11-24 使用者臨時提的新系列，還沒加進 `GearCatalog`／App），可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
+  目前做了 3D 測試版的系列：鈦甲（titan）、冰霜（frost，預覽 `docs/art/blender/frost.png`）、小豬（pig，預覽 `docs/art/blender/pig.png`；2026-11-24 使用者臨時提的新系列，還沒加進 `GearCatalog`／App）、英雄類四套夜巡者（night）、曙光（dawn）、符文戰神（rune）、星界魔導（astral）（2026-11-25 使用者定案，預覽 `docs/art/blender/heroes.png`），可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
 
 ## 防穿模（動作多、造型多，小穿模可接受，但要系統化排除）
 三層做法，越前面越省事：
@@ -71,7 +71,34 @@
    - 動作：`hero3d_clip_<動作>.json`（每格每根骨頭的局部變換）由 App 寫進 `jointTransforms`，換動作不用另一份模型；
      接地高度依穿著的零件即時算（每個零件每格的最低點）。USD 內建動畫也留著做對照。
    - 已知未做：上衣／下身（塗在身體上的衣服、長褲網格）還不能在 App 裡換；發光沒有泛光（bloom）。
-   - 試做結果：3 套（基本、冰霜、鈦甲）共 67 個網格、10 萬頂點、USDZ 9.9 MB。描邊外殼占一半頂點，12 套要再減量。
+   - 試做結果：3 套（基本、冰霜、鈦甲）共 67 個網格、10 萬頂點、USDZ 9.9 MB。描邊外殼占一半頂點（51,951／104,070），12 套要再減量。
+   - **0.38.0～0.38.2 試做（著色器描邊、泛光已上機可用；剩下的待辦見 `docs/roadmap.md`）**：
+     - 著色器描邊：每個本體 clone 一個帶同一副骨架的實體，網格用本體的卡通材質 part（同位置頂點的法線取平均），
+       `outlineGeom`（geometry modifier）沿法線外撐、剔除正面。成立的話 `export_app.py` 不用再烘 `__ol`，USDZ 約減半。
+       上機（0.38.1）：動作中描邊跟著身體、粗細與烘好的一樣，只有眼睛少框（當時只描卡通材質）→ 0.38.2 改成全部零件都描。
+     - 泛光：`ARView.renderCallbacks.postProcess`（`Hero3DBloom.swift`＋`Bloom.metal`），1/4 解析度挑亮→MPS 模糊→疊回。
+       靠亮度挑發光：開泛光時一般材質亮度上限 0.88（`specular_scale`），發光材質（flat、強度 ≥ 2）把最亮的通道拉到 1。
+       診斷列出來源貼圖格式，用來判斷上限／門檻要不要改。
+       0.38.0 閃退：init 裡連設兩次 `renderCallbacks`（RealityKit setter 斷言）。改成只在第一次開泛光時設一次 postProcess、之後只切 enabled；泛光預設關。
+     - 0.39.0：`export_app.py` 不再烘 `__ol` 外殼（直接刪 solidify），USDZ 9.9 → 5.0 MB、頂點 ~10 萬 → 52,119；測試頁描邊固定用著色器。
+   **上衣／下身換裝（設計定案 2026-11-25，還沒做）**：
+   - 現況：上衣、下身只在 hero_proto 建模時依 `G['top']`／`G['bottom']` 決定，`EXPORT=` 只帶剛性部位，App 換不了。
+     塗色＝身體頂點屬性（`tank`、`frst`、`pgbelly`…，>0＝在衣服裡）＋材質節點鏈（`toon(alt=…)` 再疊 `add_layer`，每層「屬性>0 換色」）。
+     身體面另有區域：材質 0＝皮膚（上衣塗色）、1＝鈦甲緊身衣底下、2＝褲子底下（`hero_proto.py` 約 261 行）。
+   - 做法：**身體只留一份網格＋每系列烘兩張貼圖**（上衣一張、下身一張），App 換貼圖就換裝，網格不動、不會穿模。
+     1. 每個系列各跑一次 hero_proto（`TOP=X BOTTOM=X`，靜止姿勢即可，可並行）。身體網格拓撲各次相同（先比對頂點數，不同就報錯）。
+     2. 身體展一次 UV（Smart UV Project，留邊距），算好「每個像素 → 三角形＋重心座標」對照表（外圍往外補 8 px 防接縫）。
+        每個系列：把材質節點鏈解析成「底色＋[(屬性, 顏色, 暗面倍率)…]」，屬性用重心座標內插到像素再判斷 >0，
+        直接得到每個像素的顏色。RGB＝亮面色，A＝暗面倍率（0＝不蓋，露出皮膚）。上衣圖只填區域 0、1 的面，下身圖只填區域 2。
+        不用 Cycles 烘（ShaderToRGB 不支援），用 Blender 內建 numpy 算。先 1024²，邊緣太糊再升 2048²。
+     3. 衣服網格另外匯出、跟身體同一副骨架：短褲 `bottom_short`、長褲 `bottom_long`、鈦甲緊身衣 `top_suit`，各自展 UV、每系列一張貼圖。
+        各系列的剛性小零件（冰霜胸章等）照舊是 `top_<系列>`、`bottom_<系列>` 零件。
+        從別次建模取來的網格，Armature 改指向基準那次的 rig（骨頭名稱、靜止姿勢相同）。
+     4. `Toon.metal`：身體材質先讀上衣圖，A>0 就用它，否則讀下身圖，再沒有就用皮膚色；明暗照舊（ndl → 亮面／暗面＝色×A）。
+        上衣圖放 `custom.texture`，下身圖放 baseColor 貼圖欄（unlit 不用它）。貼圖用 `TextureResource`、semantic `.raw`（避免 sRGB 轉換弄錯，顏色在 Python 先轉好）。
+     5. `hero3d.json` 加 `outfits: {top: {系列: 貼圖檔, mesh?}, bottom: {系列: 貼圖檔, mesh: short|long}}`；測試頁加「上衣」「下身」兩個選單，可混搭。
+     6. 接地高度（`low`）也要有 `bottom_short`、`bottom_long`、`top_suit` 各自一份。
+   - 檢查：灰階也認得出（美術規定）；混搭時腰部（z 0.95～1.05）不露縫；USDZ＋貼圖總大小記下來（每張 PNG 色塊多，預期 < 200 KB）。
 2. **動作全部做完**：依器材分批，每批出一張總覽圖給使用者看：
    站姿啞鈴（肩推、彎舉、側平舉、划船、硬舉…）→ 椅子（臥推、上斜、仰臥…，用 `build_bench` 調靠背角度）→
    滑輪（下拉、三頭下壓、面拉、划船…）→ 地板徒手（伏地挺身、棒式、臀橋…）→ 熱身 → 伸展。

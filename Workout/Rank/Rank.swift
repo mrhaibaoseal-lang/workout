@@ -24,11 +24,11 @@ enum RankTier: Int, CaseIterable, Identifiable {
         switch self {
         case .iron: 50
         case .bronze: 75
-        case .silver: 100
-        case .gold: 125
-        case .platinum: 150
-        case .diamond: 200
-        case .master: 900
+        case .silver: 110
+        case .gold: 160
+        case .platinum: 240
+        case .diamond: 360
+        case .master: 2000
         case .champion: 0
         }
     }
@@ -96,8 +96,8 @@ struct RankEvent: Identifiable {
 
     let id = UUID()
     let date: Date
-    let delta: Int
-    let reason: String
+    var delta: Int
+    var reason: String
     var kind: Kind = .workout
     /// 不加減分的項目（保護卡、押注、請假週）顯示這段文字代替分數。
     var valueText: String? = nil
@@ -112,6 +112,8 @@ struct RankEvent: Identifiable {
 
 /// 從訓練紀錄算出積分；不另外存資料，所以刪紀錄、改週目標都會自動重算。
 enum RankEngine {
+    /// 規則改版就加 1：今天頁會直接記下重算後的牌位，不播晉級／掉段動畫
+    static let rulesVersion = 2
     static let fullPoints = 20
     static let shortPoints = 12
     static let minimalPoints = 5
@@ -171,7 +173,8 @@ enum RankEngine {
 
         // 每週結算：達標加分、連續達標加碼；沒練的週扣分。本週還沒結束，不結算。
         // 新規則（這版裝上之後的週）：請假會降低週目標、請假 4 天以上不結算、保護卡、排程排不出來的週不罰。
-        for r in GoalEngine.weeks(dates: dates, goal: goal, ctx: ctx, now: now) {
+        let weekRecords = GoalEngine.weeks(dates: dates, goal: goal, ctx: ctx, now: now)
+        for r in weekRecords {
             let settle = r.end.addingTimeInterval(-1)
             switch r.outcome {
             case .met:
@@ -214,7 +217,117 @@ enum RankEngine {
                 }
             }
         }
-        return events.sorted { $0.date < $1.date }
+        return applyTierRules(events.sorted { $0.date < $1.date }, weeks: weekRecords, facts: facts, goal: goal)
+    }
+
+    // MARK: 越高越難
+
+    /// 沒練的週扣分倍率：牌位越高扣越多。
+    static func penaltyMultiplier(_ tier: RankTier) -> Double {
+        switch tier {
+        case .iron, .bronze, .silver: 1
+        case .gold, .platinum: 1.5
+        case .diamond: 2
+        case .master, .champion: 3
+        }
+    }
+
+    static func multiplierText(_ m: Double) -> String {
+        m == m.rounded() ? "×\(Int(m))" : "×\(m)"
+    }
+
+    /// 進入這些牌位前要先達成的條件（分數夠了也會卡在上一階的最後 1 分）。
+    struct Gate {
+        let tier: RankTier
+        /// 連續達標幾週
+        let weeks: Int
+        /// 這幾週裡，完整訓練的天數至少佔週目標的多少
+        let fullShare: Double
+    }
+
+    static let gates: [Gate] = [
+        Gate(tier: .platinum, weeks: 2, fullShare: 0),
+        Gate(tier: .diamond, weeks: 4, fullShare: 0.5),
+        Gate(tier: .master, weeks: 6, fullShare: 0.75),
+        Gate(tier: .champion, weeks: 8, fullShare: 1),
+    ]
+
+    static func gate(for tier: RankTier) -> Gate? { gates.first { $0.tier == tier } }
+
+    struct GateProgress {
+        let gate: Gate
+        let streak: Int
+        let full: Int
+        let needFull: Int
+        var streakMet: Bool { streak >= gate.weeks }
+        var fullMet: Bool { full >= needFull }
+        var met: Bool { streakMet && fullMet }
+        var tier: RankTier { gate.tier }
+        var summary: String {
+            var s = "連續達標 \(min(streak, gate.weeks))/\(gate.weeks) 週"
+            if needFull > 0 { s += "・完整訓練 \(min(full, needFull))/\(needFull) 天" }
+            return s
+        }
+    }
+
+    /// `weeks` 只能包含已經結算的週。完整訓練只算目前連續達標裡最近的幾週。
+    static func progress(_ g: Gate, weeks: [WeekRecord], fullDays: [Date], goal: Int) -> GateProgress {
+        let streak = weeks.last?.rankStreak ?? 0
+        var taken: [WeekRecord] = []
+        for w in weeks.reversed() {
+            if w.outcome == .missed || taken.count == g.weeks { break }
+            if w.outcome == .met { taken.append(w) }
+        }
+        let goals = taken.reduce(0) { $0 + $1.goal } + (g.weeks - taken.count) * goal
+        let need = Int((Double(goals) * g.fullShare).rounded(.up))
+        let full = fullDays.filter { d in taken.contains { d >= $0.start && d < $0.end } }.count
+        return GateProgress(gate: g, streak: streak, full: full, needFull: need)
+    }
+
+    static func fullDays(_ facts: [SessionFact]) -> [Date] {
+        Array(Set(facts.filter { $0.length == .full }.map { Calendar.current.startOfDay(for: $0.date) })).sorted()
+    }
+
+    /// 依序走過每一筆：高牌位扣分加倍、跨進有條件的牌位前檢查條件，沒達成就只算到上一階的最後 1 分。
+    private static func applyTierRules(_ events: [RankEvent], weeks: [WeekRecord], facts: [SessionFact],
+                                       goal: Int) -> [RankEvent] {
+        let full = fullDays(facts)
+        var running = 0
+        var out: [RankEvent] = []
+        for var e in events {
+            if e.kind == .weekly && e.delta < 0 {
+                let tier = Rank(points: running).tier
+                let m = penaltyMultiplier(tier)
+                if m != 1 {
+                    e.delta = Int((Double(e.delta) * m).rounded())
+                    e.reason += "（\(tier.name) \(multiplierText(m))）"
+                }
+            }
+            if e.delta > 0 {
+                let target = running + e.delta
+                for g in gates where g.tier.floor > running && g.tier.floor <= target {
+                    let settled = weeks.filter { $0.end.addingTimeInterval(-1) <= e.date }
+                    if !progress(g, weeks: settled, fullDays: full, goal: goal).met {
+                        let got = g.tier.floor - 1 - running
+                        e.reason += "・升\(g.tier.name)條件未達，只入帳 +\(got)（原本 +\(e.delta)）"
+                        e.delta = got
+                        break
+                    }
+                }
+            }
+            running = max(0, running + e.delta)
+            out.append(e)
+        }
+        return out
+    }
+
+    /// 下一個有條件的牌位，在目前牌位的下一階才回傳（給畫面顯示進度）。
+    static func nextGate(sessions: [WorkoutSession], goal: Int, rank: Rank, now: Date = .now,
+                         ctx: GoalContext = .load()) -> GateProgress? {
+        guard let next = RankTier(rawValue: rank.tier.rawValue + 1), let g = gate(for: next) else { return nil }
+        let facts = GoalEngine.facts(sessions)
+        let weeks = GoalEngine.weeks(dates: facts.map(\.date), goal: goal, ctx: ctx, now: now)
+        return progress(g, weeks: weeks, fullDays: fullDays(facts), goal: goal)
     }
 
     /// 依序加總，分數不會低於 0。

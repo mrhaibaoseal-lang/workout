@@ -2,6 +2,8 @@
 // 對照 Blender 原型 hero_proto.py 的 toon()：兩階明暗＋亮面＋邊緣光，金屬多一塊硬邊高光。
 // 參數：base_color_tint＝亮面色；custom_parameter＝(塗色 rgb, 暗面倍率)；roughness＝塗色的暗面倍率；metallic > 0.5＝有高光。
 // 塗在身體上的衣服（背心）：uv0.x > 0 的地方換成塗色。
+// 泛光（Bloom.metal）靠亮度挑出發光部位：specular_scale＝一般材質的亮度上限（開泛光時 < 1），
+// 發光材質（flat、custom_parameter.w = 1）不設上限、還把最亮的通道拉到 1，只有它們超過門檻。
 #include <metal_stdlib>
 #include <RealityKit/RealityKit.h>
 using namespace metal;
@@ -38,14 +40,33 @@ static half3 toonColor(realitykit::surface_parameters params)
 [[visible]]
 void toonSurface(realitykit::surface_parameters params)
 {
+    half cap = half(params.material_constants().specular_scale());
     params.surface().set_base_color(half3(0));
-    params.surface().set_emissive_color(toonColor(params));
+    params.surface().set_emissive_color(min(toonColor(params), half3(cap)));
 }
 
 // 發光、眼睛、描邊：純色
 [[visible]]
 void flatSurface(realitykit::surface_parameters params)
 {
+    auto mc = params.material_constants();
+    half3 c = half3(mc.base_color_tint());
+    half cap = half(mc.specular_scale());
+    if (params.uniforms().custom_parameter().w > 0.5 && cap < 0.999h) {
+        c = c / max(max(c.r, max(c.g, c.b)), 0.001h);
+    } else {
+        c = min(c, half3(cap));
+    }
     params.surface().set_base_color(half3(0));
-    params.surface().set_emissive_color(half3(params.material_constants().base_color_tint()));
+    params.surface().set_emissive_color(c);
+}
+
+// 著色器描邊：同一份網格再畫一次，沿（平滑過的）法線往外撐 custom_parameter.x 公尺，剔除正面。
+// 法線由 App 把同位置的頂點平均過，硬邊零件撐開才不會裂。
+[[visible]]
+void outlineGeom(realitykit::geometry_parameters params)
+{
+    float w = params.uniforms().custom_parameter().x;
+    float3 n = normalize(params.geometry().normal());
+    params.geometry().set_model_position_offset(n * w);
 }
