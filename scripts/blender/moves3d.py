@@ -272,6 +272,33 @@ def bridge_pose(phi, C, foot_y, lam_pelvis=0.0, foot_x=0.12, trunk_c=0.40):
         J[s] = hj
     return hh, c, sh, J
 
+# ---------- 滑輪 A 批共用（Claude 動作，2026-11-24 新增；moves/cable.py 用）----------
+def stand_legs(width=0.14, hip_z=0.925, hip_y=0.0, stagger=0.0, ankle_w=None):
+    """雙腳站、膝蓋微彎。width＝髖關節左右位置、ankle_w＝腳踝左右位置（預設同 width；跨站在椅子兩側時腳踝要比髖寬）。
+    stagger＝前後錯開的距離（左腳在前、右腳在後各一半；髖要降低才踩得到）。回傳髖中心位置。"""
+    aw = width if ankle_w is None else ankle_w
+    for s, sx in SX:
+        hj = Vector((width * sx, hip_y, hip_z)); an = Vector((aw * sx, hip_y + 0.01 - stagger / 2 * sx, 0.11))
+        leg_to(s, hj, an, Vector((0.12 * sx, -1, 0)))
+    return Vector((0, hip_y, hip_z))
+
+def elbow_hinge(sh, t, u, flex, th0, th1, hand_roll=0.0):
+    """三頭族群的範本（tricepsPushdown、overheadCableExt、straightArmPulldown 共用）：兩邊對稱，上臂固定方向、手肘角度固定或只動手肘。
+    sh＝肩位置 {L,R}；u＝上臂方向（左側的，右側 x 鏡像）；flex＝前臂往哪邊彎（垂直於 u 的分量會被取出）；
+    手肘內角從 th0（t=0）到 th1（t=1），單位弧度，π＝伸直。手朝前臂方向。回傳 {左右: (手肘, 手腕)}
+    不釘手腕（直接 aim 三節骨頭）：手臂舉高時鎖骨會把肩膀抬高，釘手腕會把手肘硬壓彎；不釘的話整條手臂跟著肩膀平移，手肘角度照設定。
+    要握東西的動作，器材的位置請在 keyall 之後從 hand 骨頭量（hand_grip_frame）。"""
+    th = th0 + (th1 - th0) * t; out = {}
+    for s, sx in SX:
+        us = Vector((u.x * sx, u.y, u.z)).normalized()
+        fl = Vector((flex.x * sx, flex.y, flex.z)); fl = (fl - us * fl.dot(us)).normalized()
+        e = sh[s] + us * blen[f'upper_arm.{s}']
+        fd = -us * math.cos(th) + fl * math.sin(th)
+        w = e + fd * blen[f'forearm.{s}']
+        aim(f'upper_arm.{s}', sh[s], e - sh[s]); aim(f'forearm.{s}', e, w - e); aim(f'hand.{s}', w, fd, hand_roll)
+        out[s] = (e, w)
+    return out
+
 MOVE = os.environ.get('MOVE', 'squat')
 CAM = dict(loc=(4.2, -3.9, 1.7), tgt=(0, 0, 0.95), lens=70, stage=(0, 0, 0.62))
 

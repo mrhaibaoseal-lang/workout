@@ -24,6 +24,7 @@ if want('head', 'titan'):
         obox('head', 'ti', (0.15 * sx, -0.06, 1.80), (0.012, 0.07, 0.02), (0.3 * sx, 0, 1), w=0.005)  # 側邊天線
 
 # ---------- 胸甲＋腹甲＋核心 ----------
+OVERHEAD_MOVES = {'press', 'overheadCableExt', 'straightArmPulldown', 'pulldown', 'closePulldown'}   # 手會舉過頭的動作（見肩甲）
 if want('top', 'titan'):
     shell('chest', 'ti', trap(1.20, 1.47, 0.20, 0.145, 0.285, 0.155, -0.005, 0.0))
     shell('chest', 'tidk', trap(1.43, 1.50, 0.12, 0.11, 0.13, 0.10), 0.015)              # 頸圈
@@ -39,10 +40,13 @@ if want('top', 'titan'):
     obox('hips', 'tidk', (0, -0.005, 0.99), (0.17, 0.115, 0.03), w=0.012)                  # 腰帶
     obox('hips', 'glow', (0, -0.12, 0.99), (0.03, 0.006, 0.02), w=0)
     for s, sx in (('L', 1), ('R', -1)):
-        # 肩甲：兩層
-        ellipsoid(f'upper_arm.{s}', 'ti', (0.28 * sx, 0, 1.44), (0.125, 0.125, 0.085))
+        # 肩甲：兩層。手舉過頭的動作（OVERHEAD_MOVES）上層亮殼＋發光條綁鎖骨，跟著肩膀上提、一直蓋在肩頭；
+        # 其他動作（例如側平舉）維持整個綁上臂（使用者 2026-11-25 看圖決定：側平舉綁上臂好看，手舉過頭綁鎖骨好看）。下層暗色裙甲永遠跟上臂。
+        # 新增手舉過頭的動作要把名稱加進這裡。
+        sh_bone = f'clavicle.{s}' if MOVE in OVERHEAD_MOVES else f'upper_arm.{s}'
+        ellipsoid(sh_bone, 'ti', (0.28 * sx, 0, 1.44), (0.125, 0.125, 0.085))
         ellipsoid(f'upper_arm.{s}', 'tidk', (0.31 * sx, 0, 1.39), (0.10, 0.11, 0.06))
-        obox(f'upper_arm.{s}', 'glow', (0.30 * sx, 0, 1.512), (0.05, 0.08, 0.006), w=0)
+        obox(sh_bone, 'glow', (0.30 * sx, 0, 1.512), (0.05, 0.08, 0.006), w=0)
 
 # ---------- 機械手甲 ----------
 if want('hands', 'titan'):
