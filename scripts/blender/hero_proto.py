@@ -26,6 +26,7 @@ for _f in sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(sys.argv
             for _k, _v in ast.literal_eval(_n.value).items():
                 assert _k not in MOVES, f'動作名稱重複：{_k}（{MOVES[_k]["file"]} 和 {os.path.basename(_f)}）'
                 MOVES[_k] = dict(_v, file=os.path.basename(_f))
+MOVES['rigtest'] = {'file': os.path.join('..', 'rigtest.py')}   # 骨架極限姿勢測試（§6-1），不是動作
 assert MOVE in MOVES, f'MOVE={MOVE} 不在任何 moves/*.py 的 MOVE_META 裡：{sorted(MOVES)}'
 if not MOVES[MOVE].get('bell'):
     G['bell'] = 'none'          # 沒拿啞鈴的動作（伏地挺身、下拉…）
@@ -201,9 +202,13 @@ BONES = [  # name, head, tail, parent
     ('chest', (0, 0, 1.12), (0, 0, 1.50), 'hips'),
     ('head', (0, 0, 1.52), (0, 0, 1.90), 'chest'),
 ]
+# 這裡是「建模姿勢」（手臂下垂）：身體、衣服、所有裝備都照這個姿勢建（B[...] 是這個姿勢的骨頭位置）。
+# 合併前才整組轉成 A 字靜止姿勢（to_apose，§6-1），所以裝備檔不用管 A 字。
+# clavicle（鎖骨）：胸口到肩關節，肩膀上抬時由 moves3d.py 的 shoulder_follow 自動轉。
 for s, sx in (('L', 1), ('R', -1)):
     BONES += [
-        (f'upper_arm.{s}', (0.27 * sx, 0, 1.42), (0.33 * sx, 0.0, 1.14), 'chest'),
+        (f'clavicle.{s}', (0.06 * sx, 0, 1.43), (0.27 * sx, 0, 1.42), 'chest'),
+        (f'upper_arm.{s}', (0.27 * sx, 0, 1.42), (0.33 * sx, 0.0, 1.14), f'clavicle.{s}'),
         (f'forearm.{s}', (0.33 * sx, 0.0, 1.14), (0.35 * sx, -0.02, 0.90), f'upper_arm.{s}'),
         (f'hand.{s}', (0.35 * sx, -0.02, 0.90), (0.355 * sx, -0.02, 0.80), f'forearm.{s}'),
         (f'thigh.{s}', (0.11 * sx, 0, 0.94), (0.12 * sx, -0.01, 0.52), 'hips'),
@@ -290,32 +295,53 @@ for sx in (1, -1):
         HP += [((0.12 * sx, -0.01, 0.52), (0.066, 0.066)), ((0.12 * sx, 0.005, 0.38), (0.071, 0.069)), ((0.12 * sx, 0.01, 0.14), (0.048, 0.048))]
         HE += [(len(HP) - 4, len(HP) - 3), (len(HP) - 3, len(HP) - 2), (len(HP) - 2, len(HP) - 1)]
 shorts = skinmesh('shorts', 'shorts', HP, HE, 1.08 if BOT else 1.15)
-bpy.ops.object.select_all(action='DESELECT')
-skinbody.select_set(True)
-rig.select_set(True); bpy.context.view_layer.objects.active = rig
-bpy.ops.object.parent_set(type='ARMATURE_AUTO')
-skinbody.parent = None; skinbody.modifiers.clear()
-# 自動權重會讓手臂影響一路延伸到胸口中央，舉手時胸口皮膚會戳穿背心。
-# 軀幹範圍（|x|<0.20）的手臂權重全部改給胸部；0.20～0.27 之間漸變，肩關節外側才完全跟手臂。
-_ARMG = [f'{b}.{s}' for b in ('upper_arm', 'forearm', 'hand') for s in ('L', 'R')]
-_cg = skinbody.vertex_groups['chest']
-for v in skinbody.data.vertices:
-    if not (1.0 < v.co.z < 1.5): continue
-    k = min(max((abs(v.co.x) - 0.235) / 0.055, 0.0), 1.0)      # 0＝全給胸部、1＝不動
-    if k >= 1: continue
-    moved = 0.0
-    for g in list(v.groups):
-        n = skinbody.vertex_groups[g.group].name
-        if n in _ARMG:
-            nw = g.weight * k; moved += g.weight - nw
-            if nw > 0: skinbody.vertex_groups[n].add([v.index], nw, 'REPLACE')
-            else: skinbody.vertex_groups[n].remove([v.index])
-    if moved: _cg.add([v.index], moved, 'ADD')
-for o in (shirt, shorts):  # 衣服沿用身體的權重，彎曲時才不會穿模
-    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
-    dt = o.modifiers.new('dt', 'DATA_TRANSFER'); dt.object = skinbody; dt.use_vert_data = True
-    dt.data_types_verts = {'VGROUP_WEIGHTS'}; dt.vert_mapping = 'POLYINTERP_NEAREST'
-    bpy.ops.object.datalayout_transfer(modifier='dt'); bpy.ops.object.modifier_apply(modifier='dt')
+def skin_weights():
+    """身體自動權重（熱擴散）→ 關節漸變區加寬、平滑 → 衣服網格沿用身體權重。建模姿勢先算一次（轉 A 字用），A 字之後再重算。
+    §6-1：不再截斷權重（以前 |x|<0.235 的手臂權重全給胸部，漸變區只有 5 cm、跨在肩關節上，舉手就凹陷鼓包）；背心是塗色，不怕戳穿。"""
+    for o in [skinbody] + CLOTH: o.vertex_groups.clear()
+    bpy.ops.object.select_all(action='DESELECT')
+    skinbody.select_set(True)
+    rig.select_set(True); bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+    skinbody.parent = None; skinbody.modifiers.clear()
+    if APOSE_DONE: widen_joints(skinbody)
+    for o in CLOTH:  # 衣服沿用身體的權重，彎曲時才不會穿模
+        bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+        dt = o.modifiers.new('dt', 'DATA_TRANSFER'); dt.object = skinbody; dt.use_vert_data = True
+        dt.data_types_verts = {'VGROUP_WEIGHTS'}; dt.vert_mapping = 'POLYINTERP_NEAREST'
+        bpy.ops.object.datalayout_transfer(modifier='dt'); bpy.ops.object.modifier_apply(modifier='dt')
+CLOTH = [shirt, shorts] if TOP else [shorts]   # 基本款背心是塗色，shirt 網格下面會刪掉
+APOSE_DONE = False
+SMOOTH_ALL, SMOOTH_SHOULDER, SHOULDER_R = 3, 14, 0.15     # 全身平滑次數、肩膀區再加幾次、肩膀區半徑（公尺）
+def widen_joints(ob):
+    """權重平滑（沿網格的邊平均）：全身輕平滑去掉熱擴散的鋸齒，肩膀（肩關節 SHOULDER_R 內，往外漸弱）再多平滑幾次，
+    漸變區約 14 cm、置中在肩關節（2026-11-24 量：熱擴散原本 12 cm，偏手臂側）。最後每個頂點最多 4 根骨頭（App 即時蒙皮）。"""
+    import numpy as np
+    me_ = ob.data; nv = len(me_.vertices)
+    names = [g.name for g in ob.vertex_groups]; G = len(names)
+    W = np.zeros((nv, G))
+    for v in me_.vertices:
+        for g in v.groups: W[v.index, g.group] = g.weight
+    ed = np.array([e.vertices[:] for e in me_.edges])
+    deg = np.bincount(ed.ravel(), minlength=nv).astype(float)[:, None]
+    co = np.array([v.co[:] for v in me_.vertices])
+    mask = np.zeros(nv)
+    for s in ('L', 'R'):
+        d = np.linalg.norm(co - np.array(B[f'upper_arm.{s}'][0][:]), axis=1)
+        mask = np.maximum(mask, np.clip((SHOULDER_R - d) / (SHOULDER_R * 0.4), 0, 1))
+    def step(W, m):
+        acc = np.zeros_like(W); np.add.at(acc, ed[:, 0], W[ed[:, 1]]); np.add.at(acc, ed[:, 1], W[ed[:, 0]])
+        return W + 0.5 * m[:, None] * (acc / np.maximum(deg, 1) - W)
+    for _ in range(SMOOTH_ALL): W = step(W, np.ones(nv))
+    for _ in range(SMOOTH_SHOULDER): W = step(W, mask)
+    keep = np.argsort(-W, axis=1)[:, :4]
+    W2 = np.zeros_like(W); np.put_along_axis(W2, keep, np.take_along_axis(W, keep, 1), 1)
+    W2[W2 < 0.01] = 0; W2 /= np.maximum(W2.sum(1, keepdims=True), 1e-9)
+    for gi, n in enumerate(names):
+        grp = ob.vertex_groups[n]; grp.remove(range(nv))
+        idx = np.nonzero(W2[:, gi])[0]
+        for i in idx: grp.add([int(i)], float(W2[i, gi]), 'REPLACE')
+skin_weights()
 ARMG = [f'{b}.{s}' for b in ('upper_arm', 'forearm', 'hand') for s in ('L', 'R')]
 def arm_w(ob, vi):
     w = 0.0
@@ -399,14 +425,71 @@ for _n in _reads:
     _bad = [skinbody.data.vertices[i].co.z for i in _low if _a.data[i].value > 0]
     assert not _bad, f'身體塗色 {_n} 染到腰以下露出的皮膚 {len(_bad)} 個頂點（最低 z={min(_bad):.2f}）'
 
+# ---------- 轉成 A 字靜止姿勢（§6-1）：手臂外展 45°、腿外展 4° ----------
+# 靜止姿勢越接近動作的中間，最大轉角越小、線性蒙皮越不會塌。全部照建模姿勢建好之後才轉：
+# 身體和衣服網格用建模姿勢的權重彎過去（保持體積），剛性零件（手、鞋、裝備）整塊跟骨頭轉，再把這個姿勢設成靜止姿勢、重算身體權重。
+APOSE_ARM, APOSE_LEG = 45.0, 4.0           # 上臂離垂直幾度、大腿往外張幾度
+def to_apose():
+    global B, APOSE_DONE
+    def about(pt, ang): return Matrix.Translation(pt) @ Matrix.Rotation(ang, 4, 'Y') @ Matrix.Translation(-pt)
+    Dm = {}
+    for s, sx in (('L', 1), ('R', -1)):
+        h, t = B[f'upper_arm.{s}']; d = t - h
+        Ra = about(h, -sx * (math.radians(APOSE_ARM) - math.atan2(abs(d.x), -d.z)))
+        Rl = about(B[f'thigh.{s}'][0], -sx * math.radians(APOSE_LEG))
+        ank = B[f'foot.{s}'][0]
+        Dm.update({f'upper_arm.{s}': Ra, f'forearm.{s}': Ra, f'hand.{s}': Ra, f'thigh.{s}': Rl, f'shin.{s}': Rl,
+                   f'foot.{s}': Matrix.Translation(Rl @ ank - ank)})
+    for b in rig.data.bones:                  # bones 依父子順序
+        if b.name in Dm:
+            rig.pose.bones[b.name].matrix = Dm[b.name] @ b.matrix_local; bpy.context.view_layer.update()
+    for o in [skinbody] + CLOTH:              # 會彎的網格：照目前權重彎到 A 字
+        am_ = o.modifiers.new('apose', 'ARMATURE'); am_.object = rig; am_.use_deform_preserve_volume = True
+        bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+        bpy.ops.object.modifier_apply(modifier='apose')
+    for o in parts:                           # 剛性零件：只綁一根骨頭，整塊轉
+        if o is skinbody or o in CLOTH: continue
+        gs = [g.name for g in o.vertex_groups]
+        assert len(gs) == 1, f'{o.name} 綁了 {len(gs)} 根骨頭'
+        if gs[0] in Dm: o.matrix_world = Dm[gs[0]] @ o.matrix_world
+    bpy.ops.object.select_all(action='DESELECT'); rig.select_set(True); bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='POSE'); bpy.ops.pose.armature_apply(selected=False); bpy.ops.object.mode_set(mode='OBJECT')
+    B = {b.name: (b.head_local.copy(), b.tail_local.copy()) for b in rig.data.bones}
+    APOSE_DONE = True
+    skin_weights()
+to_apose()
+
 # 合併成一個蒙皮網格
 bpy.ops.object.select_all(action='DESELECT')
 for p in parts: p.select_set(True)
 bpy.context.view_layer.objects.active = parts[0]
+for _o in parts:   # 暫時標記哪些面是身體（1）、衣服網格（2），合併後存成面範圍給 deformcheck.py
+    _a = _o.data.attributes.new('dfm', 'INT', 'FACE')
+    _k = 1 if _o is skinbody else 2 if _o.name.startswith(('shirt', 'shorts')) else 0
+    for _i in range(len(_o.data.polygons)): _a.data[_i].value = _k
 bpy.ops.object.join(); body = bpy.context.object; body.name = 'hero'
 body['part_names'] = PART_NAMES
+_dv = [d.value for d in body.data.attributes['dfm'].data]; body.data.attributes.remove(body.data.attributes['dfm'])
+_rng = {'1': [], '2': []}
+for _i, _v in enumerate(_dv):
+    if not _v: continue
+    _r = _rng[str(_v)]
+    if _r and _r[-1][1] == _i: _r[-1][1] = _i + 1
+    else: _r.append([_i, _i + 1])
+body['deform_faces'] = _rng   # {'1': 身體的面範圍 [起, 迄), '2': 衣服網格}
 body.data.materials.append(OUTLINE)
 am = body.modifiers.new('rig', 'ARMATURE'); am.object = rig
+am.use_deform_preserve_volume = True    # 保持體積（雙四元數）：大角度轉動時關節不塌（§6-1）
+# 髖和腿改用線性：保持體積在深蹲時會把胯下、臀部鼓成一團（2026-11-24 rigtest 深蹲到底看到）。
+# 第二個 Armature 用同一份輸入（Multi Modifier），依頂點群組 lbs（＝髖腿骨頭的權重和）混合兩個結果，腰部自然過渡。
+_LEG = {n for n in rig.data.bones.keys() if n == 'hips' or n.split('.')[0] in ('thigh', 'shin', 'foot')}
+_lg = body.vertex_groups.new(name='lbs')
+_gn = {g.index: g.name for g in body.vertex_groups}
+for v in body.data.vertices:
+    w_ = sum(g.weight for g in v.groups if _gn[g.group] in _LEG)
+    if w_ > 0.001: _lg.add([v.index], min(w_, 1.0), 'REPLACE')
+am2 = body.modifiers.new('rig_lbs', 'ARMATURE'); am2.object = rig; am2.use_multi_modifier = True
+am2.vertex_group = 'lbs'; am2.use_deform_preserve_volume = False
 body.parent = rig
 sol = body.modifiers.new('outline', 'SOLIDIFY'); sol.thickness = -0.014; sol.use_flip_normals = True
 sol.material_offset = len(body.data.materials) - 1; sol.use_rim = False
@@ -438,6 +521,6 @@ sc.render.resolution_x = sc.render.resolution_y = 360 if QUICK else 600
 sc.view_settings.view_transform = 'Standard'
 
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'hero.blend'))
-for f in FRAMES or [0, 24]:
+for f in ([] if os.environ.get('NORENDER') == '1' else FRAMES or [0, 24]):   # NORENDER=1：只存 hero.blend（給 clipcheck／deformcheck）
     sc.frame_set(f); sc.render.filepath = os.path.join(OUT, f'f{f:02d}.png')
     bpy.ops.render.render(write_still=True)

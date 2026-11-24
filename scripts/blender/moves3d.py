@@ -42,6 +42,80 @@ def trunk(hh, lam_hips, lam_chest, lam_head):
 def arm_to(s, sh, wrist, pole, hand_dir):
     e = ik2(sh, wrist, blen[f'upper_arm.{s}'], blen[f'forearm.{s}'], pole)
     aim(f'upper_arm.{s}', sh, e - sh); aim(f'forearm.{s}', e, wrist - e); aim(f'hand.{s}', wrist, hand_dir)
+    _PIN[s] = (wrist.copy(), pole.copy())     # 手腕釘住（握把、地板）：鎖骨轉了之後重解 IK，手不離開握把
+
+# ---------- 鎖骨自動跟轉（§6-1，2026-11-24 加）----------
+# 上臂離軀幹往下的方向超過 CLAV_START 之後，鎖骨往上轉「超出部分 × CLAV_RATIO」（最多 CLAV_MAX），模擬肩胛骨上轉。
+# 在 keyall 裡每一格自動做，動作檔不用改：
+#   - 用 arm_to 釘住手腕的手臂：從新的肩點重解 IK，手腕位置和手的方向不變；
+#   - 其他（直接 aim 上臂、前臂、手）：整條手臂跟著肩點平移，各骨頭的方向不變（手和啞鈴一起移動幾公分）。
+CLAV_START, CLAV_RATIO, CLAV_MAX = D(60), 1 / 3, D(20)
+_PIN = {}
+# ---------- 手臂滾轉（沿骨頭軸的扭轉）自動校正（§6-1，2026-11-24 加）----------
+# aim() 的滾轉規則「z ＝ X × y」只看世界座標：手臂經過側平舉的水平線時會突然翻 180°，
+# 實測手舉過頭時上臂相對肩膀多扭 178°、側平舉 91° → 肩膀扭成扁帶（舊骨架最嚴重的變形）。
+# 這裡在 keyall 時把上臂、前臂的滾轉重算（骨頭方向、位置、手的方向都不變）：
+#   上臂：手肘有彎 → 照手肘屈曲平面（肱骨旋轉，解剖上正確）；手臂打直 → 從靜止姿勢最小轉動（不扭）。
+#   前臂：接著上臂（手肘不扭），再把到手之間剩下的扭轉分一半給前臂、一半留在手腕（護腕和手蓋住手腕）。
+def _sang(a, v1, v2): return math.atan2(a.dot(v1.cross(v2)), v1.dot(v2))
+def _swing(M, y):
+    return (M.col[1].normalized().rotation_difference(y.normalized()).to_matrix() @ M)
+def _m4(R, t):
+    M = R.to_4x4(); M.translation = t; return M
+_R0 = {n: p_.bone.matrix_local.to_3x3() for n, p_ in pb.items()}
+def arm_roll(s):
+    ua, fa, ha, cl = (f'upper_arm.{s}', f'forearm.{s}', f'hand.{s}', f'clavicle.{s}')
+    hl = _R0[ua].transposed() @ _R0[ua].col[1].cross(Vector((0, -1, 0))).normalized()   # 手肘轉軸（上臂局部座標）：靜止時往前彎
+    Mu, Mf, Mh = pb[ua].matrix.copy(), pb[fa].matrix.copy(), pb[ha].matrix.copy()
+    par = cl if cl in pb else 'chest'
+    u, f = Mu.col[1].xyz.normalized(), Mf.col[1].xyz.normalized()
+    Us = _swing(pb[par].matrix.to_3x3() @ _R0[par].inverted() @ _R0[ua], u)       # 最小轉動
+    bend = u.angle(f)
+    if bend > D(5):
+        h = u.cross(f).normalized(); Y = Vector((0, 1, 0))
+        Tw = Matrix((h, u, h.cross(u))).transposed(); Tl = Matrix((hl, Y, hl.cross(Y))).transposed()
+        Uh = Tw @ Tl.transposed()                                                    # 照手肘屈曲平面
+        b = min(max((bend - D(15)) / D(30), 0.0), 1.0); b = b * b * (3 - 2 * b)
+    else:
+        Uh, b = Us, 0.0
+    # 手臂打直時沒有屈曲平面可依：到手之間需要的扭轉，1/3 給肩（肱骨旋轉），其餘給前臂（手肘、手腕各一半）
+    Fs = _swing(Us @ _R0[ua].inverted() @ _R0[fa], f); Hs = _swing(Fs @ _R0[fa].inverted() @ _R0[ha], Mh.col[1].xyz)
+    tw = _sang(Mh.col[1].xyz.normalized(), Hs.col[0], Mh.to_3x3().col[0]) / 3
+    Ust = Matrix.Rotation(tw, 3, u) @ Us
+    U = Matrix.Rotation(b * _sang(u, Ust.col[0], Uh.col[0]), 3, u) @ Ust
+    pb[ua].matrix = _m4(U, Mu.translation); bpy.context.view_layer.update()
+    Fb = _swing(U @ _R0[ua].inverted() @ _R0[fa], f)                                  # 手肘不扭
+    Hm = Mh.to_3x3(); Hb = _swing(Fb @ _R0[fa].inverted() @ _R0[ha], Hm.col[1])
+    tau = _sang(Hm.col[1].normalized(), Hb.col[0], Hm.col[0])
+    pb[fa].matrix = _m4(Matrix.Rotation(tau / 2, 3, f) @ Fb, Mf.translation); bpy.context.view_layer.update()
+    pb[ha].matrix = Mh; bpy.context.view_layer.update()
+
+def shoulder_follow():
+    for s, _ in SX:
+        ua, fa, ha, cl = (f'upper_arm.{s}', f'forearm.{s}', f'hand.{s}', f'clavicle.{s}')
+        if cl not in pb: continue
+        C = pb['chest'].matrix
+        Mu, Mf, Mh = pb[ua].matrix.copy(), pb[fa].matrix.copy(), pb[ha].matrix.copy()
+        u = Mu.col[1].xyz.normalized()
+        elev = u.angle(-C.col[1].xyz.normalized())
+        phi = min(CLAV_MAX, max(0.0, elev - CLAV_START) * CLAV_RATIO)
+        Mc0 = C @ pb['chest'].bone.matrix_local.inverted() @ pb[cl].bone.matrix_local   # 鎖骨跟著胸部、沒轉時
+        head, c0 = Mc0.translation.copy(), Mc0.col[1].xyz.normalized()
+        # 只往頭的方向轉（上提），不往前伸：臥推、伏地挺身要肩胛後收，前伸會像錯誤動作。轉軸＝鎖骨 × 胸部往上，不會退化
+        R = Matrix.Rotation(phi, 4, c0.cross(C.col[1].xyz.normalized()).normalized()) if phi > 0 else Matrix.Identity(4)
+        pb[cl].matrix = Matrix.Translation(head) @ R @ Matrix.Translation(-head) @ Mc0; bpy.context.view_layer.update()
+        sh = head + (R.to_3x3() @ c0) * blen[cl]
+        if s in _PIN:
+            wrist, pole = _PIN[s]
+            e = ik2(sh, wrist, blen[ua], blen[fa], pole)
+            aim(ua, sh, e - sh); aim(fa, e, wrist - e)
+            pb[ha].matrix = Mh; bpy.context.view_layer.update()
+        else:
+            dlt = sh - Mu.translation
+            for n, M in ((ua, Mu), (fa, Mf), (ha, Mh)):
+                M = M.copy(); M.translation += dlt; pb[n].matrix = M; bpy.context.view_layer.update()
+        arm_roll(s)
+    _PIN.clear()
 
 def leg_to(s, hipj, ankle, pole, foot_dir=None):
     k = ik2(hipj, ankle, blen[f'thigh.{s}'], blen[f'shin.{s}'], pole)
@@ -89,6 +163,7 @@ def key_stretch(ob, a, b, f):
     for k in ('location', 'rotation_quaternion', 'scale'): ob.keyframe_insert(k, frame=f)
 
 def keyall(f):
+    shoulder_follow()
     for p_ in pb:
         p_.keyframe_insert('rotation_quaternion', frame=f); p_.keyframe_insert('location', frame=f)
 
