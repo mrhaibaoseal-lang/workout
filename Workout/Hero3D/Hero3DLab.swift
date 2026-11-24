@@ -342,8 +342,8 @@ final class Hero3DModel: ObservableObject {
                     q.materialIndex = t.flatMap { matIndex[$0.mat] } ?? fallbackMat
                     parts.append(q)
                     if isOl { vLine += p.positions.count } else { vBody += p.positions.count }
-                    // 著色器描邊只套卡通材質（眼睛、發光不描）
-                    if shaderOL, let t, info?.materials[t.mat]?.kind == "toon" {
+                    // 著色器描邊：跟烘好的外殼一樣套全部零件（眼睛也要有黑框，0.38.1 只描卡通材質時眼睛少一圈）
+                    if shaderOL, t != nil {
                         let op = outlinePart(key, p)
                         olParts.append(op)
                         vLine += op.positions.count

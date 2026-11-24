@@ -75,7 +75,7 @@
    - **0.38.0 試做（分支 `claude/3d-outline-bloom`，等上機結果）**：
      - 著色器描邊：每個本體 clone 一個帶同一副骨架的實體，網格用本體的卡通材質 part（同位置頂點的法線取平均），
        `outlineGeom`（geometry modifier）沿法線外撐、剔除正面。成立的話 `export_app.py` 不用再烘 `__ol`，USDZ 約減半。
-       要驗：動作時描邊跟不跟身體（蒙皮是否在 geometry modifier 之前）、硬邊零件會不會裂、幾 mm 和原本的一樣。
+       上機（0.38.1）：動作中描邊跟著身體、粗細與烘好的一樣，只有眼睛少框（當時只描卡通材質）→ 0.38.2 改成全部零件都描。
      - 泛光：`ARView.renderCallbacks.postProcess`（`Hero3DBloom.swift`＋`Bloom.metal`），1/4 解析度挑亮→MPS 模糊→疊回。
        靠亮度挑發光：開泛光時一般材質亮度上限 0.88（`specular_scale`），發光材質（flat、強度 ≥ 2）把最亮的通道拉到 1。
        診斷列出來源貼圖格式，用來判斷上限／門檻要不要改。
