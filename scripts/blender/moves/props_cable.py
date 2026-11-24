@@ -85,3 +85,25 @@ def build_latbar(gx):
     parts.append(pcyl('chrome', (0, 0, 0.03), 0.02, 0.06, n=12))
     for o_ in parts: o_.parent = bar
     return bar
+
+# ---------- 單手 D 型把手（滑輪 B 批新增；cableLateral 用）----------
+# 握把桿順著手的握把軸（hand 骨頭的 z 軸，同啞鈴握把），兩側各一支鉸鏈臂往鋼索方向收攏到扣環。root 叫 bar：clipcheck 不算手握東西的穿透。
+def build_dhandle():
+    root = bpy.data.objects.new('bar', None); sc.collection.objects.link(root)
+    parts = [pcyl('rubber', (0, 0, 0), 0.019, 0.12, (0, 0, 1), n=12)]
+    for sz in (1, -1):
+        parts.append(pcyl('chrome', (0, 0.027, 0.062 * sz), 0.007, 0.055, (0, 1, 0), n=8))      # 側臂（桿端往外長）
+        parts.append(pcyl('chrome', (0, 0.058, 0.040 * sz), 0.006, 0.05, (0, 0.55, -0.83 * sz), n=8))   # 往中間收的斜臂
+    parts.append(pcyl('chrome', (0, 0.082, 0), 0.014, 0.036, (1, 0, 0), n=12))      # 扣環
+    for o_ in parts: o_.parent = root
+    root.rotation_mode = 'QUATERNION'
+    return root
+
+def key_dhandle(h, f, s, cable_pt):
+    """把 D 把手擺到 s 邊的手上並打影格；扣環朝鋼索的方向。要在 keyall 之後呼叫。回傳扣環位置（鋼索接這裡）。"""
+    G, hz = hand_grip_frame(s)
+    up = Vector(cable_pt) - G; up = (up - hz * up.dot(hz)).normalized()
+    M = Matrix((up.cross(hz), up, hz)).transposed()
+    h.location = G; h.rotation_quaternion = M.to_quaternion()
+    h.keyframe_insert('location', frame=f); h.keyframe_insert('rotation_quaternion', frame=f)
+    return G + up * 0.082
