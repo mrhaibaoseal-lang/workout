@@ -109,8 +109,6 @@ enum ExerciseCues {
 struct PendingSwap: Equatable {
     /// 換好後的休息秒數；nil = 超級組輪內換動作，換好直接做、不休息
     let rest: Int?
-    /// 換重量大約要多久（只當說明，不倒數）
-    let estimate: Int
 }
 
 struct RestScreen: View {
@@ -142,19 +140,16 @@ struct RestScreen: View {
                     if let swap {
                         swapHero(swap)
                     } else {
-                    TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
-                        let left = end.timeIntervalSince(ctx.date)
-                        VStack(spacing: 12) {
-                            HStack(spacing: 6) {
-                                character(left: left)
-                                if left > 0 {
-                                    countdown(left: left, now: ctx.date)
-                                } else {
-                                    doneButton(over: -left)
-                                }
+                    Group {
+                        if reduceMotion {
+                            // 減少動態效果：每秒更新一次就好
+                            TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                                countdownPage(date: ctx.date)
                             }
-                            .frame(height: 214)
-                            footer(left: left)
+                        } else {
+                            TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
+                                countdownPage(date: ctx.date)
+                            }
                         }
                     }
                     .frame(minHeight: 290)
@@ -195,7 +190,23 @@ struct RestScreen: View {
             }
             .ignoresSafeArea()
         )
-        .modifier(SecondTicks(end: end))
+        .modifier(SecondTicks(end: end, active: swap == nil))
+    }
+
+    private func countdownPage(date: Date) -> some View {
+        let left = end.timeIntervalSince(date)
+        return VStack(spacing: 12) {
+            HStack(spacing: 6) {
+                character(left: left)
+                if left > 0 {
+                    countdown(left: left, now: date)
+                } else {
+                    doneButton(over: -left)
+                }
+            }
+            .frame(height: 214)
+            footer(left: left)
+        }
     }
 
     private var header: some View {
@@ -226,7 +237,7 @@ struct RestScreen: View {
                 Text("休息").font(.headline.weight(.heavy)).foregroundStyle(Theme.fg)
             }
             Spacer()
-            Button("跳過", action: onSkip)
+            Button(swap != nil ? "不休息直接做" : "跳過", action: onSkip)
                 .buttonStyle(GhostButtonStyle())
         }
         .padding(.horizontal, 16)
@@ -235,6 +246,19 @@ struct RestScreen: View {
     }
 
     // MARK: 換重量
+
+    /// 說明文字：秒數用目前畫面上的步驟即時加總；沒有步驟時表示不用換了。
+    private func swapHint(_ sw: PendingSwap) -> String {
+        let secs = changes.reduce(0) { $0 + $1.seconds }
+        if changes.isEmpty {
+            return sw.rest == nil
+                ? "不用換了，按「換好了」就直接做下一個動作。"
+                : "不用換了，按「換好了」開始休息倒數。"
+        }
+        return sw.rest == nil
+            ? "照下面的步驟換好（大約 \(secs) 秒），按「換好了」就直接做下一個動作。"
+            : "照下面的步驟換好（大約 \(secs) 秒），按「換好了」才開始休息倒數。"
+    }
 
     /// 換重量：不倒數，換完按大按鈕才開始休息（或直接做下一個動作）。
     private func swapHero(_ sw: PendingSwap) -> some View {
@@ -245,9 +269,7 @@ struct RestScreen: View {
             Text("先換重量，不急")
                 .font(.title2.weight(.heavy))
                 .foregroundStyle(Theme.fg)
-            Text(sw.rest == nil
-                 ? "照下面的步驟換好（大約 \(sw.estimate) 秒），按「換好了」就直接做下一個動作。"
-                 : "照下面的步驟換好（大約 \(sw.estimate) 秒），按「換好了」才開始休息倒數。")
+            Text(swapHint(sw))
                 .font(.subheadline)
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
@@ -471,6 +493,7 @@ struct RestScreen: View {
             Spacer(minLength: 0)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value).font(Theme.number(24)).foregroundStyle(Theme.fg)
+                    .lineLimit(1).minimumScaleFactor(0.6)
                 Text(unit).font(.caption).foregroundStyle(Theme.muted)
             }
             Spacer(minLength: 0)
@@ -573,7 +596,7 @@ struct RestScreen: View {
 struct PlateChangeCard: View {
     let change: RigChange
     /// 換重量的步驟打勾到第幾個
-    @State private var checked: Set<Int> = []
+    @State private var checked: Set<String> = []
 
     var body: some View {
         let removed = change.removed
@@ -636,6 +659,10 @@ struct PlateChangeCard: View {
     }
 
     /// 換重量的步驟，一步一勾：先組裝／拆開，再拆外面的槓片，最後裝上新的。
+    private func allChecked(_ list: [String]) -> Bool {
+        list.enumerated().allSatisfy { checked.contains("\($0.offset)|\($0.element)") }
+    }
+
     private func steps(removed: [Double], added: [Double]) -> [String] {
         let per = change.use == .cable ? "" : (change.use == .pair ? "（每支兩邊）" : "（兩邊）")
         var out: [String] = []
@@ -657,11 +684,13 @@ struct PlateChangeCard: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(list.enumerated()), id: \.offset) { i, step in
-                    let on = checked.contains(i)
+                    // key 用「第幾步｜步驟文字」：同樣的片可能拆兩次，文字會重複；清單內容變了舊勾選自然失效
+                    let key = "\(i)|\(step)"
+                    let on = checked.contains(key)
                     Button {
-                        if on { checked.remove(i) } else {
-                            checked.insert(i)
-                            UIImpactFeedbackGenerator(style: checked.count == list.count ? .heavy : .light).impactOccurred()
+                        if on { checked.remove(key) } else {
+                            checked.insert(key)
+                            UIImpactFeedbackGenerator(style: allChecked(list) ? .heavy : .light).impactOccurred()
                         }
                     } label: {
                         HStack(spacing: 10) {
@@ -674,12 +703,12 @@ struct PlateChangeCard: View {
                                 .strikethrough(on, color: Theme.muted)
                             Spacer(minLength: 0)
                         }
-                        .frame(minHeight: 40)
+                        .frame(minHeight: 44)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
-                if checked.count == list.count {
+                if allChecked(list) {
                     Label("換好了！", systemImage: "checkmark.seal.fill")
                         .font(.subheadline.weight(.heavy))
                         .foregroundStyle(Theme.green)
@@ -745,21 +774,24 @@ struct PlateShape: View {
 /// 最後 3 秒每秒震一下、響一聲，時間到再震一下。
 struct SecondTicks: ViewModifier {
     let end: Date
+    var active: Bool = true
     @State private var fired: Set<Int> = []
 
     func body(content: Content) -> some View {
         content.background {
-            TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
-                let left = Int(ceil(end.timeIntervalSince(ctx.date)))
-                Color.clear.onChange(of: left) { _, n in
-                    guard n <= 3, n >= 0, !fired.contains(n) else { return }
-                    fired.insert(n)
-                    if n == 0 {
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        AudioServicesPlaySystemSound(1005)
-                    } else {
-                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-                        AudioServicesPlaySystemSound(1057)
+            if active {
+                TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                    let left = Int(ceil(end.timeIntervalSince(ctx.date)))
+                    Color.clear.onChange(of: left) { _, n in
+                        guard n <= 3, n >= 0, !fired.contains(n) else { return }
+                        fired.insert(n)
+                        if n == 0 {
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            AudioServicesPlaySystemSound(1005)
+                        } else {
+                            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                            AudioServicesPlaySystemSound(1057)
+                        }
                     }
                 }
             }

@@ -545,9 +545,9 @@ struct WorkoutView: View {
 
     private func endRest() {
         if swap != nil {
-            // 換重量中按「跳過」：不休息了，當作換好
+            // 換重量中按「不休息直接做」：rigs 不動（沒換就不要當作換好），只清掉待換的記錄
             swap = nil
-            commitRest()
+            restAfter = nil
             return
         }
         scoreRest(grace: RestScreen.comboWindow)
@@ -596,6 +596,22 @@ struct WorkoutView: View {
 
     private func complete(set id: UUID, in exerciseIndex: Int) {
         guard let s = drafts[exerciseIndex].sets.firstIndex(where: { $0.id == id }) else { return }
+        if drafts[exerciseIndex].sets[s].done {
+            // 取消勾選剛做完、正在休息的那一組：不算休息成績、不當作換好，關掉休息／換重量。
+            // 取消的是更早的組就不動目前的休息。
+            if restAfter == id {
+                if restEnd != nil {
+                    withAnimation(.easeOut(duration: 0.25)) { restEnd = nil }
+                }
+                swap = nil
+                restAfter = nil
+                restMinimized = false
+            }
+            drafts[exerciseIndex].sets[s].done = false
+            drafts[exerciseIndex].sets[s].grade = nil
+            focused = id
+            return
+        }
         if swap != nil {
             // 還沒按「換好了」就直接做：當作換好了，不計休息
             swap = nil
@@ -605,12 +621,6 @@ struct WorkoutView: View {
             // 沒按「下一組」直接做完：多給做一組的時間
             scoreRest(grace: RestScreen.comboWindow + 75)
             commitRest()
-        }
-        if drafts[exerciseIndex].sets[s].done {
-            drafts[exerciseIndex].sets[s].done = false
-            drafts[exerciseIndex].sets[s].grade = nil
-            focused = id
-            return
         }
         drafts[exerciseIndex].sets[s].done = true
         focused = nil
@@ -669,7 +679,7 @@ struct WorkoutView: View {
                     restMinimized = false
                     restEnd = nil
                     withAnimation(.spring(duration: 0.4)) {
-                        swap = PendingSwap(rest: nil, estimate: change)
+                        swap = PendingSwap(rest: nil)
                     }
                 } else {
                     restEnd = nil
@@ -698,7 +708,7 @@ struct WorkoutView: View {
                     // 要換重量：先換，按「換好了」才開始倒數
                     restEnd = nil
                     withAnimation(.spring(duration: 0.4)) {
-                        swap = PendingSwap(rest: rest, estimate: change)
+                        swap = PendingSwap(rest: rest)
                     }
                 } else {
                     swap = nil
@@ -733,7 +743,7 @@ struct WorkoutView: View {
             ? "\(Progression.format(set.weight)) 公斤 \(set.reps) 下" : "\(set.reps) \(ex.unit == .seconds ? "秒" : "下")"
         complete(set: id, in: i)
         // App 在背景時畫面不一定會更新，onChange 可能不觸發，這裡直接排休息提醒
-        if let state = restActivity { RestAlerts.start(day: day.name, state: state) }
+        if let state = restActivity { RestAlerts.start(day: day.name, state: state) } else { RestAlerts.stop() }
         var text = "\(ex.name) \(what)，完成"
         if let end = restEnd {
             text += "。休息 \(Int(end.timeIntervalSinceNow.rounded())) 秒"
