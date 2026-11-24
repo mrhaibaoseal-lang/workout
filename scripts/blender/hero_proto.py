@@ -11,7 +11,7 @@ FRAMES = [int(a) for a in argv[1:]]
 GEAR = os.environ.get('GEAR', 'basic')
 SLOTS = ('head', 'top', 'bottom', 'feet', 'hands', 'back', 'bell', 'fx')
 G = {k: 'basic' for k in SLOTS}
-if GEAR in ('titan',):
+if GEAR in ('titan', 'frost'):
     G.update({k: GEAR for k in SLOTS if k != 'fx'})
 elif '=' in GEAR:
     for kv in GEAR.split(','):
@@ -21,7 +21,8 @@ if os.environ.get('MOVE', 'squat') != 'squat':
 # 背靠靠背、躺在椅子上的動作：背部裝備（披風、背包）一定會卡進椅背 → 示範時隱藏
 if os.environ.get('MOVE', 'squat') in ('pulldown',):
     G['back'] = 'none'
-TOP, BOT = G['top'] == 'titan', G['bottom'] == 'titan'
+TOP = G['top'] == 'titan'                       # 全身緊身衣（冰霜 T 恤是塗色，不算）
+BOT = G['bottom'] in ('titan', 'frost')          # 長褲：褲管到腳踝
 def hexc(h):
     h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))
 os.makedirs(OUT, exist_ok=True)
@@ -109,7 +110,7 @@ M = {
 }
 M['skintank'] = toon('skintank', (0.50, 0.53, 0.58), alt=hexc('#FF6B35'), alt_attr='tank', alt_shade=0.62)
 if TOP: M['shirt'] = M['tisuit']
-if BOT: M['shorts'] = M['tisuit']
+if BOT: M['shorts'] = M['tisuit'] if G['bottom'] == 'titan' else toon('frpant', hexc('#4FB8FF'), 0.6)
 OUTLINE = flat('outline', (0.01, 0.01, 0.02))
 OUTLINE.use_backface_culling = True
 MAT_ORDER = list(M.keys())
@@ -355,8 +356,11 @@ for s, sx in (('L', 1), ('R', -1)):
             finish(ob, f'hand.{s}', 'iron', 0)
 
 
-if 'titan' in G.values():
-    exec(open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1])), 'gear_titan.py')).read())
+_GD = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1]))
+exec(open(os.path.join(_GD, 'gear_util.py'), encoding='utf-8').read())
+for _ser in ('titan', 'frost'):   # 每個系列一個 gear_<id>.py
+    if _ser in G.values():
+        exec(open(os.path.join(_GD, f'gear_{_ser}.py'), encoding='utf-8').read())
 
 # 合併成一個蒙皮網格
 bpy.ops.object.select_all(action='DESELECT')

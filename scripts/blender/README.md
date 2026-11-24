@@ -11,6 +11,9 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
 - `gear_titan.py`：鈦甲系列 3D 測試版（`GEAR=titan`），頭盔、胸甲、腹甲、能量核心、肩甲、機械手甲、大腿甲、護膝、
   推進靴、雙筒噴射背包、能量膠囊啞鈴；全像掃描環只在 `FX=1` 時加（示範影片不放特效）。硬殼零件用倒角不細分，剛性綁在骨頭上。
 
+- `gear_frost.py`：冰霜系列（`GEAR=frost`，史詩）：冰晶毛帽、冰柱領 T 恤（塗在身體上，`tank`＋`frst` 兩個屬性）、冰裂紋長褲、高筒冰刀鞋、霜凍手套、冰柱披肩＋冰晶立領、冰塊啞鈴。預覽 `docs/art/blender/frost.png`。
+- `gear_util.py`：各系列共用的造型工具（`obox`、`cyl`、`shell`），hero_proto 在載入系列檔前 exec；新系列加進 hero_proto 的系列清單。
+
 混搭：`GEAR="head=titan,hands=titan"` 逐部位指定（head top bottom feet hands back bell fx），沒寫的用基本款。
 每個部位是獨立零件；上衣／下身換鈦甲時，緊身衣袖子／褲管和底下身體的顏色一起換。預覽 `docs/art/blender/mix.png`。
 

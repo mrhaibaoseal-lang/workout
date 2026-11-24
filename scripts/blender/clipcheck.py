@@ -18,7 +18,8 @@ sc = bpy.context.scene
 hero = bpy.data.objects['hero']; rig = bpy.data.objects['rig']
 for md in hero.modifiers:
     if md.type == 'SOLIDIFY': md.show_viewport = False          # 描邊外殼不算
-GEAR_MATS = {'ti', 'tidk', 'glow', 'flame', 'iron', 'grip'}
+GEAR_MATS = {'ti', 'tidk', 'glow', 'flame', 'iron', 'grip',
+             'fr1', 'fr2', 'fr3', 'frice', 'frblade', 'frglow'}   # 冰霜（衣服塗色和長褲不算，那些是 body）
 SKIP_PROPS = {'bar', 'cable'}                                    # 手本來就握著
 mats = [m.name if m else '' for m in hero.data.materials]
 parent = {b.name: (b.parent.name if b.parent else None) for b in rig.data.bones}

@@ -15,7 +15,7 @@
 - 動作：`CharacterMove` 約 60 個（訓練 ~40、熱身 8、伸展 10、休息頁 3）。動作庫 99 個動作會對應到這些示範。
   2D 版的角度資料在 `scripts/art/moves.js`，可當作 3D 的參考（側面角度 → 3D 要補左右寬度、手腳釘點）。
 - 裝備：12 系列 × 8 部位 ＝ 96 件（`GearCatalog.swift`）。CLAUDE.md 的美術規定照樣適用（灰階認得出、同部位不撞形、越稀有越華麗）。
-  目前只有鈦甲（titan）做了 3D 測試版，可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
+  目前做了 3D 測試版的系列：鈦甲（titan）、冰霜（frost，預覽 `docs/art/blender/frost.png`），可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
 
 ## 防穿模（動作多、造型多，小穿模可接受，但要系統化排除）
 三層做法，越前面越省事：
