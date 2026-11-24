@@ -70,7 +70,8 @@ final class Hero3DModel: ObservableObject {
     private var model = Entity()             // 抬高用
     private var info: Hero3DInfo?
     private var clips: [String: Hero3DClip] = [:]
-    private var meshes: [(entity: ModelEntity, part: String, mat: String)] = []
+    // iOS 18 起載入的網格是一般 Entity（帶 ModelComponent），不再是 ModelEntity，所以一律用元件操作
+    private var meshes: [(entity: Entity, part: String, mat: String)] = []
     private var jointMap: [ObjectIdentifier: [Int?]] = [:]
     private var outlineMats: [CustomMaterial] = []
     private var time: Double = 0
@@ -124,24 +125,25 @@ final class Hero3DModel: ObservableObject {
             log.append(String(format: "載入 %.0f ms，檔案 %.1f MB", (CACurrentMediaTime() - t0) * 1000, Double(size) / 1_048_576))
             model.addChild(root)
 
-            var all = 0
+            var all = 0, plain = 0, untagged = 0
             func walk(_ e: Entity, _ parentTag: String?) {
                 all += 1
                 let tag = e.name.contains("__") ? e.name : parentTag
-                if let me = e as? ModelEntity, let tag {
-                    let parts = tag.components(separatedBy: "__")
-                    meshes.append((me, parts[0], parts.count > 1 ? parts[1] : ""))
-                } else if e.components.has(ModelComponent.self), !(e is ModelEntity) {
-                    log.append("⚠️ \(e.name) 有模型但不是 ModelEntity")
+                if e.components.has(ModelComponent.self) {
+                    if !(e is ModelEntity) { plain += 1 }
+                    if let tag {
+                        let parts = tag.components(separatedBy: "__")
+                        meshes.append((e, parts[0], parts.count > 1 ? parts[1] : ""))
+                    } else { untagged += 1 }
                 }
                 for c in e.children { walk(c, tag) }
             }
             walk(root, nil)
-            let withJoints = meshes.filter { !$0.entity.jointNames.isEmpty }
-            log.append("實體 \(all) 個，網格 \(meshes.count) 個，有骨架 \(withJoints.count) 個")
+            let withJoints = meshes.filter { !Self.jointNames($0.entity).isEmpty }
+            log.append("實體 \(all) 個，網格 \(meshes.count) 個（非 ModelEntity \(plain)、沒標名 \(untagged)），有骨架 \(withJoints.count) 個")
             log.append("USD 內建動畫 \(root.availableAnimations.count) 段")
             if let first = withJoints.first {
-                log.append("骨頭名稱例：\(first.entity.jointNames.prefix(3).joined(separator: ", "))")
+                log.append("骨頭名稱例：\(Self.jointNames(first.entity).prefix(3).joined(separator: ", "))")
             }
             try applyMaterials(&log)
             mapJoints(&log)
@@ -168,7 +170,7 @@ final class Hero3DModel: ObservableObject {
         let flat = CustomMaterial.SurfaceShader(named: "flatSurface", in: lib)
         var cache: [String: CustomMaterial] = [:]
         for (e, _, matName) in meshes {
-            if let m = cache[matName] { e.model?.materials = [m]; continue }
+            if let m = cache[matName] { Self.setMaterial(e, m); continue }
             var m: CustomMaterial
             if matName == "ol" {
                 m = try CustomMaterial(surfaceShader: flat, lightingModel: .unlit)
@@ -189,7 +191,7 @@ final class Hero3DModel: ObservableObject {
                 log.append("⚠️ 材質表沒有 \(matName)"); continue
             }
             cache[matName] = m
-            e.model?.materials = [m]
+            Self.setMaterial(e, m)
         }
         setOutlineCull()
     }
@@ -197,9 +199,9 @@ final class Hero3DModel: ObservableObject {
     func setOutlineCull() {
         let cull: MaterialParameterTypes.FaceCulling = [.none, .back, .front][outlineCull]
         for (e, _, mat) in meshes where mat == "ol" {
-            guard var m = e.model?.materials.first as? CustomMaterial else { continue }
+            guard var m = e.components[ModelComponent.self]?.materials.first as? CustomMaterial else { continue }
             m.faceCulling = cull
-            e.model?.materials = [m]
+            Self.setMaterial(e, m)
         }
     }
 
@@ -209,7 +211,7 @@ final class Hero3DModel: ObservableObject {
         let short = Dictionary(clip.joints.enumerated().map { ($1.components(separatedBy: "/").last!, $0) }, uniquingKeysWith: { a, _ in a })
         var matched = 0, total = 0
         for (e, _, _) in meshes {
-            let map = e.jointNames.map { n -> Int? in
+            let map = Self.jointNames(e).map { n -> Int? in
                 idx[n] ?? short[n.components(separatedBy: "/").last ?? n]
             }
             matched += map.compactMap { $0 }.count; total += map.count
@@ -250,11 +252,38 @@ final class Hero3DModel: ObservableObject {
         let pose = clip.pose(at: t)
         for (e, _, _) in meshes where e.isEnabled {
             guard let map = jointMap[ObjectIdentifier(e)], !map.isEmpty else { continue }
-            var jt = e.jointTransforms
-            for (i, k) in map.enumerated() where k != nil && i < jt.count { jt[i] = pose[k!] }
-            e.jointTransforms = jt
+            Self.setJoints(e, pose, map)
         }
         model.position.y = clip.lift(at: t, parts: activeParts)
+    }
+
+    private static func setMaterial(_ e: Entity, _ m: Material) {
+        guard var mc = e.components[ModelComponent.self] else { return }
+        mc.materials = Array(repeating: m, count: max(mc.materials.count, 1))
+        e.components.set(mc)
+    }
+
+    private static func jointNames(_ e: Entity) -> [String] {
+        if let me = e as? ModelEntity, !me.jointNames.isEmpty { return me.jointNames }
+        if #available(iOS 18.0, *), let p = e.components[SkeletalPosesComponent.self]?.poses.default {
+            return p.jointNames
+        }
+        return []
+    }
+
+    private static func setJoints(_ e: Entity, _ pose: [Transform], _ map: [Int?]) {
+        if let me = e as? ModelEntity, !me.jointNames.isEmpty {
+            var jt = me.jointTransforms
+            for (i, k) in map.enumerated() where k != nil && i < jt.count { jt[i] = pose[k!] }
+            me.jointTransforms = jt
+            return
+        }
+        if #available(iOS 18.0, *), var c = e.components[SkeletalPosesComponent.self], var p = c.poses.default {
+            let n = p.jointTransforms.count
+            for (i, k) in map.enumerated() where k != nil && i < n { p.jointTransforms[i] = pose[k!] }
+            c.poses.default = p
+            e.components.set(c)
+        }
     }
 
     func rotate(by dx: CGFloat) { yaw += Float(dx) * 0.01 }
