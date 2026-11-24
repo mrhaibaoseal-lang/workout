@@ -107,3 +107,13 @@ def key_dhandle(h, f, s, cable_pt):
     h.location = G; h.rotation_quaternion = M.to_quaternion()
     h.keyframe_insert('location', frame=f); h.keyframe_insert('rotation_quaternion', frame=f)
     return G + up * 0.082
+
+# ---------- 機器轉任意角度（滑輪 B 批新增；bench_scene 只能轉 180°）----------
+# deg＝整台繞 Z 轉幾度（逆時針為正）。-90＝立柱在人的右手邊（人面向 -Y、右臉朝立柱）。回傳 (配重組, xf)，xf 要乘在機器座標上（同 bench_scene）。
+def bench_scene_rot(back_deg, deg):
+    before = set(bpy.data.objects)
+    stack = build_bench(back_deg)
+    xf = Matrix.Rotation(math.radians(deg), 4, 'Z')
+    root = bpy.data.objects.new('benchrot', None); sc.collection.objects.link(root); root.rotation_euler = (0, 0, math.radians(deg))
+    for o_ in [o for o in bpy.data.objects if o not in before and o.parent is None and o is not root]: o_.parent = root
+    return stack, xf
