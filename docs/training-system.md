@@ -554,3 +554,22 @@
 - `GoalEngine.facts` 紀錄沒變就用上次的結果（今天頁、分頁紅點、牌位每次重畫都會用到）。
 - `SettingsBackup` 2 秒內的變動合併成一次，App 進背景時立刻存；提醒重排不會兩次同時跑。
 
+
+## 排課檢查（0.40.0，`Training/PlanCheck.swift`）
+
+排好今天的課之後，用另一套規則從「結果和紀錄」重新算一遍，找不合理的地方。只提醒，不自動改課表。數字全由程式算，AI 只負責轉成白話。
+
+- 位置：今天頁主卡下面一小列 `PlanCheckRow`（沒問題「排課檢查 ✓」；有問題「排課檢查：N 點」，有「注意」用警示色）。點開 `PlanCheckSheet`：上面 AI 段落（或「自動整理」），下面條列，底部說明「只是提醒」。
+  今天練完、請假、「只做 1 組」時不顯示。檢查是純計算，跟著課表重算；AI 只在打開 sheet 時（`.task`）才跑。
+- 規則與門檻（`PlanCheck.run`，結果排序：注意在前；同一類最多 2 條；總共最多 5 條）：
+  1. 時間（注意）：預估分鐘 > 目標 × 1.25。目標照 `WorkoutLength.title`：完整 60、精簡 20；只做 1 組不檢查。
+  2. 單日同部位（建議）：某部位（`VolumePlan.primaryMuscles`，主要出力）今天正式組 > 10。
+  3. 恢復衝突（注意）：48 小時內練過某部位，且那次有沒達次數下限的組（`SetEntry.reps` < 動作範圍或當時課表格的下限），或練完回報（`MuscleFeedback`）該部位「還在痠」；今天又排了練到它的重點動作。
+  4. 同天重複動作類型（建議）：同一個 `MovementPattern` 出現 2 個以上。
+  5. 關節（注意）：14 天內回報會痛的動作還排在今天，或同關節（`Joint.recentPain`、`Joint.involved`）。
+  6. 本週組數（建議）：`MuscleStats.weeklySets`（這週已練）+ 今天 > `VolumePlan.range` 上限。減量週（注意）：動作組數 > 正常組數的一半向上取整（正常組數用 `ProgramBuilder.slotSets` 的 normal 算）。
+  7. 器材（注意）：動作的 `requires` 不在目前器材裡。
+  8. 超級組（建議）：同一組的兩個動作共用器材（啞鈴和椅子不算，兩個都用啞鈴時看排課標的 `kit`／`sharedKit`），或主要部位相同。
+- AI 說明（`PlanCheckAI`）：`@Generable` 只有 `summary` 一個欄位；prompt 只給今天動作和 findings 文字，要求只能轉述。
+  驗證重用 `Coach.isValid(text:source:maxLength:)`（數字都要在資料裡、不能有簡體字、≤ 160 字）；不合格重試一次，再不行用規則文字（標「自動整理」）。沒有任何 finding 不呼叫 AI。
+- 測試：`WorkoutTests/PlanCheckTests.swift`。
