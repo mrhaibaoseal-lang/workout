@@ -142,8 +142,13 @@ enum Coach {
 
     /// source = 交給模型的資料；寫出來的數字都要在裡面出現過。
     static func isValid(_ r: CoachReply, source: String, maxLength: Int = 220) -> Bool {
-        let text = r.headline + r.highlight + r.nextTime
-        guard !r.headline.isEmpty, !r.nextTime.isEmpty, text.count <= maxLength else { return false }
+        guard !r.headline.isEmpty, !r.nextTime.isEmpty else { return false }
+        return isValid(text: r.headline + r.highlight + r.nextTime, source: source, maxLength: maxLength)
+    }
+
+    /// 一段文字的檢查（排課檢查的說明也用這個）：不能空、長度有限、數字都在資料裡、不能有簡體字。
+    static func isValid(text: String, source: String, maxLength: Int) -> Bool {
+        guard !text.isEmpty, text.count <= maxLength else { return false }
         if text.contains(where: { simplified.contains($0) }) { return false }
         let allowed = Set(numbers(in: source))
         return numbers(in: text).allSatisfy { allowed.contains($0) }
