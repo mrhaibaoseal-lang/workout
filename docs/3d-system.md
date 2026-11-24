@@ -79,6 +79,7 @@
      - 泛光：`ARView.renderCallbacks.postProcess`（`Hero3DBloom.swift`＋`Bloom.metal`），1/4 解析度挑亮→MPS 模糊→疊回。
        靠亮度挑發光：開泛光時一般材質亮度上限 0.88（`specular_scale`），發光材質（flat、強度 ≥ 2）把最亮的通道拉到 1。
        診斷列出來源貼圖格式，用來判斷上限／門檻要不要改。
+       0.38.0 閃退：init 裡連設兩次 `renderCallbacks`（RealityKit setter 斷言）。改成只在第一次開泛光時設一次 postProcess、之後只切 enabled；泛光預設關。
      - 上衣／下身換裝的方向（還沒做）：塗色烤成每系列一張「離邊界距離」貼圖，著色器用 smoothstep 畫出邊，身體只留一份網格。
 2. **動作全部做完**：依器材分批，每批出一張總覽圖給使用者看：
    站姿啞鈴（肩推、彎舉、側平舉、划船、硬舉…）→ 椅子（臥推、上斜、仰臥…，用 `build_bench` 調靠背角度）→

@@ -65,7 +65,7 @@ final class Hero3DModel: ObservableObject {
     @Published var outlineCull = 1           // 0 不剔除、1 剔除背面、2 剔除正面（只對烘好的外殼）
     @Published var outlineMode = 2           // 0 無、1 烘好的外殼（__ol）、2 著色器外撐（同一份網格畫兩次）
     @Published var outlineWidth: Float = 10  // 著色器描邊厚度（毫米，模型座標）
-    @Published var bloomOn = true
+    @Published var bloomOn = false           // 預設關：泛光出問題時不擋描邊測試
     @Published var bloomStrength: Float = 1.2
     @Published var bloomThreshold: Float = 0.95
     @Published var showStats = true
@@ -101,11 +101,10 @@ final class Hero3DModel: ObservableObject {
         arView = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
         arView.environment.background = .color(UIColor(red: 0.07, green: 0.08, blue: 0.13, alpha: 1))
         arView.debugOptions = [.showStatistics]
-        let pass = bloom
-        arView.renderCallbacks.prepareWithDevice = { device in pass.prepare(device) }
         load()
         applyBloom()
     }
+    private var bloomInstalled = false
 
     /// 泛光開關：一般材質亮度上限（specular_scale）＋後處理
     func applyBloom() {
@@ -122,8 +121,11 @@ final class Hero3DModel: ObservableObject {
             mc.materials = mats
             b.entity.components.set(mc)
         }
-        let pass = bloom
-        arView.renderCallbacks.postProcess = bloomOn ? { ctx in pass.run(ctx) } : nil
+        bloom.enabled = bloomOn
+        if bloomOn && !bloomInstalled {
+            bloomInstalled = true
+            Hero3DBloom.install(bloom, on: arView)
+        }
     }
 
     func applyOutlineWidth() {

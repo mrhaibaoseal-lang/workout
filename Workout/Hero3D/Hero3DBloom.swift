@@ -5,8 +5,18 @@ import RealityKit
 /// 3D 角色的泛光後處理（Bloom.metal）。在 RealityKit 的繪圖執行緒上跑，所以不屬於 MainActor；
 /// strength／threshold 由畫面直接改，讀到舊值只差一格，不加鎖。
 final class Hero3DBloom: @unchecked Sendable {
+    var enabled = false
     var strength: Float = 1.2
     var threshold: Float = 0.95
+
+    /// 把後處理掛到 ARView。整個生命週期只呼叫一次（0.38.0 在 init 裡連設兩次 renderCallbacks，RealityKit 斷言閃退）；
+    /// 之後開關只改 enabled。closure 在這個非隔離的函式裡建立，避免被推成 MainActor、在繪圖執行緒上觸發隔離檢查。
+    nonisolated static func install(_ pass: Hero3DBloom, on view: ARView) {
+        let run: @Sendable (ARView.PostProcessContext) -> Void = { ctx in pass.run(ctx) }
+        MainActor.assumeIsolated {
+            view.renderCallbacks.postProcess = run
+        }
+    }
     /// 來源／目標貼圖格式（第一次執行時記下，給診斷看）
     private(set) var formatNote = ""
 
@@ -27,6 +37,8 @@ final class Hero3DBloom: @unchecked Sendable {
 
     func run(_ ctx: ARView.PostProcessContext) {
         let src = ctx.sourceColorTexture, dst = ctx.targetColorTexture
+        guard enabled else { copy(ctx); return }
+        if extract == nil { prepare(ctx.device) }
         if formatNote.isEmpty {
             formatNote = "來源 \(Self.name(src.pixelFormat)) → 目標 \(Self.name(dst.pixelFormat))，\(src.width)×\(src.height)"
         }
