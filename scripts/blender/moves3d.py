@@ -302,7 +302,7 @@ for m in _sol: m.show_viewport = True
 # （所以這一段只能依賴 math、Vector，不能用這個檔其他地方的名稱）。
 # ANGLE-MEASURE-BEGIN
 ANGLE_NAMES = ('knee.L', 'knee.R', 'hip.L', 'hip.R', 'elbow.L', 'elbow.R', 'trunk_lean',
-               'uarm_trunk.L', 'uarm_trunk.R', 'uarm_vert.L', 'uarm_vert.R')
+               'uarm_trunk.L', 'uarm_trunk.R', 'uarm_vert.L', 'uarm_vert.R', 'uarm_flare.L', 'uarm_flare.R')
 
 def _ms_vec(pbones, name):
     b = pbones[name]
@@ -317,6 +317,7 @@ def measure_pose(pbones):
     trunk_lean：胸骨頭離垂直幾度（0＝直立；躺平約 90°；往前傾往後仰都是正值）。
     uarm_trunk：上臂和「軀幹往下」的夾角（0＝手臂貼身；90＝與軀幹垂直，跟身體怎麼躺無關）。
     uarm_vert：上臂離世界垂直往下幾度（0＝垂下；90＝水平；180＝舉過頭）。
+    uarm_flare：上臂離「前後方向的垂直面」幾度（＝手肘往身體左右外開的角度，只在身體朝前後（Y 軸）時有意義；躺著、趴著也適用）。
     """
     up, down = Vector((0, 0, 1)), Vector((0, 0, -1))
     chest = _ms_vec(pbones, 'chest')
@@ -329,5 +330,6 @@ def measure_pose(pbones):
         out[f'elbow.{s}'] = _ms_ang(-ua, fa)
         out[f'uarm_trunk.{s}'] = _ms_ang(ua, -chest)
         out[f'uarm_vert.{s}'] = _ms_ang(ua, down)
+        out[f'uarm_flare.{s}'] = math.degrees(math.asin(max(-1.0, min(1.0, abs(ua.normalized().x)))))
     return out
 # ANGLE-MEASURE-END
