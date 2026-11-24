@@ -26,3 +26,4 @@
 | `straightArmPulldown` 直臂下拉 | 滑輪 A | 一般 | 未做 | 未看 | | |
 | `facePull` 繩索面拉 | 滑輪 A | 一般 | 未做（來源只有 NSCA 出版社外旋版節錄，要補） | 未看 | | |
 | `cableCrunch` 跪姿繩索捲腹 | 滑輪 A | 一般 | 未做（沒有 ACE／NSCA／ExRx 頁面，要補） | 未看 | | |
+| `closePulldown` 窄握下拉 | 滑輪 A | 一般 | 未做 | 未看 | | |

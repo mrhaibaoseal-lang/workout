@@ -105,6 +105,14 @@
 
 ---
 
+## 6. 窄握下拉 `closePulldown`（`pulldown` 的變化版）
+- 使用者 2026-11-24 決定：窄握下拉不用 D 型把手，**就用原本的直槓、握窄一點**。手腕左右位置 0.16 m（寬握 0.40），其他（坐姿、腳勾滾筒、後仰約 20°、拉到上胸、節奏）和 `pulldown` 完全一樣。
+- 對應 App：`cable_close_pulldown`（窄握下拉）。`MOVE_META` 沒有 `angles`（`pulldown` 也沒有，沿用）。
+- 提示：手肘往下往後拉到身側；窄握時手肘更貼身，不要聳肩、不要借身體後仰。
+- 風險：一般。來源和 `pulldown` 同一組（ACE／ExRx 的 Lat Pulldown，close-grip 變化式）；本卡沒有另外查窄握專屬頁面，審查者可補。
+
+---
+
 ## 結論：`latPulldown` 不另做
 - App 的 `latPulldown`（`MoveFrames.swift` 的「高位下拉」）：坐在椅子上面向下拉架、身體微後仰、握把從頭上拉到上胸，用 `cableTower` 道具，「高位下拉、窄握下拉、彈力帶下拉都用它」（`docs/training-system.md` 0.31.1）。
 - 3D 的 `pulldown`：坐椅、腳勾滾筒、寬握直槓、後仰約 20°、拉到上胸——**就是同一個動作**。
