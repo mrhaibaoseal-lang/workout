@@ -81,3 +81,9 @@
 ## 省用量的做法
 - 一次做多個（動作一批 5～8 個、裝備一次 2～3 系列），每批只出一張低解析度總覽圖。
 - 有範本之後（鈦甲、伏地挺身、下拉），照範本量產可以考慮用 Sonnet；新系列的造型方向和最後檢查用 Opus。
+
+## App 端（Hero3DLab.swift）已知事項（2026-11-24）
+- RealityKit 讀 hero3d.usdz 時，綁同一副骨架的網格會合併成**一個實體**，67 個零件變成 mesh 裡的 part（id＝零件名，如 `head_titan__ol`）。
+  所以換裝、材質都在 part 層做：換裝＝篩 part 後用 `MeshResource.generate(from:)` 重組。0.36.2 起零件 67/67、骨頭 15/15 都對上。
+- **未解**：套上 CustomMaterial（unlit）後整個角色全黑，描邊剔除三種都一樣。0.36.3 加了「著色（診斷）」切換：
+  卡通 B（寫 base color）、卡通 E（寫 emissive）、純色（UnlitMaterial）。等使用者回報哪個有顏色再定預設，之後拿掉這個切換。
