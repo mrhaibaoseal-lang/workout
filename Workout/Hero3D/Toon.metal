@@ -9,8 +9,7 @@ using namespace metal;
 constant float3 kLight = float3(-0.45, 0.75, 0.55);   // 世界座標：左上前方
 constant float3 kRim = float3(0.55, 0.75, 1.0);
 
-[[visible]]
-void toonSurface(realitykit::surface_parameters params)
+static half3 toonColor(realitykit::surface_parameters params)
 {
     auto mc = params.material_constants();
     float4 cp = params.uniforms().custom_parameter();
@@ -32,12 +31,21 @@ void toonSurface(realitykit::surface_parameters params)
         float3 h = normalize(l + v);
         if (pow(saturate(dot(n, h)), 40.0) > 0.5) c += 0.55;
     }
-    params.surface().set_base_color(half3(saturate(c)));
+    return half3(saturate(c));
+}
+
+// unlit 模式只吃 emissive（寫 base color 會全黑，0.36.3 在手機上驗證過）
+[[visible]]
+void toonSurface(realitykit::surface_parameters params)
+{
+    params.surface().set_base_color(half3(0));
+    params.surface().set_emissive_color(toonColor(params));
 }
 
 // 發光、眼睛、描邊：純色
 [[visible]]
 void flatSurface(realitykit::surface_parameters params)
 {
-    params.surface().set_base_color(half3(params.material_constants().base_color_tint()));
+    params.surface().set_base_color(half3(0));
+    params.surface().set_emissive_color(half3(params.material_constants().base_color_tint()));
 }

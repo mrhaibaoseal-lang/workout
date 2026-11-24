@@ -43,6 +43,12 @@
 - 關節相連的骨頭本來就會重疊，不算；碰到軟墊（座墊、滾筒）是正常接觸，只列出不計入最嚴重的格。
 - 只把最嚴重的格截圖給人看，不用逐格目視。修不掉的小穿模記在報告裡，可以接受。
 - 動作 60 個 × 系列 12 個＝ 720 組，全部是電腦跑，不花 token；只有有問題的組才需要我看圖修。
+- **增量批次**：`python scripts/blender/clipbatch.py`（`--moves`、`--series` 縮範圍，`--dry` 只列要跑的組，`--force` 全重跑，`-j` 並行數）。
+  每組用輸入檔的雜湊當指紋，沒變就沿用上次結果：改一個動作批次檔只重跑那檔的動作 × 全系列，改 `gear_<系列>.py` 只重跑全動作 × 該系列，
+  改共用檔（`hero_proto.py`、`moves3d.py`、`gear_util.py`、`clipcheck.py`、`moves/props_*.py`）才全部重跑。
+  結果在 `out/clipcache/`（總表 `summary.json`）；草稿模式一組約 30～60 秒。
+- 不跨系列混搭檢查（混搭組合太多）；混搭靠第 1 層的寬度上限避免互撞。
+- 大腿內側互碰（`body:thigh.L × body:thigh.R`）是身體本身造成的，每個系列都一樣，不是裝備問題。
 - 身體塗色（上衣畫在身體頂點屬性上）不能漏到腰以下：hero_proto 合併前檢查，z<0.95 有任何塗色屬性 >0 就報錯。
   用 `tee_parts` 的袖口畫滾邊要再 `min(..., hem)`（2026-11-24 小豬短褲露出小腿才發現）。
   只檢查皮膚面（材質 0）讀的屬性；短褲範圍的面塗下身花色（褲管反摺）是正常的。
@@ -75,3 +81,9 @@
 ## 省用量的做法
 - 一次做多個（動作一批 5～8 個、裝備一次 2～3 系列），每批只出一張低解析度總覽圖。
 - 有範本之後（鈦甲、伏地挺身、下拉），照範本量產可以考慮用 Sonnet；新系列的造型方向和最後檢查用 Opus。
+
+## App 端（Hero3DLab.swift）已知事項（2026-11-24）
+- RealityKit 讀 hero3d.usdz 時，綁同一副骨架的網格會合併成**一個實體**，67 個零件變成 mesh 裡的 part（id＝零件名，如 `head_titan__ol`）。
+  所以換裝、材質都在 part 層做：換裝＝篩 part 後用 `MeshResource.generate(from:)` 重組。0.36.2 起零件 67/67、骨頭 15/15 都對上。
+- **著色**：CustomMaterial 用 `.unlit` 時只吃 **emissive**，寫 base color 會全黑（0.36.3 手機驗證）。
+  `Toon.metal` 的 toonSurface／flatSurface 一律 `set_emissive_color`，base color 設 0。

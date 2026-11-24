@@ -70,10 +70,18 @@ final class Hero3DModel: ObservableObject {
     private var model = Entity()             // 抬高用
     private var info: Hero3DInfo?
     private var clips: [String: Hero3DClip] = [:]
-    // iOS 18 起載入的網格是一般 Entity（帶 ModelComponent），不再是 ModelEntity，所以一律用元件操作
-    private var meshes: [(entity: Entity, part: String, mat: String)] = []
+    // RealityKit 讀 USD 時，綁同一副骨架的網格會合併成「一個」實體，零件變成網格裡的 part。
+    // 所以在 part 這層辨認零件（名字 = hero3d.json 的 meshes，例如 head_titan__ol）、套材質、換裝時重組網格。
+    private struct Body {
+        let entity: Entity
+        let contents: MeshResource.Contents                  // 原始內容，換裝時從這裡篩
+        let tags: [String: (part: String, mat: String)]      // key = 模型 id + "|" + part id
+    }
+    private var bodies: [Body] = []
+    private var mats: [any RealityKit.Material] = []
+    private var matIndex: [String: Int] = [:]
+    private var fallbackMat = 0
     private var jointMap: [ObjectIdentifier: [Int?]] = [:]
-    private var outlineMats: [CustomMaterial] = []
     private var time: Double = 0
     private var yaw: Float = 0
     private var sub: Cancellable?
@@ -125,27 +133,9 @@ final class Hero3DModel: ObservableObject {
             log.append(String(format: "載入 %.0f ms，檔案 %.1f MB", (CACurrentMediaTime() - t0) * 1000, Double(size) / 1_048_576))
             model.addChild(root)
 
-            var all = 0, plain = 0, untagged = 0
-            func walk(_ e: Entity, _ parentTag: String?) {
-                all += 1
-                let tag = e.name.contains("__") ? e.name : parentTag
-                if e.components.has(ModelComponent.self) {
-                    if !(e is ModelEntity) { plain += 1 }
-                    if let tag {
-                        let parts = tag.components(separatedBy: "__")
-                        meshes.append((e, parts[0], parts.count > 1 ? parts[1] : ""))
-                    } else { untagged += 1 }
-                }
-                for c in e.children { walk(c, tag) }
-            }
-            walk(root, nil)
-            let withJoints = meshes.filter { !Self.jointNames($0.entity).isEmpty }
-            log.append("實體 \(all) 個，網格 \(meshes.count) 個（非 ModelEntity \(plain)、沒標名 \(untagged)），有骨架 \(withJoints.count) 個")
+            try makeMaterials(&log)
+            collectBodies(root, &log)
             log.append("USD 內建動畫 \(root.availableAnimations.count) 段")
-            if let first = withJoints.first {
-                log.append("骨頭名稱例：\(Self.jointNames(first.entity).prefix(3).joined(separator: ", "))")
-            }
-            try applyMaterials(&log)
             mapJoints(&log)
         } catch {
             log.append("❌ \(error.localizedDescription)")
@@ -157,51 +147,86 @@ final class Hero3DModel: ObservableObject {
         }
     }
 
+    private func collectBodies(_ root: Entity, _ log: inout [String]) {
+        let names = (info?.meshes ?? []).sorted { $0.count > $1.count }   // 長的先比，避免 skin 吃掉 skintank
+        func match(_ s: String) -> String? { names.first { s.contains($0) } }
+        var all = 0, partCount = 0, matched = 0
+        var samples: [String] = []
+        func walk(_ e: Entity, _ parent: String) {
+            all += 1
+            let chain = parent + "/" + e.name
+            if let mc = e.components[ModelComponent.self] {
+                let c = mc.mesh.contents
+                var tags: [String: (part: String, mat: String)] = [:]
+                for m in c.models {
+                    let inst = c.instances.filter { $0.model == m.id }.map(\.id).joined(separator: "|")
+                    for p in m.parts {
+                        partCount += 1
+                        if samples.count < 3 { samples.append("model=\(m.id) part=\(p.id) inst=\(inst)") }
+                        guard let t = match(p.id) ?? match(m.id) ?? match(inst) ?? match(chain) else { continue }
+                        let sp = t.components(separatedBy: "__")
+                        tags[m.id + "|" + p.id] = (sp[0], sp.count > 1 ? sp[1] : "")
+                        matched += 1
+                    }
+                }
+                bodies.append(Body(entity: e, contents: c, tags: tags))
+            }
+            for ch in e.children { walk(ch, chain) }
+        }
+        walk(root, "")
+        log.append("實體 \(all) 個，有網格 \(bodies.count) 個，part \(partCount) 個，認出零件 \(matched) 個")
+        log.append(contentsOf: samples)
+    }
+
     private func srgb(_ c: [Float]) -> UIColor {
         func f(_ x: Float) -> CGFloat { CGFloat(x <= 0.0031308 ? x * 12.92 : 1.055 * pow(x, 1 / 2.4) - 0.055) }
         return UIColor(red: f(c[0]), green: f(c[1]), blue: f(c[2]), alpha: 1)
     }
 
-    private func applyMaterials(_ log: inout [String]) throws {
+    private func makeMaterials(_ log: inout [String]) throws {
         guard let device = MTLCreateSystemDefaultDevice(), let lib = device.makeDefaultLibrary() else {
             log.append("❌ 沒有 Metal 函式庫"); return
         }
         let toon = CustomMaterial.SurfaceShader(named: "toonSurface", in: lib)
         let flat = CustomMaterial.SurfaceShader(named: "flatSurface", in: lib)
-        var cache: [String: CustomMaterial] = [:]
-        for (e, _, matName) in meshes {
-            if let m = cache[matName] { Self.setMaterial(e, m); continue }
+        var used = Set((info?.meshes ?? []).compactMap { $0.components(separatedBy: "__").dropFirst().first })
+        used.insert("ol")
+        for name in used.sorted() {
             var m: CustomMaterial
-            if matName == "ol" {
+            if name == "ol" {
                 m = try CustomMaterial(surfaceShader: flat, lightingModel: .unlit)
                 m.baseColor = .init(tint: UIColor(red: 0.01, green: 0.01, blue: 0.02, alpha: 1))
-                outlineMats.append(m)
-            } else if let mi = info?.materials[matName], mi.kind == "toon" {
+            } else if let mi = info?.materials[name], mi.kind == "toon" {
                 m = try CustomMaterial(surfaceShader: toon, lightingModel: .unlit)
                 m.baseColor = .init(tint: srgb(mi.color))
                 let alt = mi.alt ?? [0, 0, 0]
                 m.custom.value = SIMD4(alt[0], alt[1], alt[2], mi.shade ?? 0.55)
                 m.roughness = .init(floatLiteral: mi.altShade ?? 0.6)
                 m.metallic = .init(floatLiteral: (mi.spec ?? false) ? 1 : 0)
-            } else if let mi = info?.materials[matName] {
+            } else if let mi = info?.materials[name] {
                 m = try CustomMaterial(surfaceShader: flat, lightingModel: .unlit)
                 let k = min(mi.strength ?? 1, 2)
                 m.baseColor = .init(tint: srgb(mi.color.map { min($0 * k, 1) }))
             } else {
-                log.append("⚠️ 材質表沒有 \(matName)"); continue
+                log.append("⚠️ 材質表沒有 \(name)"); continue
             }
-            cache[matName] = m
-            Self.setMaterial(e, m)
+            matIndex[name] = mats.count
+            mats.append(m)
         }
+        fallbackMat = mats.count            // 認不出的 part 用灰色，方便看出來
+        mats.append(UnlitMaterial(color: .gray))
         setOutlineCull()
     }
 
     func setOutlineCull() {
-        let cull: MaterialParameterTypes.FaceCulling = [.none, .back, .front][outlineCull]
-        for (e, _, mat) in meshes where mat == "ol" {
-            guard var m = e.components[ModelComponent.self]?.materials.first as? CustomMaterial else { continue }
-            m.faceCulling = cull
-            Self.setMaterial(e, m)
+        guard let i = matIndex["ol"], var m = mats[i] as? CustomMaterial else { return }
+        let cull: [MaterialParameterTypes.FaceCulling] = [.none, .back, .front]
+        m.faceCulling = cull[outlineCull]
+        mats[i] = m
+        for b in bodies {
+            guard var mc = b.entity.components[ModelComponent.self] else { continue }
+            mc.materials = mats
+            b.entity.components.set(mc)
         }
     }
 
@@ -210,22 +235,46 @@ final class Hero3DModel: ObservableObject {
         let idx = Dictionary(uniqueKeysWithValues: clip.joints.enumerated().map { ($1, $0) })
         let short = Dictionary(clip.joints.enumerated().map { ($1.components(separatedBy: "/").last!, $0) }, uniquingKeysWith: { a, _ in a })
         var matched = 0, total = 0
-        for (e, _, _) in meshes {
-            let map = Self.jointNames(e).map { n -> Int? in
+        for b in bodies {
+            let map = Self.jointNames(b.entity).map { n -> Int? in
                 idx[n] ?? short[n.components(separatedBy: "/").last ?? n]
             }
             matched += map.compactMap { $0 }.count; total += map.count
-            jointMap[ObjectIdentifier(e)] = map
+            jointMap[ObjectIdentifier(b.entity)] = map
         }
         log.append("骨頭對應 \(matched)/\(total)")
     }
 
+    /// 依目前選的裝備，從原始內容篩出要顯示的 part，重組網格並指定材質
     func applyChoice() {
-        let bellOK = move != "pushup"
-        for (e, part, _) in meshes {
-            let slot = String(part.split(separator: "_").first ?? "")
-            let series = part.split(separator: "_").dropFirst().joined(separator: "_")
-            e.isEnabled = part == "base" || (choice[slot] == series && (slot != "bell" || bellOK))
+        let active = activeParts
+        for b in bodies {
+            var c = b.contents
+            var models: [MeshResource.Model] = []
+            for var m in b.contents.models {
+                let parts: [MeshResource.Part] = m.parts.compactMap { p in
+                    let t = b.tags[m.id + "|" + p.id]
+                    if let t, !active.contains(t.part) { return nil }
+                    var q = p
+                    q.materialIndex = t.flatMap { matIndex[$0.mat] } ?? fallbackMat
+                    return q
+                }
+                if parts.isEmpty { continue }
+                m.parts = MeshPartCollection(parts)
+                models.append(m)
+            }
+            let keep = Set(models.map(\.id))
+            c.models = MeshModelCollection(models)
+            c.instances = MeshInstanceCollection(b.contents.instances.filter { keep.contains($0.model) })
+            do {
+                let mesh = try MeshResource.generate(from: c)
+                var mc = b.entity.components[ModelComponent.self] ?? ModelComponent(mesh: mesh, materials: mats)
+                mc.mesh = mesh
+                mc.materials = mats
+                b.entity.components.set(mc)
+            } catch {
+                report.append("❌ 重組網格失敗：\(error.localizedDescription)")
+            }
         }
         if useUSDAnimation, let root = model.children.first, let anim = root.availableAnimations.first {
             root.playAnimation(anim.repeat())
@@ -250,17 +299,11 @@ final class Hero3DModel: ObservableObject {
         // 減少動態效果：停在動作最深的那一格
         let t = reduce ? Double(clip.frames.count / 2) / clip.fps : time
         let pose = clip.pose(at: t)
-        for (e, _, _) in meshes where e.isEnabled {
-            guard let map = jointMap[ObjectIdentifier(e)], !map.isEmpty else { continue }
-            Self.setJoints(e, pose, map)
+        for b in bodies {
+            guard let map = jointMap[ObjectIdentifier(b.entity)], !map.isEmpty else { continue }
+            Self.setJoints(b.entity, pose, map)
         }
         model.position.y = clip.lift(at: t, parts: activeParts)
-    }
-
-    private static func setMaterial(_ e: Entity, _ m: any RealityKit.Material) {
-        guard var mc = e.components[ModelComponent.self] else { return }
-        mc.materials = Array(repeating: m, count: max(mc.materials.count, 1))
-        e.components.set(mc)
     }
 
     private static func jointNames(_ e: Entity) -> [String] {
