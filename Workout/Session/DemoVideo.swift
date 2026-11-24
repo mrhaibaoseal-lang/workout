@@ -111,11 +111,27 @@ struct DemoVideoSheet: View {
     let exercise: Exercise
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var inventory: InventoryStore
+
+    /// 示範動畫：穿使用者目前裝備的角色（減少動態效果時停在定格）
+    private var demoStage: some View {
+        CharacterView(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
+                      animated: !reduceMotion, showStats: false)
+            .frame(maxWidth: .infinity)
+            .frame(height: 200)
+            .background(
+                RadialGradient(
+                    colors: [Color(gearHex: "#26303D"), Color(gearHex: "#141920"), Color(gearHex: "#0C0F14")],
+                    center: .top, startRadius: 10, endRadius: 300),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    demoStage
                     if let v = DemoVideos.video(for: exercise) {
                         YouTubePlayer(video: v)
                             .aspectRatio(16 / 9, contentMode: .fit)
