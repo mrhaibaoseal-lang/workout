@@ -34,6 +34,7 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   改成手肘有彎時照屈曲平面、打直時最小轉動，前臂接著上臂，剩下的扭轉分給前臂和手腕）。
 - `deformcheck.py`：身體變形檢查（擠扁、拉扯、法線翻轉、皮膚自穿），`blender -b <輸出>/hero.blend -P scripts/blender/deformcheck.py -- 報告.json 2`（`LBS=1` 看 App 的線性蒙皮）。
 - `rigtest.py`：骨架極限姿勢（`MOVE=rigtest`，7 格：手舉過頭、側平舉、前平舉、手肘全彎、深蹲到底、髖鉸鏈、弓箭步）。骨架、權重、身體改動後都要跑它＋deformcheck。
+- 手的握法：`arm_to(..., hand_roll=弧度)`／`aim(..., roll=弧度)` 讓手繞自己的軸轉（決定啞鈴握把朝向；0＝握把前後向、90°＝左右向；手舉過頭、側平舉等 `aim` 的滾轉規則見 `keyall` 的校正）。站姿啞鈴批次（`moves/standing_dumbbell.py`）用它；動作檔在 `keyall` 之後量 `[angles]`（鎖骨跟轉會改變實際骨頭方向），數值要落在動作卡（`docs/3d-moves/standing_dumbbell.md`）範圍內。
 - 輸出路徑一律用絕對路徑（相對路徑 `out\x` 在這台 Windows 會被寫到 `C:\out\x`）。`NORENDER=1` 只存 hero.blend 不算圖（給 clipcheck／deformcheck）。
 - 基本款背心＝身體軀幹塗色（不另做網格，含肩帶）：頂點屬性 `tank`（在背心裡多深，公尺）由著色器判斷 >0，邊緣平滑不鋸齒（`tank_field`），身型是使用者選定的平直倒三角；身體細分 3 級讓塗色邊緣平滑。
 - 自動檢查：`blender -b <輸出>/hero.blend -P scripts/blender/clipcheck.py -- 報告.json 2`（見 docs/3d-system.md「防穿模」）。

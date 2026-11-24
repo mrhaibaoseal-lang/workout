@@ -15,11 +15,14 @@ RX = lambda ang: Matrix.Rotation(ang, 4, 'X')
 UP = Vector((0, 0, 1))
 D = math.radians
 
-def aim(name, head, direction):
+def aim(name, head, direction, roll=0.0):
+    """骨頭從 head 指向 direction。roll＝再繞骨頭自己的軸轉多少弧度（手的握法：握把朝向；其他骨頭不用）"""
     yv = direction.normalized()
     ref = Vector((1, 0, 0)) if abs(yv.x) < 0.95 else Vector((0, -1, 0))
     zv = ref.cross(yv).normalized(); xv = yv.cross(zv)
-    m = Matrix((xv, yv, zv)).transposed().to_4x4(); m.translation = head
+    m = Matrix((xv, yv, zv)).transposed()
+    if roll: m = m @ Matrix.Rotation(roll, 3, 'Y')
+    m = m.to_4x4(); m.translation = head
     pb[name].matrix = m; bpy.context.view_layer.update()
     return head + yv * blen[name]
 
@@ -39,9 +42,9 @@ def trunk(hh, lam_hips, lam_chest, lam_head):
     sh = {s: chest_pt(rest[f'upper_arm.{s}'][0]) for s in ('L', 'R')}
     return chest_pt, sh
 
-def arm_to(s, sh, wrist, pole, hand_dir):
+def arm_to(s, sh, wrist, pole, hand_dir, hand_roll=0.0):
     e = ik2(sh, wrist, blen[f'upper_arm.{s}'], blen[f'forearm.{s}'], pole)
-    aim(f'upper_arm.{s}', sh, e - sh); aim(f'forearm.{s}', e, wrist - e); aim(f'hand.{s}', wrist, hand_dir)
+    aim(f'upper_arm.{s}', sh, e - sh); aim(f'forearm.{s}', e, wrist - e); aim(f'hand.{s}', wrist, hand_dir, hand_roll)
     _PIN[s] = (wrist.copy(), pole.copy())     # 手腕釘住（握把、地板）：鎖骨轉了之後重解 IK，手不離開握把
 
 # ---------- 鎖骨自動跟轉（§6-1，2026-11-24 加）----------

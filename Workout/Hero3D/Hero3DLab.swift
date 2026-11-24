@@ -62,7 +62,6 @@ final class Hero3DModel: ObservableObject {
     @Published var useUSDAnimation = false
     @Published var paused = false
     @Published var outlineCull = 1           // 0 不剔除、1 剔除背面、2 剔除正面
-    @Published var shading = 0               // 0 卡通(base)、1 卡通(emissive)、2 純色 UnlitMaterial（診斷用）
     @Published var showStats = true
     @Published var report: [String] = []
 
@@ -184,29 +183,15 @@ final class Hero3DModel: ObservableObject {
         return UIColor(red: f(c[0]), green: f(c[1]), blue: f(c[2]), alpha: 1)
     }
 
-    func changeShading() {
-        var log: [String] = []
-        do { try makeMaterials(&log) } catch { log.append("❌ \(error.localizedDescription)") }
-        report.append(contentsOf: log)
-        applyChoice()
-    }
-
     private func makeMaterials(_ log: inout [String]) throws {
-        mats = []; matIndex = [:]
         guard let device = MTLCreateSystemDefaultDevice(), let lib = device.makeDefaultLibrary() else {
             log.append("❌ 沒有 Metal 函式庫"); return
         }
-        let toon = CustomMaterial.SurfaceShader(named: shading == 1 ? "toonSurfaceE" : "toonSurface", in: lib)
-        let flat = CustomMaterial.SurfaceShader(named: shading == 1 ? "flatSurfaceE" : "flatSurface", in: lib)
+        let toon = CustomMaterial.SurfaceShader(named: "toonSurface", in: lib)
+        let flat = CustomMaterial.SurfaceShader(named: "flatSurface", in: lib)
         var used = Set((info?.meshes ?? []).compactMap { $0.components(separatedBy: "__").dropFirst().first })
         used.insert("ol")
         for name in used.sorted() {
-            if shading == 2 {
-                let col = name == "ol" ? [Float](arrayLiteral: 0.01, 0.01, 0.02) : (info?.materials[name]?.color ?? [1, 0, 1])
-                matIndex[name] = mats.count
-                mats.append(UnlitMaterial(color: srgb(col)))
-                continue
-            }
             var m: CustomMaterial
             if name == "ol" {
                 m = try CustomMaterial(surfaceShader: flat, lightingModel: .unlit)
@@ -382,12 +367,6 @@ struct Hero3DLabView: View {
                         }
                     }
                 }
-                Section("著色（診斷）") {
-                    Picker("著色", selection: $m.shading) {
-                        Text("卡通 B").tag(0); Text("卡通 E").tag(1); Text("純色").tag(2)
-                    }
-                    .pickerStyle(.segmented)
-                }
                 Section("描邊") {
                     Picker("剔除", selection: $m.outlineCull) {
                         Text("不剔除").tag(0); Text("背面").tag(1); Text("正面").tag(2)
@@ -406,7 +385,6 @@ struct Hero3DLabView: View {
         .onChange(of: m.move) { _, _ in m.applyChoice() }
         .onChange(of: m.useUSDAnimation) { _, _ in m.applyChoice() }
         .onChange(of: m.outlineCull) { _, _ in m.setOutlineCull() }
-        .onChange(of: m.shading) { _, _ in m.changeShading() }
         .onChange(of: m.showStats) { _, _ in m.toggleStats() }
     }
 }
