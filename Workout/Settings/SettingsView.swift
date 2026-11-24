@@ -77,6 +77,9 @@ struct SettingsView: View {
                     row("資料", icon: "square.and.arrow.up.fill", tint: Theme.muted, status: "匯出 CSV") {
                         DataSettingsView()
                     }
+                    row("3D 測試", icon: "cube.fill", tint: Theme.accent, status: "3D 角色技術驗證") {
+                        Hero3DLabView()
+                    }
                 }
                 .listRowBackground(Theme.surface)
             }

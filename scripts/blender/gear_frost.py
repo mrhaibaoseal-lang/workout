@@ -42,7 +42,7 @@ def tri(u):
     return 1 - abs(2 * (u % 1.0) - 1)
 
 # ---------- 冰晶毛帽 ----------
-if G['head'] == 'frost':
+if want('head', 'frost'):
     import bmesh as _bm
     ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))     # 帽沿下露出的短髮
     # 帽身：半顆橢球，只留帽沿以上
@@ -71,7 +71,7 @@ if G['head'] == 'frost':
         ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))
 
 # ---------- 冰霜 T 恤：塗在身體上（短袖＋圓領），肩頸是冰柱垂下的冰藍色 ----------
-if G['top'] == 'frost':
+if want('top', 'frost'):
     _AD = Vector((0.09, -0.28)).normalized()           # 上臂方向（x, z）
     def tee_parts(x, y, z):
         ax = abs(x)
@@ -100,7 +100,7 @@ if G['top'] == 'frost':
     cyl('chest', 'frglow', (0, -0.124, 1.33), 0.017, 0.008, (0, -1, 0), 6)
 
 # ---------- 冰霜長褲：冰藍，外側一條白色冰裂紋（鋸齒） ----------
-if G['bottom'] == 'frost':
+if want('bottom', 'frost'):
     fr = shorts.data.attributes.new('frst', 'FLOAT', 'POINT')
     for i, v in enumerate(shorts.data.vertices):
         x, y, z = v.co
@@ -116,7 +116,7 @@ if G['bottom'] == 'frost':
         cyl(f'shin.{s}', 'fr3', an + Vector((0, 0, 0.065)), 0.058, 0.045, d2, 16, 0.006)   # 白色褲管口
 
 # ---------- 冰刀鞋（高筒、鞋底下有冰刀） ----------
-if G['feet'] == 'frost':
+if want('feet', 'frost'):
     for s, sx in (('L', 1), ('R', -1)):
         x = 0.12 * sx; fb = f'foot.{s}'
         shell(fb, 'fr3', [(x - 0.066, -0.19, 0.03), (x + 0.066, -0.19, 0.03), (x + 0.066, 0.085, 0.03), (x - 0.066, 0.085, 0.03),
@@ -134,7 +134,7 @@ if G['feet'] == 'frost':
         crystal(fb, 'frice', (x + 0.06 * sx, 0.05, 0.14), (0.6 * sx, 0.8, 0.6), 0.016, 0.06)   # 腳踝外側冰晶
 
 # ---------- 霜凍手套（白色厚手套、外擴袖口、指節冰晶） ----------
-if G['hands'] == 'frost':
+if want('hands', 'frost'):
     for s, sx in (('L', 1), ('R', -1)):
         e, w_ = B[f'forearm.{s}']; d = w_ - e
         cyl(f'forearm.{s}', 'fr2', w_ - d * 0.16, 0.054, d.length * 0.3, d, 16, 0.008, r2=0.072)   # 外擴袖口
@@ -145,7 +145,7 @@ if G['hands'] == 'frost':
             crystal(f'hand.{s}', 'frice', h + Vector((0.042 * sx, yy, -0.075)), (sx, 0, 0.25), 0.012, 0.045)
 
 # ---------- 冰柱披肩＋冰晶立領 ----------
-if G['back'] == 'frost':
+if want('back', 'frost'):
     # 披肩：背後一片弧面（只蓋背，不包到手臂），下緣是冰柱鋸齒
     ROWS = [(1.52, 0.10, 0.11), (1.46, 0.19, 0.15), (1.38, 0.225, 0.165), (1.27, 0.23, 0.17), (1.17, 0.215, 0.16)]
     NC = 17; PH = math.radians(62)
@@ -176,7 +176,7 @@ if G['back'] == 'frost':
         cyl('chest', 'frglow', (0.15 * sx, -0.02, 1.47), 0.022, 0.012, (0.3 * sx, 0, 1), 6)
 
 # ---------- 冰塊啞鈴 ----------
-if G['bell'] == 'frost':
+if want('bell', 'frost'):
     for s, sx in (('L', 1), ('R', -1)):
         hc = B[f'hand.{s}'][0] + Vector((0, 0, -0.07))
         cyl(f'hand.{s}', 'fr2', hc, 0.018, 0.30, (0, 1, 0), 12)

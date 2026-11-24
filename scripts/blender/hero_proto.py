@@ -21,6 +21,17 @@ if os.environ.get('MOVE', 'squat') != 'squat':
 # 背靠靠背、躺在椅子上的動作：背部裝備（披風、背包）一定會卡進椅背 → 示範時隱藏
 if os.environ.get('MOVE', 'squat') in ('pulldown',):
     G['back'] = 'none'
+# EXPORT=frost,titan：給 App 匯出用。剛性部位（頭、手、腳、背、啞鈴）把基本款和列出的系列都建出來，
+# 每個零件標上「部位_系列」（面屬性 part），export_app.py 再拆成獨立網格，App 逐件開關。
+EXP_SERIES = [x for x in os.environ.get('EXPORT', '').split(',') if x]
+RIGID = ('head', 'feet', 'hands', 'back', 'bell')
+PART_NAMES = ['base']; CUR = ['base']
+def want(slot, series):
+    ok = G[slot] == series or (bool(EXP_SERIES) and slot in RIGID and G[slot] != 'none' and series in ['basic'] + EXP_SERIES)
+    if ok:
+        CUR[0] = f'{slot}_{series}'
+        if CUR[0] not in PART_NAMES: PART_NAMES.append(CUR[0])
+    return ok
 TOP = G['top'] == 'titan'                       # 全身緊身衣（冰霜 T 恤是塗色，不算）
 BOT = G['bottom'] in ('titan', 'frost')          # 長褲：褲管到腳踝
 def hexc(h):
@@ -126,6 +137,8 @@ def finish(ob, bone, mat, subd=2):
     ob.data.materials.append(M[mat])
     vg = ob.vertex_groups.new(name=bone); vg.add(range(len(ob.data.vertices)), 1.0, 'REPLACE')
     for p in ob.data.polygons: p.use_smooth = True
+    pa = ob.data.attributes.new('part', 'INT', 'FACE')
+    for i in range(len(ob.data.polygons)): pa.data[i].value = PART_NAMES.index(CUR[0])
     parts.append(ob); return ob
 
 def ellipsoid(bone, mat, c, r, rot=(0, 0, 0)):
@@ -330,22 +343,22 @@ def base_head():
       ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
       ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
       ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))  # 眉毛
-if G['head'] == 'basic': base_head()
+if want('head', 'basic'): base_head()
 for s, sx in (('L', 1), ('R', -1)):
     ua, fa, ha = B[f'upper_arm.{s}'], B[f'forearm.{s}'], B[f'hand.{s}']
     th, sh, ft = B[f'thigh.{s}'], B[f'shin.{s}'], B[f'foot.{s}']
     hc = ha[0] + Vector((0, 0, -0.07))
-    if G['hands'] == 'basic':
+    if want('hands', 'basic'):
         box(f'hand.{s}', 'skin', ha[0] + Vector((0, 0, -0.065)), (0.042, 0.06, 0.055))
         # 護腕
         bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.056, depth=0.06, location=fa[1] + (fa[0] - fa[1]) * 0.18)
         finish(bpy.context.object, f'forearm.{s}', 'band', 1)
-    if G['feet'] == 'basic':
+    if want('feet', 'basic'):
         # 球鞋：鞋身 + 鞋底 + 鞋舌
         box(f'foot.{s}', 'shoe', (0.12 * sx, -0.06, 0.075), (0.065, 0.13, 0.055))
         box(f'foot.{s}', 'sole', (0.12 * sx, -0.06, 0.02), (0.07, 0.14, 0.02), subd=1)
         box(f'foot.{s}', 'shoe', (0.12 * sx, -0.02, 0.13), (0.05, 0.06, 0.04))
-    if G['bell'] == 'basic':
+    if want('bell', 'basic'):
         # 啞鈴（握把沿 Y 軸，兩頭各兩片槓片）
         hc = ha[0] + Vector((0, 0, -0.07))
         bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.018, depth=0.30, location=hc, rotation=(math.radians(90), 0, 0))
@@ -359,7 +372,7 @@ for s, sx in (('L', 1), ('R', -1)):
 _GD = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1]))
 exec(open(os.path.join(_GD, 'gear_util.py'), encoding='utf-8').read())
 for _ser in ('titan', 'frost'):   # 每個系列一個 gear_<id>.py
-    if _ser in G.values():
+    if _ser in G.values() or _ser in EXP_SERIES:
         exec(open(os.path.join(_GD, f'gear_{_ser}.py'), encoding='utf-8').read())
 
 # 合併成一個蒙皮網格
@@ -367,6 +380,7 @@ bpy.ops.object.select_all(action='DESELECT')
 for p in parts: p.select_set(True)
 bpy.context.view_layer.objects.active = parts[0]
 bpy.ops.object.join(); body = bpy.context.object; body.name = 'hero'
+body['part_names'] = PART_NAMES
 body.data.materials.append(OUTLINE)
 am = body.modifiers.new('rig', 'ARMATURE'); am.object = rig
 body.parent = rig
@@ -388,7 +402,7 @@ bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=CAM['stage'][2], depth=0
 bpy.context.object.data.materials.append(toon('stage', (0.08, 0.10, 0.18)))
 bpy.ops.mesh.primitive_torus_add(major_radius=CAM['stage'][2], minor_radius=0.012, location=(CAM['stage'][0], CAM['stage'][1], 0.0))
 bpy.context.object.data.materials.append(flat('ring', (1.0, 0.55, 0.2), 4))
-sc.eevee.use_bloom = True; sc.eevee.bloom_intensity = 0.08
+if hasattr(sc.eevee, 'use_bloom'): sc.eevee.use_bloom = True; sc.eevee.bloom_intensity = 0.08   # Blender 4.2 起沒有
 sun = bpy.data.objects.new('sun', bpy.data.lights.new('sun', 'SUN')); sc.collection.objects.link(sun)
 sun.rotation_euler = (math.radians(50), math.radians(-25), math.radians(-35)); sun.data.energy = 3
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam

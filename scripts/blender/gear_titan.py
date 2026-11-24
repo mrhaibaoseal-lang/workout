@@ -2,7 +2,7 @@
 # 對照 2D：頭盔、胸甲＋腹甲＋能量核心、大腿甲＋護膝、推進靴、機械手甲、雙筒噴射背包、能量膠囊啞鈴、全像掃描。
 
 # ---------- 頭盔 ----------
-if G['head'] == 'titan':
+if want('head', 'titan'):
     ellipsoid('head', 'ti', (0, 0.0, 1.715), (0.178, 0.188, 0.195))
     def band(bone, mat, c, r, zc, half, ymax):
         """貼著頭盔曲面的一條帶子：同心橢球只留 |z-zc|<half、y<ymax 的部分"""
@@ -24,7 +24,7 @@ if G['head'] == 'titan':
         obox('head', 'ti', (0.15 * sx, -0.06, 1.80), (0.012, 0.07, 0.02), (0.3 * sx, 0, 1), w=0.005)  # 側邊天線
 
 # ---------- 胸甲＋腹甲＋核心 ----------
-if G['top'] == 'titan':
+if want('top', 'titan'):
     shell('chest', 'ti', trap(1.20, 1.47, 0.20, 0.145, 0.285, 0.155, -0.005, 0.0))
     shell('chest', 'tidk', trap(1.43, 1.50, 0.12, 0.11, 0.13, 0.10), 0.015)              # 頸圈
     cyl('chest', 'tidk', (0, -0.165, 1.35), 0.062, 0.03, (0, -1, 0), 6, 0.006)            # 六角核心外框
@@ -45,7 +45,7 @@ if G['top'] == 'titan':
         obox(f'upper_arm.{s}', 'glow', (0.30 * sx, 0, 1.512), (0.05, 0.08, 0.006), w=0)
 
 # ---------- 機械手甲 ----------
-if G['hands'] == 'titan':
+if want('hands', 'titan'):
     for s, sx in (('L', 1), ('R', -1)):
         e, w_ = B[f'forearm.{s}']
         d = w_ - e
@@ -58,7 +58,7 @@ if G['hands'] == 'titan':
         cyl(f'hand.{s}', 'glow', h + Vector((0.056 * sx, 0, -0.06)), 0.016, 0.006, (1, 0, 0), 8)
 
 # ---------- 大腿甲＋護膝＋脛甲 ----------
-if G['bottom'] == 'titan':
+if want('bottom', 'titan'):
     for s, sx in (('L', 1), ('R', -1)):
         a, b = B[f'thigh.{s}']; d = b - a
         obox(f'thigh.{s}', 'ti', a + d * 0.55 + Vector((0.01 * sx, -0.085, 0)), (0.075, 0.03, d.length * 0.3), d, 0.02)
@@ -70,7 +70,7 @@ if G['bottom'] == 'titan':
         obox(f'shin.{s}', 'tidk', k + d2 * 0.5 + Vector((0, -0.07, 0)), (0.055, 0.022, d2.length * 0.28), d2, 0.012)
 
 # ---------- 推進靴 ----------
-if G['feet'] == 'titan':
+if want('feet', 'titan'):
     for s, sx in (('L', 1), ('R', -1)):
         x = 0.12 * sx
         shell(f'foot.{s}', 'ti', [(x - 0.075, -0.20, 0.0), (x + 0.075, -0.20, 0.0), (x + 0.075, 0.09, 0.0), (x - 0.075, 0.09, 0.0),
@@ -83,7 +83,7 @@ if G['feet'] == 'titan':
         cyl(f'foot.{s}', 'flame', (x, 0.14, 0.07), 0.026, 0.07, (0, 1, 0), 8, r2=0.0)        # 噴焰
 
 # ---------- 雙筒噴射背包 ----------
-if G['back'] == 'titan':
+if want('back', 'titan'):
     obox('chest', 'tidk', (0, 0.18, 1.31), (0.10, 0.05, 0.13), w=0.02)
     for sx in (1, -1):
         cyl('chest', 'ti', (0.10 * sx, 0.22, 1.30), 0.058, 0.30, n=12, w=0.012)
@@ -102,7 +102,7 @@ if G['back'] == 'titan':
         obox('chest', 'ti', (0.12 * sx, -0.158, 1.30), (0.03, 0.01, 0.02), w=0.004)
 
 # ---------- 能量膠囊啞鈴 ----------
-if G['bell'] == 'titan':
+if want('bell', 'titan'):
     for s, sx in (('L', 1), ('R', -1)):
         hc = B[f'hand.{s}'][0] + Vector((0, 0, -0.07))
         cyl(f'hand.{s}', 'tidk', hc, 0.018, 0.30, (0, 1, 0), 12)
@@ -114,7 +114,7 @@ if G['bell'] == 'titan':
             cyl(f'hand.{s}', 'glow', c + Vector((0, 0.072 * sy, 0)), 0.025, 0.01, (0, 1, 0), 8)     # 端蓋
 
 # ---------- 全像掃描（獨立物件，不跟骨架）：示範影片不放，fx=titan 才加 ----------
-if G['fx'] == 'titan':
+if want('fx', 'titan'):
     if True:
       for i, ph in enumerate((0, 24)):
           bpy.ops.mesh.primitive_torus_add(major_radius=0.48, minor_radius=0.005, major_segments=64, location=(0, 0, 0.05))

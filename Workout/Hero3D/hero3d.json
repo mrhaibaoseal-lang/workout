@@ -1,0 +1,408 @@
+{
+ "parts": [
+  "base",
+  "head_basic",
+  "hands_basic",
+  "feet_basic",
+  "bell_basic",
+  "head_titan",
+  "hands_titan",
+  "feet_titan",
+  "back_titan",
+  "bell_titan",
+  "head_frost",
+  "feet_frost",
+  "hands_frost",
+  "back_frost",
+  "bell_frost"
+ ],
+ "meshes": [
+  "back_frost__fr1",
+  "back_frost__fr2",
+  "back_frost__frglow",
+  "back_frost__frice",
+  "back_frost__ol",
+  "back_titan__flame",
+  "back_titan__glow",
+  "back_titan__ol",
+  "back_titan__ti",
+  "back_titan__tidk",
+  "base__ol",
+  "base__shorts",
+  "base__skin",
+  "base__skintank",
+  "bell_basic__grip",
+  "bell_basic__iron",
+  "bell_basic__ol",
+  "bell_frost__fr2",
+  "bell_frost__fr3",
+  "bell_frost__frice",
+  "bell_frost__ol",
+  "bell_titan__glow",
+  "bell_titan__ol",
+  "bell_titan__ti",
+  "bell_titan__tidk",
+  "feet_basic__ol",
+  "feet_basic__shoe",
+  "feet_basic__sole",
+  "feet_frost__fr2",
+  "feet_frost__fr3",
+  "feet_frost__frblade",
+  "feet_frost__frglow",
+  "feet_frost__frice",
+  "feet_frost__ol",
+  "feet_titan__flame",
+  "feet_titan__glow",
+  "feet_titan__ol",
+  "feet_titan__ti",
+  "feet_titan__tidk",
+  "hands_basic__band",
+  "hands_basic__ol",
+  "hands_basic__skin",
+  "hands_frost__fr2",
+  "hands_frost__fr3",
+  "hands_frost__frglow",
+  "hands_frost__frice",
+  "hands_frost__ol",
+  "hands_titan__glow",
+  "hands_titan__ol",
+  "hands_titan__ti",
+  "hands_titan__tidk",
+  "head_basic__band",
+  "head_basic__eye",
+  "head_basic__eyehi",
+  "head_basic__hair",
+  "head_basic__ol",
+  "head_frost__eye",
+  "head_frost__eyehi",
+  "head_frost__fr2",
+  "head_frost__fr3",
+  "head_frost__frice",
+  "head_frost__hair",
+  "head_frost__ol",
+  "head_titan__glow",
+  "head_titan__ol",
+  "head_titan__ti",
+  "head_titan__tidk"
+ ],
+ "materials": {
+  "band": {
+   "kind": "toon",
+   "color": [
+    0.0137,
+    0.0232,
+    0.0578
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "eye": {
+   "kind": "flat",
+   "color": [
+    0.02,
+    0.02,
+    0.03
+   ],
+   "strength": 1.0
+  },
+  "eyehi": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "strength": 1.5
+  },
+  "flame": {
+   "kind": "flat",
+   "color": [
+    0.521,
+    1.0,
+    0.9047
+   ],
+   "strength": 5.0
+  },
+  "fr1": {
+   "kind": "toon",
+   "color": [
+    0.7231,
+    0.9047,
+    1.0
+   ],
+   "shade": 0.62,
+   "spec": false
+  },
+  "fr2": {
+   "kind": "toon",
+   "color": [
+    0.0782,
+    0.4793,
+    1.0
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "fr3": {
+   "kind": "toon",
+   "color": [
+    0.9047,
+    0.9387,
+    0.9734
+   ],
+   "shade": 0.66,
+   "spec": false
+  },
+  "frblade": {
+   "kind": "toon",
+   "color": [
+    0.5841,
+    0.6376,
+    0.7011
+   ],
+   "shade": 0.5,
+   "spec": true
+  },
+  "frglow": {
+   "kind": "flat",
+   "color": [
+    0.2747,
+    0.7084,
+    1.0
+   ],
+   "strength": 3.0
+  },
+  "frice": {
+   "kind": "toon",
+   "color": [
+    0.3467,
+    0.7454,
+    1.0
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
+  "glow": {
+   "kind": "flat",
+   "color": [
+    0.0307,
+    0.8879,
+    0.6584
+   ],
+   "strength": 3.0
+  },
+  "grip": {
+   "kind": "toon",
+   "color": [
+    0.62,
+    0.64,
+    0.68
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "hair": {
+   "kind": "toon",
+   "color": [
+    0.08,
+    0.08,
+    0.1
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "iron": {
+   "kind": "toon",
+   "color": [
+    0.16,
+    0.17,
+    0.2
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "outline": {
+   "kind": "flat",
+   "color": [
+    0.01,
+    0.01,
+    0.02
+   ],
+   "strength": 1.0
+  },
+  "ring": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.55,
+    0.2
+   ],
+   "strength": 4.0
+  },
+  "shirt": {
+   "kind": "toon",
+   "color": [
+    1.0,
+    0.147,
+    0.0356
+   ],
+   "shade": 0.62,
+   "spec": false
+  },
+  "shoe": {
+   "kind": "toon",
+   "color": [
+    0.92,
+    0.92,
+    0.95
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "shorts": {
+   "kind": "toon",
+   "color": [
+    0.0137,
+    0.0232,
+    0.0578
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "skin": {
+   "kind": "toon",
+   "color": [
+    0.5,
+    0.53,
+    0.58
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "skintank": {
+   "kind": "toon",
+   "color": [
+    0.5,
+    0.53,
+    0.58
+   ],
+   "shade": 0.55,
+   "spec": false,
+   "alt": [
+    1.0,
+    0.147,
+    0.0356
+   ],
+   "altShade": 0.62
+  },
+  "sole": {
+   "kind": "toon",
+   "color": [
+    0.95,
+    0.38,
+    0.14
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "stage": {
+   "kind": "toon",
+   "color": [
+    0.08,
+    0.1,
+    0.18
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "ti": {
+   "kind": "toon",
+   "color": [
+    0.4564,
+    0.521,
+    0.6038
+   ],
+   "shade": 0.5,
+   "spec": true
+  },
+  "tidk": {
+   "kind": "toon",
+   "color": [
+    0.1022,
+    0.1329,
+    0.1812
+   ],
+   "shade": 0.5,
+   "spec": true
+  }
+ },
+ "verts": {
+  "back_frost__fr1": 204,
+  "back_frost__fr2": 168,
+  "back_frost__frglow": 24,
+  "back_frost__frice": 179,
+  "back_frost__ol": 575,
+  "back_titan__flame": 22,
+  "back_titan__glow": 46,
+  "back_titan__ol": 892,
+  "back_titan__ti": 256,
+  "back_titan__tidk": 568,
+  "base__ol": 11694,
+  "base__shorts": 2151,
+  "base__skin": 2498,
+  "base__skintank": 7213,
+  "bell_basic__grip": 64,
+  "bell_basic__iron": 672,
+  "bell_basic__ol": 736,
+  "bell_frost__fr2": 124,
+  "bell_frost__fr3": 64,
+  "bell_frost__frice": 224,
+  "bell_frost__ol": 412,
+  "bell_titan__glow": 128,
+  "bell_titan__ol": 1072,
+  "bell_titan__ti": 448,
+  "bell_titan__tidk": 496,
+  "feet_basic__ol": 444,
+  "feet_basic__shoe": 392,
+  "feet_basic__sole": 52,
+  "feet_frost__fr2": 864,
+  "feet_frost__fr3": 384,
+  "feet_frost__frblade": 160,
+  "feet_frost__frglow": 16,
+  "feet_frost__frice": 38,
+  "feet_frost__ol": 1462,
+  "feet_titan__flame": 18,
+  "feet_titan__glow": 16,
+  "feet_titan__ol": 898,
+  "feet_titan__ti": 192,
+  "feet_titan__tidk": 672,
+  "hands_basic__band": 196,
+  "hands_basic__ol": 392,
+  "hands_basic__skin": 196,
+  "hands_frost__fr2": 192,
+  "hands_frost__fr3": 2596,
+  "hands_frost__frglow": 64,
+  "hands_frost__frice": 114,
+  "hands_frost__ol": 2966,
+  "hands_titan__glow": 48,
+  "hands_titan__ol": 608,
+  "hands_titan__ti": 336,
+  "hands_titan__tidk": 224,
+  "head_basic__band": 2304,
+  "head_basic__eye": 2596,
+  "head_basic__eyehi": 2596,
+  "head_basic__hair": 4132,
+  "head_basic__ol": 11628,
+  "head_frost__eye": 2596,
+  "head_frost__eyehi": 2596,
+  "head_frost__fr2": 6254,
+  "head_frost__fr3": 480,
+  "head_frost__frice": 160,
+  "head_frost__hair": 3894,
+  "head_frost__ol": 15980,
+  "head_titan__glow": 178,
+  "head_titan__ol": 2192,
+  "head_titan__ti": 1410,
+  "head_titan__tidk": 604
+ }
+}
