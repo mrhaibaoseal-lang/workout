@@ -1,4 +1,4 @@
-# 練壯 3D 美術與動作示範：工作規範（給 Gemini 與 Claude）
+# 練壯 3D 美術與動作示範：工作規範（給 Claude；2026-11-24 起動作不再交給 Gemini）
 
 > 這份是**唯一的工作規範**。動手前從頭讀完，也要讀 `docs/3d-system.md`、`scripts/blender/README.md`、
 > `CLAUDE.md` 的「角色、裝備、牌位的美術規定」。規範和你的習慣衝突時，**照規範**。
@@ -17,14 +17,14 @@
 5. **器材照使用者自己的**（見 §4）：不要畫使用者沒有的器材。使用者沒有深蹲架、沒有單槓、不用彈力繩。
 6. 做不到、不確定的地方，**寫在進度裡並問使用者**，不要自己猜一個然後說做好了。
 
-## 0-1. 分工（使用者 2026-11-22 決定，2026-11-24 改成三方）
+## 0-1. 分工（使用者 2026-11-22 決定；2026-11-24 改成動作全部由 Claude 做）
 
-三個 agent 同時做，**按器材分批、按檔案分工**，誰建的器材誰負責：
+**2026-11-24 起動作全部由 Claude 做，Gemini 不再接動作。** 同時可以有好幾個 Claude session，**按器材分批、按檔案分工**，
+同一個批次檔一次只給一個 session 改：
 
 | 誰 | 做什麼 | 只改這些檔案 | 工作分支 |
 |---|---|---|---|
-| **Gemini** | 動作：站姿啞鈴 → 地板徒手 → 伸展 | `moves/standing_dumbbell.py`、`moves/floor.py`、`moves/stretch.py`、新的 `moves/props_<器材>.py`（例如啞鈴架、瑜伽墊）、`docs/3d-moves/` 同名卡片 | 使用者指定 |
-| **Claude（動作）** | 動作：椅子 → 滑輪 → 熱身 → 弓步／臀橋（2026-11-24 使用者決定這批改由 Claude 做） | `moves/bench.py`、`moves/cable.py`、`moves/warmup.py`、`moves/lunge_bridge.py`、`moves/props_bench.py`（啞鈴椅＋下拉架）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
+| **Claude（動作）** | 全部動作：站姿啞鈴、椅子、滑輪、弓步／臀橋、地板徒手、熱身、伸展、休息頁 | `moves/<批次>.py`、`moves/props_*.py`（器材）、`docs/3d-moves/` 同名卡片 | `claude/3d-moves-*` |
 | **Claude（裝備）** | 裝備造型，一個系列一個 `gear_<id>.py` | `gear_*.py`、`gear_util.py` | `claude/3d-*` |
 
 （檔案都在 `scripts/blender/` 底下。）
@@ -34,7 +34,7 @@
 - **共用檔案**（`moves3d.py` 的 IK／軀幹／道具工具、`hero_proto.py`、`clipcheck.py`）：可以**新增**函式；改既有函式的行為、或改別人的器材，
   先寫在 §10 的「共用檔案異動」問對方和使用者，同意才改，commit 訊息寫清楚。
 - **合併**：每批使用者說好就併進 main（`git fetch origin main` → `git merge origin/main` → 確認是快轉 → `git push origin HEAD:main`；
-  不能快轉就停下來問，不強推、不改寫歷史）。開始新的一批前先 `git merge origin/main`，拿到另外兩邊的最新成果。
+  不能快轉就停下來問，不強推、不改寫歷史）。開始新的一批前先 `git merge origin/main`，拿到其他 session 的最新成果。
 - 能貼合的原因：裝備綁在骨頭上，動作只轉骨頭 → 任何動作都會帶著任何裝備動。所以：
   - **骨架和身體凍結**：`hero_proto.py` 的 `BONES`（骨頭名稱、位置、長度、父子關係）、身體形狀（`P`、`E` 的節點和半徑）、
     基本款塗色都**不准改**。真的需要改（例如要多一根骨頭），先寫在進度裡問使用者，雙方同意才改。
@@ -244,7 +244,7 @@
 ## 8-1. 獨立審查（動作正確性；使用者 2026-11-24 決定）
 
 使用者是新手，看不出動作錯在哪，所以正確性不能只靠做動作的人自己檢查。每一批交給使用者之前，另找一個審查者：
-- **審查者不是做這批的人**（Gemini 做的給 Claude 審，Claude 做的另開一個 session 審），可以用 Sonnet。
+- **審查者不是做這批的人**（做的 session 以外，另開一個 session 審），可以用 Sonnet。
 - **只給它**：動作卡、卡上的來源、總覽圖（每個動作 4 個角度 × 4 個時間點）、`[angles]` 輸出。**不給程式碼**，
   它要像教練一樣看「示範長得對不對」，而不是看程式寫得對不對。
 - **逐條檢查**，每個動作都要回答：
@@ -291,13 +291,26 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 2026-11-24 | Claude（驗收工具） | `moves3d.py` 結尾**新增**量測函式 `measure_pose`（不改既有函式）；`clipbatch.py` 加角度判定、指紋拿掉 `angles` 欄位、`group_stamp`／`collect_meta`；新增 `anglecheck.py`、`review_sheet.py`、`review_render.py`、`compose.py`；`.gitignore` 加 `/out/`；`standing_dumbbell.py`、`bench.py`、`floor.py`、`cable.py` 只在 `MOVE_META` 加 `angles` 欄位，姿勢程式沒動 | 使用者指示（工具工作） |
 | 2026-11-24 | Claude（動作） | `moves3d.py` 在 `MOVE =` 之前**新增**弓步／臀橋共用函式：`solve_hip_z`、`rear_toe`、`rear_fixed`、`rear_step_back`、`rear_air`、`lunge_pose`、`hang_arms`、`bridge_pose`（不改任何既有函式） | 使用者指示（這批改由 Claude 做） |
 
-### 動作：Gemini（站姿啞鈴 → 地板徒手 → 伸展）
+### 動作：還沒做的（2026-11-24 盤點；做一批就從這裡刪掉、移到下面的表）
+
+以 `CharacterPose.swift` 的 `CharacterMove` 為準。`latPulldown` 共用已完成的 `pulldown`。
+
+| 批次 | 動作 | 備註 |
+|---|---|---|
+| 滑輪（重做中） | `straightArmPulldown`、`tricepsPushdown`、`overheadCableExt`、`facePull`、`cableCrunch`、`seatedCableRow`、`cableCurl`、`cableLateral` | 舊的 A 批用了沒有椅子的塔柱，作廢 |
+| 站姿啞鈴 2 | `calf`、`triceps`、`rearFly`、`kickback`、`slRdl` | |
+| 地板 | `plank`、`pikePushup`、`reverseCrunch`、`deadBug`、`floorPress`、`legCurl` | `legCurl` 趴地或趴椅開工前定 |
+| 熱身 | `armCircle`、`hipHinge`、`bwSquat`、`lungeStep`、`armSwing`、`wallSlide`、`legSwing`、`bwBridge` | |
+| 伸展 | `chestStretch`、`crossBody`、`tricepsStretch`、`childPose`、`quadStretch`、`seatedFold`、`kneeHug`、`calfStretch`、`hipFlexor`、`cobra` | |
+| 休息頁 | `breathe`、`drink`、`ready` | |
+
+### 動作：Gemini（已停止；2026-11-24 起改由 Claude 做）
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
 | 站姿啞鈴 1 | `squat`、`press`、`rdl`、`row`、`curl`、`lateral`（動作卡 `docs/3d-moves/standing_dumbbell.md`）。**已搬到 Claude 骨架（`claude/3d-rig-standing`）**：`[angles]` 全部落在動作卡範圍；彎舉改成上臂固定的旋後彎舉。預覽 `docs/art/blender/standing_batch1.png`、各動作 GIF | 搬完待使用者看（Claude，2026-11-24） |
 
-### 動作：Claude（椅子 → 滑輪 → 熱身）
+### 動作：Claude
 
 | 批次 | 內容 | 狀態 |
 |---|---|---|
