@@ -7,7 +7,7 @@ blender -b <輸出資料夾>/hero.blend -P scripts/blender/clipcheck.py -- <報�
   gear × 其他骨頭的 body/gear、body × 不相鄰骨頭的 body、body/gear × prop；另外檢查有沒有沉到地板下。
 輸出：每格每組的穿透三角形對數，和最嚴重的幾格（拿去截圖人工看）。
 """
-import bpy, sys, json
+import bpy, sys, json, re
 from mathutils.bvhtree import BVHTree
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -19,7 +19,8 @@ hero = bpy.data.objects['hero']; rig = bpy.data.objects['rig']
 for md in hero.modifiers:
     if md.type == 'SOLIDIFY': md.show_viewport = False          # 描邊外殼不算
 GEAR_MATS = {'ti', 'tidk', 'glow', 'flame', 'iron', 'grip',
-             'fr1', 'fr2', 'fr3', 'frice', 'frblade', 'frglow'}   # 冰霜（衣服塗色和長褲不算，那些是 body）
+             'fr1', 'fr2', 'fr3', 'frice', 'frblade', 'frglow',   # 冰霜（衣服塗色和長褲不算，那些是 body）
+             'pg1', 'pg2', 'pghoof', 'pgnose', 'pggold', 'pggolddk', 'pgbank'}   # 小豬（短褲不算）
 SKIP_PROPS = {'bar', 'cable'}                                    # 手本來就握著
 mats = [m.name if m else '' for m in hero.data.materials]
 parent = {b.name: (b.parent.name if b.parent else None) for b in rig.data.bones}
@@ -40,7 +41,7 @@ for p in hero.data.polygons:
         for g in hero.data.vertices[vi].groups:
             n = hero.vertex_groups[g.group].name; acc[n] = acc.get(n, 0) + g.weight
     bone = max(acc, key=acc.get) if acc else '?'
-    cat = 'gear' if mats[p.material_index].rstrip('.0123456789') in GEAR_MATS else 'body'
+    cat = 'gear' if re.sub(r'\.\d+$', '', mats[p.material_index]) in GEAR_MATS else 'body'   # 只去掉 Blender 的 .001（不能 rstrip 數字：fr1 會變 fr）
     labels.append((cat, bone))
 groups = sorted(set(labels))
 

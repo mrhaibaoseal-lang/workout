@@ -15,32 +15,6 @@ def crystal(bone, mat, base, d, r, L):
     cyl(bone, mat, base + d * (L * 0.35), r, L * 0.7, d, 6, 0.0)
     cyl(bone, mat, base + d * (L * 0.85), r, L * 0.3, d, 6, 0.0, r2=0.0)
 
-def _ramp(nt, color, shade):
-    rp = nt.nodes.new('ShaderNodeValToRGB'); r = rp.color_ramp; r.interpolation = 'CONSTANT'
-    r.elements[0].position = 0.0; r.elements[0].color = (*[c * shade for c in color], 1)
-    r.elements[1].position = 0.18; r.elements[1].color = (*color, 1)
-    e = r.elements.new(0.75); e.color = (*[min(1, c * 1.18 + 0.06) for c in color], 1)
-    return rp
-
-def add_layer(m, attr, color, shade=0.6):
-    """在 toon(alt=...) 材質上再疊一層塗色：屬性 attr > 0 的地方換成 color（邊緣一樣平滑）"""
-    nt = m.node_tree
-    mx = [n for n in nt.nodes if n.type == 'MIX_RGB'][-1]
-    em = mx.outputs['Color'].links[0].to_node
-    s2r = [n for n in nt.nodes if n.type == 'SHADERTORGB'][0]
-    rp = _ramp(nt, color, shade); nt.links.new(s2r.outputs['Color'], rp.inputs[0])
-    at = nt.nodes.new('ShaderNodeAttribute'); at.attribute_name = attr
-    gt = nt.nodes.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; gt.inputs[1].default_value = 0.0
-    nt.links.new(at.outputs['Fac'], gt.inputs[0])
-    mx2 = nt.nodes.new('ShaderNodeMixRGB')
-    nt.links.new(gt.outputs[0], mx2.inputs['Fac']); nt.links.new(mx.outputs['Color'], mx2.inputs['Color1'])
-    nt.links.new(rp.outputs['Color'], mx2.inputs['Color2']); nt.links.new(mx2.outputs['Color'], em.inputs['Color'])
-    return m
-
-def tri(u):
-    """0～1 的三角波，用來做冰柱鋸齒"""
-    return 1 - abs(2 * (u % 1.0) - 1)
-
 # ---------- 冰晶毛帽 ----------
 if want('head', 'frost'):
     import bmesh as _bm
@@ -72,14 +46,6 @@ if want('head', 'frost'):
 
 # ---------- 冰霜 T 恤：塗在身體上（短袖＋圓領），肩頸是冰柱垂下的冰藍色 ----------
 if want('top', 'frost'):
-    _AD = Vector((0.09, -0.28)).normalized()           # 上臂方向（x, z）
-    def tee_parts(x, y, z):
-        ax = abs(x)
-        neck = (math.hypot(ax / 0.095, (z - 1.535) / 0.07) - 1) * 0.07   # 圓領
-        hem = z - 0.98
-        s = (ax - 0.24) * _AD.x + (z - 1.42) * _AD.y                 # 沿上臂離肩多遠
-        sleeve = 0.17 - s + max(0.0, 0.235 - ax) * 6                  # 短袖袖口（軀幹上不作用）
-        return neck, hem, sleeve
     tk = skinbody.data.attributes['tank']
     fr = skinbody.data.attributes.new('frst', 'FLOAT', 'POINT')
     for i, v in enumerate(skinbody.data.vertices):
@@ -89,7 +55,7 @@ if want('top', 'frost'):
         a = math.atan2(x, -y)                                         # 0＝正前方
         drip = max(0.0, 1 - abs(2 * ((a * 9 / (2 * math.pi)) % 1.0) - 1) * 1.7)
         yoke = min(z - (1.405 - 0.075 * drip), tee)                   # 冰柱垂下的肩頸
-        cuff = min(sleeve, 0.022 - sleeve, neck)                      # 袖口滾邊
+        cuff = min(sleeve, 0.022 - sleeve, neck, hem)                      # 袖口滾邊
         collar = min(neck, 0.018 - neck)                              # 領口滾邊
         tk.data[i].value = tee
         fr.data[i].value = max(yoke, cuff, collar)

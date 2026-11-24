@@ -11,7 +11,7 @@ FRAMES = [int(a) for a in argv[1:]]
 GEAR = os.environ.get('GEAR', 'basic')
 SLOTS = ('head', 'top', 'bottom', 'feet', 'hands', 'back', 'bell', 'fx')
 G = {k: 'basic' for k in SLOTS}
-if GEAR in ('titan', 'frost'):
+if GEAR in ('titan', 'frost', 'pig'):
     G.update({k: GEAR for k in SLOTS if k != 'fx'})
 elif '=' in GEAR:
     for kv in GEAR.split(','):
@@ -19,7 +19,8 @@ elif '=' in GEAR:
 if os.environ.get('MOVE', 'squat') != 'squat':
     G['bell'] = 'none'          # 伏地挺身、下拉不拿啞鈴
 # 背靠靠背、躺在椅子上的動作：背部裝備（披風、背包）一定會卡進椅背 → 示範時隱藏
-if os.environ.get('MOVE', 'squat') in ('pulldown',):
+LEAN_BACK = os.environ.get('MOVE', 'squat') in ('pulldown',)   # 背靠椅背的動作（尾巴之類往後凸的零件也要藏）
+if LEAN_BACK:
     G['back'] = 'none'
 # EXPORT=frost,titan：給 App 匯出用。剛性部位（頭、手、腳、背、啞鈴）把基本款和列出的系列都建出來，
 # 每個零件標上「部位_系列」（面屬性 part），export_app.py 再拆成獨立網格，App 逐件開關。
@@ -122,6 +123,7 @@ M = {
 M['skintank'] = toon('skintank', (0.50, 0.53, 0.58), alt=hexc('#FF6B35'), alt_attr='tank', alt_shade=0.62)
 if TOP: M['shirt'] = M['tisuit']
 if BOT: M['shorts'] = M['tisuit'] if G['bottom'] == 'titan' else toon('frpant', hexc('#4FB8FF'), 0.6)
+if G['bottom'] == 'pig': M['shorts'] = toon('pgshorts', hexc('#E8668F'), 0.6)   # 小豬：玫瑰粉短褲
 OUTLINE = flat('outline', (0.01, 0.01, 0.02))
 OUTLINE.use_backface_culling = True
 MAT_ORDER = list(M.keys())
@@ -371,9 +373,20 @@ for s, sx in (('L', 1), ('R', -1)):
 
 _GD = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1]))
 exec(open(os.path.join(_GD, 'gear_util.py'), encoding='utf-8').read())
-for _ser in ('titan', 'frost'):   # 每個系列一個 gear_<id>.py
+for _ser in ('titan', 'frost', 'pig'):   # 每個系列一個 gear_<id>.py
     if _ser in G.values() or _ser in EXP_SERIES:
         exec(open(os.path.join(_GD, f'gear_{_ser}.py'), encoding='utf-8').read())
+
+# 檢查：上衣類的身體塗色（tank、frst、pgbelly…）不能染到腰以下露出來的皮膚（2026-11-24 小豬小腿被袖口滾邊染到）。
+# 只看皮膚面（材質 0）讀的屬性；短褲範圍的面（材質 2）塗下身的花色（例如褲管反摺）是正常的。
+_m0 = skinbody.data.materials[0]
+_reads = {n.attribute_name for n in _m0.node_tree.nodes if n.type == 'ATTRIBUTE'} if _m0 and _m0.use_nodes else set()
+_low = {vi for p in skinbody.data.polygons if p.material_index == 0 and p.center.z < 0.95 for vi in p.vertices}
+for _n in _reads:
+    _a = skinbody.data.attributes.get(_n)
+    if not _a: continue
+    _bad = [skinbody.data.vertices[i].co.z for i in _low if _a.data[i].value > 0]
+    assert not _bad, f'身體塗色 {_n} 染到腰以下露出的皮膚 {len(_bad)} 個頂點（最低 z={min(_bad):.2f}）'
 
 # 合併成一個蒙皮網格
 bpy.ops.object.select_all(action='DESELECT')
