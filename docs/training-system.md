@@ -176,6 +176,25 @@
 - 編譯：workflow 會選 Xcode 26 以上；`project.yml` 用 `-weak_framework FoundationModels`，
   workflow 打包後用 `otool` 檢查是弱連結，避免 iOS 17–25 一開就閃退。
 
+## 看懂備註（0.37.0，`Training/NoteReader.swift`）
+
+規格和理由見 `docs/note-reader.md`；這裡只記實作重點。
+
+- **原則**：模型（或規則）只把備註分類成 `NoteFinding`，怎麼調整由程式決定，**使用者按了才生效**，不按什麼都不改。
+- **四種情況**：疼痛（`pain`，可帶關節）、太輕／太重（`tooLight`／`tooHeavy`，只給有重量的動作）、左右差（`sideWeak`）、器材姿勢（`gear`，摘要 ≤ 20 字）。
+- **兩條路**：有 Apple Intelligence 就用 `@Generable` 讓模型填 findings（字串欄位，回來逐筆驗證：id 要在今天清單、列舉值合法、摘要 ≤ 20 字且沒有簡體字，不合格的丟掉；
+  整批出錯或全部不合格就走規則版）；沒有就用 `NoteReader.rules`（否定先拿掉、關鍵字、左右後面 6 字內有「抖、弱…」）。兩條路的結果都經過 `NoteReader.finalize`（去重、太輕＋太重都不列、已設成同一邊的左右差不列）。
+- **什麼時候跑**：按「完成訓練」時和 `CoachLoader` 一起開始（`NoteReaderLoader`）；備註都空就不跑。結果放在教練講評頁最下面的「從備註看到」卡片（`NoteFindingsCard`）。
+  - pain：［下次減輕兩成］（`Avoid.logPain`＋nudge `.ease`）／［換掉，之後不排］（`Avoid.mark(.pain)`＋`Avoid.logPain`）。
+  - tooLight／tooHeavy：nudge `.up`／`.down`。sideWeak：`SideBalance.set`。gear：存提醒。
+- **存放**（`NoteStore`）：`Keys.noteNudges`（`workout.noteNudges`，exerciseId → {kind, date}，21 天沒用到失效，同一動作新的蓋舊的）、
+  `Keys.noteReminders`（`workout.noteReminders`，按 ✕ 才刪）。完整備份是整個 UserDefaults 一起存，所以兩個 key 自動跟著備份；舊備份沒有它們，還原後就是空的。
+- **下次怎麼用**：`makeDraft` 在 `Progression.suggest` 之後呼叫 `NoteNudges.apply`：`.ease` 每組 `ladder.snap(w × 0.8)` 並設 `eased = true`（不當下次加重基準）、
+  `.up`／`.down` 用 `ladder.up`／`down`，建議文字前面加一句原因；徒手或重量 0 不套用；熱身組不動。存檔時有做到正式組的動作，它的 nudge 刪掉。
+  有提醒的動作，動作卡「上次備註」上面多一行橘色提醒＋✕。
+- 0.37.1：規則版先排除「痠痛」「酸痛」（練完肌肉的痠不當成會痛）；「痛」「刺痛」「不舒服」「卡卡」照舊。
+- 測試：`WorkoutTests/NoteReaderTests.swift`。
+
 ## 排課升級（0.23.0）
 
 ### ① 每個部位每週組數平衡（`Training/VolumePlan.swift`）

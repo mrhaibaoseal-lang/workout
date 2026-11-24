@@ -182,7 +182,7 @@ struct ExerciseCard: View {
     /// 動作備註：上次寫的放上面，這次的可以改（例如「椅子調第 3 格」）
     @ViewBuilder
     private var noteEditor: some View {
-        if draft.lastNote == nil && draft.note.isEmpty && !noteOpen {
+        if draft.lastNote == nil && draft.reminder == nil && draft.note.isEmpty && !noteOpen {
             Button { noteOpen = true } label: {
                 Label("加備註", systemImage: "square.and.pencil")
                     .font(.caption.weight(.bold))
@@ -196,6 +196,25 @@ struct ExerciseCard: View {
 
     private var noteField: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if let reminder = draft.reminder {
+                HStack(alignment: .top, spacing: 6) {
+                    Label(reminder, systemImage: "exclamationmark.triangle")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.hotText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        NoteStore.clearReminder(draft.item.exercise.id)
+                        draft.reminder = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(Theme.muted)
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("刪掉這則提醒")
+                }
+            }
             if let lastNote = draft.lastNote {
                 Label("上次備註：\(lastNote)", systemImage: "note.text")
                     .font(.caption.weight(.bold))

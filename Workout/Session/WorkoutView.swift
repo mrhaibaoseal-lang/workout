@@ -34,6 +34,8 @@ struct WorkoutView: View {
     @State private var summary: WorkoutSummary?
     /// 練完的教練講評（成果畫面按「好」之後顯示）
     @State private var coach: CoachLoader?
+    /// 從備註看到的事（和教練講評一起開始讀）
+    @State private var noteReader: NoteReaderLoader?
     @State private var showCoach = false
     /// 練完問的部位（上次的痠痛退了沒、關節）；空的就不問
     @State private var askMuscles: [Muscle] = []
@@ -285,7 +287,7 @@ struct WorkoutView: View {
     @ViewBuilder
     private var finishOverlay: some View {
         if showCoach, let c = coach {
-            CoachReviewView(loader: c, onStretch: stretchSteps.isEmpty ? nil : { showStretch = true },
+            CoachReviewView(loader: c, notes: noteReader, onStretch: stretchSteps.isEmpty ? nil : { showStretch = true },
                             stretchMinutes: Self.minutes(stretchSteps, kind: .cooldown), share: shareData) {
                 onFinish()
                 dismiss()
@@ -994,6 +996,11 @@ struct WorkoutView: View {
             SetDraft(weight: $0.weight, reps: $0.reps, kind: $0.kind, kit: $0.kit, target: $0.reps,
                      oneArm: oneArm && $0.kind == .work)
         }
+        // 上次備註推出來的調整（會痛先減輕、太輕多一級、太重少一級），套用一次，存檔時才刪（`NoteStore`）
+        var suggestion = s
+        if let nudge = NoteStore.nudge(for: item.exercise.id) {
+            suggestion = NoteNudges.apply(nudge, to: &sets, suggestion: s, ladder: ladder, loaded: item.exercise.loaded)
+        }
         adjustForReadiness(&sets, ladder: ladder, loaded: item.exercise.loaded)
         var lastText = ""
         if !last.isEmpty {
@@ -1003,12 +1010,13 @@ struct WorkoutView: View {
                 ? "上次 \(Progression.format(w)) kg × \(reps)"
                 : "上次 \(reps) \(item.exercise.unit.label)"
         }
-        var draft = ExerciseDraft(item: item, suggestion: s, lastText: lastText, sets: sets,
+        var draft = ExerciseDraft(item: item, suggestion: suggestion, lastText: lastText, sets: sets,
                                   last: last.map { LastSet(weight: $0.weight, reps: $0.reps) },
                                   chosen: chosen, scheme: planned.scheme, ladder: ladder)
         draft.plateauReset = plateau != nil
         draft.trial = last.isEmpty && item.exercise.loaded && length != .minimal
         draft.lastNote = ExerciseNotes.last(for: item.exercise.id, in: sessions)?.note
+        draft.reminder = NoteStore.reminder(for: item.exercise.id)
         draft.caution = Joint.caution(for: item.exercise, pain: Joint.recentPain())
         draft.trend = ExerciseTrend.points(for: item.exercise.id, loaded: item.exercise.loaded, in: sessions)
         return draft
@@ -1186,8 +1194,14 @@ struct WorkoutView: View {
             }
         }
         SessionGrants.record(grant, for: session.date)
+        // 有做到正式組的動作，備註推出來的調整用過這一次就刪（沒做到的留著）
+        for d in drafts where d.sets.contains(where: { $0.done && $0.kind == .work }) {
+            NoteStore.clearNudge(d.item.exercise.id)
+        }
         let facts = coachFacts(session: session)
         coach = CoachLoader(facts: facts)
+        let noteInput = noteInput(session: session)
+        noteReader = noteInput.hasNotes ? NoteReaderLoader(input: noteInput) : nil
         shareData = ShareCardData(facts: facts,
                                   rank: RankEngine.rank(sessions: [session] + sessions.filter { $0 !== session },
                                                         goal: weeklyGoal),
@@ -1237,6 +1251,13 @@ struct WorkoutView: View {
             }
             JumpGuard.record(item: d.item, last: entries, phase: phase, ladder: d.ladder, scheme: d.scheme)
         }
+    }
+
+    /// 看懂備註用的資料：今天做過的動作（有做到正式組）、每個動作的備註、整次備註。
+    private func noteInput(session: WorkoutSession) -> NoteInput {
+        NoteInput(items: drafts.filter { $0.sets.contains { $0.done && $0.kind == .work } }
+                    .map { NoteInput.Item($0.item.exercise) },
+                  notes: ExerciseNotes.decode(session.exerciseNotes), sessionNote: session.note)
     }
 
     /// 教練講評用的資料：這次做了什麼、和上次比、下次照規則會排多少。
