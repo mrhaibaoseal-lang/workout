@@ -56,4 +56,9 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   加整批縮圖 `_overview.png`，輸出到 `out/review/<批次>/`（不進 git）。基本款、草稿品質；hero.blend 沿用 clipcache 裡指紋最新的那組、否則重建（`--fresh` 強制重建）。
   `review_render.py`（Blender 端：量角度選格、4 個鏡頭渲染）、`compose.py`（用 Blender 的影片剪輯器拼圖和標字，不需要 PIL）。「最深」＝變化最大的那個量離起始最遠的格，中段／回程＝去程／回程走到一半的格。
 
+滑輪 A 批（2026-11-24，`moves/cable.py`、`moves/props_cable.py`、動作卡 `docs/3d-moves/cable.md`）：
+- 站、跪在高位滑輪前的動作用 `build_tower()`（立柱＋滑輪＋配重，**沒有椅子**；假設椅子可以移開，待使用者確認）；`build_rope()` 三頭繩（`key_rope` 照手骨頭位置擺繩、握把段順著手的握把軸）、`build_latbar(gx)` 下拉槓、`build_mat(y)` 跪墊、`make_cables()`／`key_cables()` 鋼索和配重（配重升起的高度＝鋼索被拉出的長度）。繩子和槓子的父物件叫 `bar`（clipcheck 不算手握東西的穿透）。
+- `moves3d.py` 新增 `stand_legs`、`elbow_hinge`（三頭下壓／過頭伸展／直臂下拉共用：上臂方向＋手肘內角，**不釘手腕**：手臂舉高時鎖骨把肩膀抬高，釘手腕會把手肘硬壓彎）。
+- **骨頭擺放順序**：骨頭矩陣是相對父骨頭算的，要先擺骨盆／胸（`trunk`），再擺腿；反過來第 0 格（骨盆從靜止姿勢轉過來）腿會飛掉。
+
 用途定位（使用者 2026-11-22）：3D 主要用在**訓練中的動作示範**；角色換裝 3D 只是測試。

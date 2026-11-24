@@ -21,3 +21,8 @@
 | `lateral` 側平舉 | 站姿啞鈴 | 一般 | 未做 | 未看 | | |
 | `pushup` 伏地挺身 | 地板 | 一般 | 未做 | 未看 | | |
 | `pulldown` 高位下拉 | 滑輪 | 一般 | 未做 | 未看 | | |
+| `overheadCableExt` 繩索過頭三頭伸展 | 滑輪 A | 高 | 未做（AI 審查另排；沒有 ACE／NSCA 等級的第二來源，要補） | 未看 | | |
+| `tricepsPushdown` 繩索三頭下壓 | 滑輪 A | 一般 | 未做 | 未看 | | |
+| `straightArmPulldown` 直臂下拉 | 滑輪 A | 一般 | 未做 | 未看 | | |
+| `facePull` 繩索面拉 | 滑輪 A | 一般 | 未做（來源只有 NSCA 出版社外旋版節錄，要補） | 未看 | | |
+| `cableCrunch` 跪姿繩索捲腹 | 滑輪 A | 一般 | 未做（沒有 ACE／NSCA／ExRx 頁面，要補） | 未看 | | |

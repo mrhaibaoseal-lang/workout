@@ -1,0 +1,109 @@
+# 動作卡：滑輪批次（`scripts/blender/moves/cable.py`）
+
+負責：Claude（動作）。滑輪 A 批：`tricepsPushdown`、`overheadCableExt`、`straightArmPulldown`、`facePull`、`cableCrunch`；`latPulldown` 不另做（結論見最後）。
+節奏：48 格一循環（12 fps 預覽＝4 秒）。角度範圍同時寫在 `cable.py` 檔頭 `MOVE_META` 的 `angles`（`clipbatch.py` 判定），**範圍照本卡，不照量到的值**。
+
+## 器材假設（要使用者確認）
+
+使用者的機器是「椅子＋高位下拉架一體」，**只有高位滑輪**（頂端，z≈2.0 m），附件：直槓（兩端下彎）、三頭繩、兩個 D 型把手。
+- `pulldown`（已完成）坐在椅子上，用整台機器（`build_bench`）。
+- 本批其他動作都是**站或跪在立柱前面**。立柱前面只有 0.3 m 寬就是座墊前緣，站不下去，所以 3D 用 `build_tower()`（只有立柱、滑輪、配重，**沒有椅子**）。
+  **等於假設這台的椅子可以拆掉、推到旁邊或轉開**。如果椅子拆不掉，站姿的三頭下壓、面拉、跪姿捲腹要改成別的做法（例如站在椅子後面、鋼索拉長），請使用者確認。
+- 鋼索只有一條：配重（兩顆啞鈴在滑套上）跟著手拉出的鋼索長度升起；高位滑輪沒有低位，所以做不了「低位滑輪」的動作。
+
+共用來源：
+- ACE Exercise Library：https://www.acefitness.org/resources/everyone/exercise-library/
+- ExRx.net（Weight Training Directory）：https://exrx.net/Lists/Directory
+- NSCA, *Exercise Technique Manual for Resistance Training*（3rd ed., Human Kinetics, 2016）
+- 注意：網站多半擋自動抓取，下列來源是 2026-11-24 用搜尋取得的摘要與頁面標題，**沒有逐頁完整讀過**；需要教練／審查者確認的地方寫在各動作的「來源分歧」。
+
+---
+
+## 1. 繩索三頭下壓 `tricepsPushdown`（三頭族群的範本）
+- 姿勢：站、離立柱約 0.3～0.4 m，高位滑輪＋三頭繩，雙腳與肩同寬、膝蓋微彎、上身微前傾約 8°。
+- 起始：上臂貼著身體兩側（離垂直 ≤ 15°），手肘約 80～90°（前臂約水平，手在胸口下方），中立握（掌心相對）。
+- 下壓：**只動手肘**，把繩子往大腿方向壓，到手臂接近打直（手肘約 165～172°，不鎖死）；底部手往兩側分開、停約 0.3 秒。
+- 回程：慢慢放回手肘約 80～90°（約 2 秒），上臂始終不動。
+- 關鍵角度：手肘 min 75～90°、max 160～175°；上臂離垂直 ≤ 15°（上臂和軀幹夾角 ≤ 20°）；軀幹前傾 ≤ 15°。
+- 節奏：向心（下壓）15 格（約 1.2 秒）、底部停 5 格、離心（回程）22 格（約 1.8 秒）、起點停 6 格。
+- 常見錯誤：手肘往前跑（變成用背闊肌下壓，ACE 提醒要看手肘有沒有往前飄）、聳肩、身體往前壓借力、手肘鎖死、只做半程。
+- **App 提示**：「手肘貼緊身體兩側不要動，只讓前臂往下壓；壓到底手臂接近打直但不要鎖死；回程慢慢放，手肘不要往前跑。」（3D 看不出：肩膀往下沉、不要聳肩、核心收緊。）
+- 來源（同一個變化式：站姿、高位滑輪、三頭繩下壓）：
+  1. ACE Exercise Library，Triceps Pushdown（高位滑輪、繩子、手肘貼身）：https://www.acefitness.org/resources/everyone/exercise-library/185/triceps-pushdowns/
+  2. Human Kinetics（NSCA 教材同出版社）Rope Triceps Pressdown 節錄（面向高位滑輪、膝微彎、雙腳與肩同寬、手肘貼身把手壓向大腿）：https://us.humankinetics.com/blogs/excerpt/rope-triceps-pressdown-exercise
+  3. 輔助：Livestrong、MasterClass（動作只發生在手肘）。
+- 來源分歧：Human Kinetics 說這個握法偏外側頭；Fitnessvolt 說三個頭都練到——不影響示範。起始手肘角度各來源只說「約 90°」，取 80～90° 的保守範圍。
+- 風險：一般。
+
+## 2. 繩索過頭三頭伸展 `overheadCableExt`（同範本 `elbow_hinge`，換上臂方向）
+- 姿勢：**背對立柱**，離立柱約 1.1 m（鋼索接近水平、伸直時才是把鋼索往前拉出去），弓步站（左腳在前）、膝蓋微彎、上身前傾約 12°；雙手握三頭繩在頭後面。
+- 起始：上臂指向上方、貼著耳朵（離垂直 ≤ 20°，3D 約 9°），手肘約 55～75°，三頭拉開。
+- 伸起：**只動手肘**，把繩子往上往前伸到手臂接近打直（手肘約 160～175°，不鎖死），上臂不動、不往前後擺。
+- 回程：慢慢放回起始（約 2 秒）。
+- 關鍵角度：手肘 min 55～75°、max 160～175°；上臂離垂直朝上 150～180°（即離垂直 ≤ 30°）；軀幹前傾 ≤ 20°。
+- 節奏：伸起 18 格、頂端停 5 格、放下 22 格、起點停 3 格。
+- 常見錯誤：手肘往外開、上臂往前跑（變成推）、下背過度後仰（腰椎伸展）、手肘鎖死、放太低肩膀拉傷。
+- **App 提示**：「兩邊手肘朝前、貼近耳朵，上臂不要動；只讓前臂往上伸直，頂端不要鎖死；上身微前傾、核心收緊，不要用腰往後仰。」
+- 來源（同一個變化式：站姿、背對滑輪、繩索、過頭伸展）：
+  1. Fitness Volt，Cable Overhead Triceps Extension（面向外、雙手握繩、手肘貼頭）：https://fitnessvolt.com/cable-overhead-triceps-extension/
+  2. Rep Fitness，Cable Tricep Overhead Extensions: Form（腳在髖下、膝軟、髖微鉸、胸挺、手肘貼近頭）：https://repfitness.com/blogs/training/cable-tricep-overhead-extensions-mastering-form-benefits-and-variations
+  3. 輔助：UNMC 滑輪三頭伸展影片逐字稿、Muscle & Strength。
+- 來源分歧：多數來源用**低位**滑輪（鋼索從下往上拉），也有說高位也行。使用者只有高位滑輪，所以站遠一點讓鋼索接近水平。**ACE 沒有這個動作的頁面**（ACE 只有 Triceps Pushdown 一頁），目前沒有 ACE／NSCA／ExRx 等級的第二個來源，請審查者補。
+- 風險：**高**（肩關節在頭上）；排進教練審查。
+
+## 3. 直臂下拉 `straightArmPulldown`（下拉的變化版）
+- 姿勢：面向立柱站、離立柱約 0.6～0.7 m，髖往後坐、上身前傾約 35°，膝蓋微彎；直槓握距略寬於肩。
+- 起始：手臂在前上方、幾乎打直（手肘約 150～168°，全程固定不變），手臂離垂直約 130～155°（槓子在頭前上方）。
+- 下壓：手臂像鐘擺繞著肩膀弧線往下，直到手臂接近身體（離垂直約 10°，槓子在大腿前）；背闊肌收縮，手肘角度不變。
+- 回程：慢慢弧線放回（約 2 秒）。
+- 關鍵角度：手肘 150～168°（固定）；手臂離垂直 min 0～20°、max 130～155°；軀幹前傾 25～45°；膝 130～170°。
+- 節奏：下壓 18 格、底部停 4 格、回程 24 格、起點停 2 格。
+- 常見錯誤：手肘一直在變（變成用三頭下壓）、軀幹跟著上下晃（髖鉸鏈角度要全程不變）、聳肩、拉到過頭只用手臂。
+- **App 提示**：「手臂接近打直、手肘彎曲角度全程固定；用背闊肌把槓子往下畫弧，不是用手臂壓；上身前傾角度固定不要晃，下巴微收看斜下方。」
+- 來源（同一個變化式：站姿、高位滑輪、直臂下拉）：
+  1. ExRx.net，Straight Arm Pulldown（手肘約 30° 彎曲固定、拉到上臂貼身）：搜尋結果指向 exrx.net／Lists／Directory 的 Back 區（網站擋自動抓取，未逐頁確認）。
+  2. Catalyst Athletics，Straight-Arm Pulldown（面向立柱、握距寬於肩、直槓高位）：https://catalystathletics.com/exercise/907/Straight-Arm-Pulldown
+  3. 輔助：Athlean-X（最高位滑輪、直槓或繩）。
+- 來源分歧：ExRx 說手肘約 30° 彎（內角 150°），Catalyst 寫「手臂打直」→ 取比較保守的 150～168°。繩子或直槓都有人用，這裡用直槓（使用者的下拉槓）。
+- 風險：一般。
+
+## 4. 繩索面拉 `facePull`（划船族群的變化版）
+- 姿勢：面向立柱站、離立柱約 1 m（高位滑輪，鋼索從前上方來），膝蓋微彎、上身微後仰 ≤ 10°（3D 約 4°）；雙手握三頭繩，中立握。
+- 起始：手臂在前方接近水平、幾乎打直（手肘約 165～180°）。
+- 拉：把繩子拉向臉兩側、往耳朵方向，**手肘高**（和肩同高或略高，上臂離垂直約 95～120°）往外往後，肩胛骨往後收；末端雙手在耳朵旁，手肘約 55～90°。
+- 回程：慢慢放回（約 2 秒），不要讓肩膀往前聳。
+- 關鍵角度：手肘 min 55～90°、max 165～180°；上臂離垂直 min 80～100°、max 95～120°；軀幹 ≤ 10°。
+- 節奏：拉 20 格、末端停 5 格、放 20 格、起點停 3 格。
+- 常見錯誤：手肘掉下來（變成划船）、身體後仰借力、聳肩、拉到胸口而不是臉、重量太重。
+- **App 提示**：「繩子拉向額頭和耳朵，手肘保持在肩膀高度往外開；肩胛骨往後下收；用輕重量慢慢做，感覺在後肩而不是脖子。」
+- 來源（同一個變化式：站姿、滑輪＋繩、面拉）：
+  1. Human Kinetics（NSCA 教材同出版社）Cuban-style face pull 節錄（手肘與肩對齊、外旋成 L 形；這是外旋變化版，起手不同）：https://us.humankinetics.com/blogs/excerpt/cuban-style-face-pull
+  2. Wikipedia Face pull (exercise)（引 ExRx：繩子拉向臉、手肘外展）：https://en.wikipedia.org/wiki/Face_pull_(exercise)
+  3. 輔助：Healthline、Gymshark、NSCA Kinetic Select 的 Face Pull (Machine)（那是機器版）。
+- 來源分歧：終點有的說拉向額頭、有的說兩側往耳朵；握法 NSCA 機器版是掌心朝下，繩子版是中立握；有的主張滑輪放頭高或略高。取：中立握、拉向臉兩側、手肘不低於肩。**沒有 ACE 頁面，也沒有 ExRx 原頁，目前只有 NSCA 出版社的外旋版節錄**，請審查者補。
+- 風險：一般（肩，輕重量）。
+
+## 5. 跪姿繩索捲腹 `cableCrunch`（新範本）
+- 姿勢：跪在墊子上、面向立柱，離立柱約 0.6～0.7 m（髖到滑輪的水平距離 1～2 呎以上均可）；髖在膝蓋正上方，膝約 85°；雙手握三頭繩在頭兩側（耳朵旁），手肘朝前。
+- 起始：上身略前傾約 25°，脊椎自然挺直。
+- 捲腹：**髖固定不動**，腹部收縮把脊椎一節一節往下捲（胸口往骨盆靠），手肘往膝蓋的方向走；上身前傾最多約 75°，不是只把頭往下點、也不是髖往後坐。
+- 回程：慢慢放回起始（約 1.5 秒），維持腹部張力。
+- 關鍵角度：軀幹前傾 min 15～35°、max 65～85°；膝 75～95°。
+- 節奏：捲下 22 格、底部停 5 格、放回 17 格、起點停 4 格。
+- 常見錯誤：用手拉（繩子太重、手往下拉頭）、髖前後晃（變成髖鉸鏈）、只動頭頸、起身時憋氣、背部只往前彎沒有把腹部縮短。
+- **App 提示**：「髖位置固定，用腹部把上身往下捲；手只是扶著繩子在耳朵旁，不要用手拉；吐氣捲下去、吸氣慢慢回來；覺得是在拉脖子就是太重。」
+- 來源（同一個變化式：跪姿、高位滑輪、繩索捲腹）：
+  1. Fitness Volt，Kneeling Cable Crunch（作者為 ACE 認證教練；跪墊、繩在頭兩側、髖固定）：https://fitnessvolt.com/kneeling-cable-crunch/
+  2. MasterClass，Cable Crunches Guide：https://www.masterclass.com/articles/cable-crunches-guide
+  3. 輔助：Breaking Muscle、Legion、Bodybuilding.com。
+- 來源分歧：握法有「繩子中心在頭後」和「手掌貼上胸」兩種；有說髖固定、也有說允許髖微微後移。取：繩在頭兩側、髖固定（較保守）。**ACE／NSCA／ExRx 都沒有找到這個動作的頁面，兩個來源都是二手**，需審查者／教練補。
+- 風險：一般（脊椎屈曲負重；新手用輕重量）。
+
+---
+
+## 結論：`latPulldown` 不另做
+- App 的 `latPulldown`（`MoveFrames.swift` 的「高位下拉」）：坐在椅子上面向下拉架、身體微後仰、握把從頭上拉到上胸，用 `cableTower` 道具，「高位下拉、窄握下拉、彈力帶下拉都用它」（`docs/training-system.md` 0.31.1）。
+- 3D 的 `pulldown`：坐椅、腳勾滾筒、寬握直槓、後仰約 20°、拉到上胸——**就是同一個動作**。
+- App 另有一個舊的 `pulldown`（`CharacterMove.pulldown`，站著拿啞鈴往頭上舉，`forPattern(.vPull)` 預設用它），不是滑輪動作。
+- 建議：App 端把 `latPulldown`（及 `cable_pulldown`）共用 3D `pulldown`；舊的 `.pulldown`（站姿啞鈴下拉）要保留的話才需要另做。
+- 窄握下拉（`cable_close_pulldown`）用兩個 D 型把手、窄握：和寬握直槓不同。現在 3D 只有寬握直槓；窄握版要不要做由主對話決定（做法：下拉的變化版，換握把與握距）。

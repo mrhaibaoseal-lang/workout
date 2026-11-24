@@ -287,6 +287,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 2026-11-24 | Claude（骨架） | 修肩膀變形（§6-1）：`hero_proto.py` 加 `clavicle.L/R`、A 字靜止姿勢（建模姿勢不變，合併前才轉）、去掉截斷權重改成平滑漸變、保持體積；`moves3d.py` 的 `keyall` 每格自動做鎖骨跟轉＋上臂／前臂滾轉校正（`aim` 的滾轉規則會讓上臂多扭到 178°）；`clipcheck.py` 加鎖骨的相鄰關節；新增 `deformcheck.py`、`rigtest.py`。動作檔不用改，但沒釘手腕的手臂（直接 `aim`）在手抬高時會跟著肩膀上移幾公分 | 使用者同意（§0-1 例外）。**採用 Claude 版，Gemini 版（2bd70d6）不合併，使用者 2026-11-24 決定** |
 | 2026-11-24 | Claude | `moves3d.py` 的 `aim()` 加選用參數 `roll`、`arm_to()` 加選用參數 `hand_roll`（手繞自己的軸轉，決定握把朝向；預設 0，既有動作不受影響）。為了搬站姿啞鈴 1（Gemini 的動作檔用它） | 使用者同意（搬動作的指示） |
 | 2026-11-24 | Claude（驗收工具） | `moves3d.py` 結尾**新增**量測函式 `measure_pose`（不改既有函式）；`clipbatch.py` 加角度判定、指紋拿掉 `angles` 欄位、`group_stamp`／`collect_meta`；新增 `anglecheck.py`、`review_sheet.py`、`review_render.py`、`compose.py`；`.gitignore` 加 `/out/`；`standing_dumbbell.py`、`bench.py`、`floor.py`、`cable.py` 只在 `MOVE_META` 加 `angles` 欄位，姿勢程式沒動 | 使用者指示（工具工作） |
+| 2026-11-24 | Claude（滑輪 A） | `moves3d.py` 在 `MOVE = …` 之前**新增**函式 `stand_legs`（站姿腿，先擺軀幹再擺腿）、`elbow_hinge`（三頭／直臂下拉共用：上臂固定方向、手肘角度參數、不釘手腕）；新增 `moves/props_cable.py`（`build_tower` 無椅子的立柱＋配重、`build_rope` 三頭繩、`build_latbar`、`build_mat`、鋼索配重 `make_cables`／`key_cables`）。沒改既有函式 | 使用者指示（滑輪 A 批） |
 
 ### 動作：Gemini（站姿啞鈴 → 地板徒手 → 伸展）
 
@@ -299,6 +300,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 | 批次 | 內容 | 狀態 |
 |---|---|---|
 | 椅子 | `benchPress`、`inclinePress`、`inclineFly`、`skullCrusher`、`pullover`、`inclineCurl`、`chestRow`、`chestRearFly`（動作卡 `docs/3d-moves/bench.md`，總覽 `docs/art/blender/bench_batch.png`）。上斜照 App 提示離地 30°；胸靠的兩個動作把椅子轉 180° 趴上去；拉舉只做半幅度約 38°（使用者 2026-11-24 選定，頭大手短，再往後會穿過臉）。已用新骨架（main 4bd26b6）重算。deformcheck（基本款）每個動作 ≤59 面，都在手肘窩、膝窩、肩部的正常擠壓。clipcheck（每 2 格 × 24 格，basic/frost/pig/titan）：大腿內側互碰每格 1（基本款）～9（冰霜長褲）；拉舉雙手捧同一顆啞鈴的手×啞鈴接觸，小豬豬蹄手套互穿很多（約 1250 對／格，使用者 2026-11-24 看過截圖，接受、不改）；上斜彎舉頂端鈦甲胸甲×啞鈴（約 25 對／格）、中段啞鈴擦過大腿（基本款約 10 對／格）。鈦甲胸甲那點交給 Claude（裝備） | 完成，使用者定案（Claude，2026-11-24） |
+| 滑輪 A | `tricepsPushdown`（三頭範本）、`overheadCableExt`、`straightArmPulldown`、`facePull`、`cableCrunch`（動作卡 `docs/3d-moves/cable.md`）。`latPulldown` 和已完成的 `pulldown` 是同一個動作，不另做（App 端共用）。站、跪的動作用 `build_tower()`（沒有椅子）＝**假設椅子能移開，待使用者確認**。`[angles]` 全 PASS；clipcheck 4 系列（單格最大）：基本款／小豬 ≤3（大腿互碰）、冰霜長褲大腿互碰 ≤12，**留給裝備（Claude 裝備）的**：鈦甲 `overheadCableExt` 上臂×頭盔約 110 對（頭盔比頭寬、手臂貼耳）、鈦甲 `tricepsPushdown` 前臂×胸甲約 37、冰霜帽 `cableCrunch` 最低點碰到立柱／配重約 54；deformcheck 單格壞面 80～760，和已完成動作（pulldown 550、skullCrusher 718）同量級，不是 0（骨架權重的問題，不是這批姿勢）。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-24） |
 
 ### 裝備與早期工作
 
