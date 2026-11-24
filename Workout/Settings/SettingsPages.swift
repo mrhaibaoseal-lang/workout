@@ -63,12 +63,20 @@ struct TrainingSettingsView: View {
     @AppStorage(Keys.weakSide) private var weakSide = WeakSide.none.rawValue
     @AppStorage(Keys.weakExtra) private var weakExtra = true
     @AppStorage(Keys.weakLeg) private var weakLeg = WeakSide.none.rawValue
+    @AppStorage(Keys.defaultLength) private var defaultLength = ""
     @State private var confirmRestart = false
+    @State private var showQuestionnaire = false
 
     var body: some View {
         Form {
             Section {
                 Stepper("每週 \(weeklyGoal) 次", value: $weeklyGoal, in: 2...6)
+                Picker(selection: $defaultLength) {
+                    Text("完整").tag("")
+                    Text("精簡").tag(WorkoutLength.short.rawValue)
+                } label: {
+                    Label("預設長度", systemImage: "timer")
+                }
                 Toggle(isOn: $autoWarmup) {
                     Label("自動排熱身組", systemImage: "flame")
                 }
@@ -93,8 +101,14 @@ struct TrainingSettingsView: View {
                     }
                 }
                 .frame(minHeight: 44)
+                Button {
+                    showQuestionnaire = true
+                } label: {
+                    Label("重新填問卷", systemImage: "list.clipboard")
+                }
+                .frame(minHeight: 44)
             } footer: {
-                SectionLabel("用 3 個簡單測試推算沒做過的動作第一次用多重。")
+                SectionLabel("評估：用 3 個簡單測試推算沒做過的動作第一次用多重。重新填問卷只會更新你有填的欄位，訓練紀錄和其他設定不會動。")
             }
             .listRowBackground(Theme.surface)
 
@@ -145,6 +159,9 @@ struct TrainingSettingsView: View {
         }
         .themeForm()
         .navigationTitle("訓練")
+        .fullScreenCover(isPresented: $showQuestionnaire) {
+            OnboardingView(mode: .redo)
+        }
         .confirmationDialog("從第 1 週重新開始？", isPresented: $confirmRestart, titleVisibility: .visible) {
             Button("重新開始") { startDate = Date().timeIntervalSince1970 }
         } message: {
@@ -373,6 +390,8 @@ struct DataSettingsView: View {
                 SectionLabel("訓練紀錄、身體數據、角色背包、目標和所有設定存成一個檔，存到「檔案」App 或傳給自己。重裝 App、換憑證或換手機時用「從備份還原」拿回來。建議每週存一次。")
             }
             .listRowBackground(Theme.surface)
+
+            CloudSettingsSection()
 
             Section {
                 Button {

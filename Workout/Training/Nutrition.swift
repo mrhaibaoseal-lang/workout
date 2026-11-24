@@ -35,6 +35,32 @@ enum Nutrition {
         Int((bodyWeight * gramsPerKg).rounded())
     }
 
+    // MARK: 熱量估算（0.42.0：問卷填的身高、年齡、性別）
+
+    /// 一週練 3–4 次的活動係數
+    static let activityFactor = 1.55
+
+    struct Calories: Equatable {
+        /// 一天大約消耗（維持體重）
+        let maintenance: Int
+        /// 增肌建議吃的量（維持 + 每週增 0.25–0.5% 體重所需的盈餘，取中間值）
+        let target: Int
+        var surplus: Int { target - maintenance }
+    }
+
+    /// Mifflin-St Jeor 基礎代謝率 × 活動係數。要有身高、年齡、體重，而且性別選了男或女才算；
+    /// 「不想說」或沒填就回傳 nil，畫面用原本的增重速度建議（不顯示大卡數字）。
+    static func calories(bodyWeight: Double, heightCm: Double, age: Int?, sex: Sex?) -> Calories? {
+        guard bodyWeight > 0, heightCm > 0, let age, let sex, sex != .undisclosed else { return nil }
+        let base = 10 * bodyWeight + 6.25 * heightCm - 5 * Double(age) + (sex == .male ? 5 : -161)
+        guard base > 0 else { return nil }
+        let maintenance = base * activityFactor
+        // 每週增 0.375% 體重，1 kg 約 7700 大卡
+        let surplus = bodyWeight * 0.00375 * 7700 / 7
+        return Calories(maintenance: Int((maintenance / 10).rounded()) * 10,
+                        target: Int(((maintenance + surplus) / 10).rounded()) * 10)
+    }
+
     // MARK: 蛋白質紀錄
 
     private static let dayFormat: DateFormatter = {
@@ -259,6 +285,12 @@ struct NutritionCard: View {
             Text("目標每週 +\(String(format: "%.2f", good.lowerBound))～\(String(format: "%.2f", good.upperBound)) kg。" + pace.advice)
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
+            if let cal = Nutrition.calories(bodyWeight: bodyWeight, heightCm: UserProfile.heightCm,
+                                            age: UserProfile.age(), sex: UserProfile.sex) {
+                Text("估計你一天大約消耗 \(cal.maintenance) 大卡，增肌可以吃到 \(cal.target) 大卡左右（多 \(cal.surplus)）。這是用身高、年齡、性別算的粗估，照增重速度微調。")
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+            }
         }
     }
 

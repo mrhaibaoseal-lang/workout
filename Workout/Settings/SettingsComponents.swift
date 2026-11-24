@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// Muted section header / footer text for dark Forms.
 struct SectionLabel: View {
@@ -75,65 +74,6 @@ struct EquipmentPicker: View {
                 raw = Equipment.encode(set)
             }
         )
-    }
-}
-
-struct OnboardingView: View {
-    @AppStorage(Keys.onboarded) private var onboarded = false
-    @AppStorage(Keys.equipment) private var equipmentRaw = ""
-    @AppStorage(Keys.startDate) private var startDate = Date().timeIntervalSince1970
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("這次不一樣")
-                            .font(.title.bold())
-                            .foregroundStyle(Theme.fg)
-                        Text("每週 4 次，每次照著做就好。忙的時候選精簡版，20 分鐘也算數。中斷了也不用從頭來，只要接著下一天練。")
-                            .foregroundStyle(Theme.muted)
-                    }
-                    .padding(.vertical, 6)
-                }
-                .listRowBackground(Theme.surface)
-                Section {
-                    EquipmentPicker(raw: $equipmentRaw)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
-                } header: {
-                    SectionLabel("你家裡有什麼器材？")
-                }
-                .listRowBackground(Color.clear)
-                Section {
-                    NavigationLink {
-                        LevelTestView(onDone: start)
-                    } label: {
-                        Label("先做程度評估（約 10 分鐘）", systemImage: "gauge.with.dots.needle.50percent")
-                    }
-                    .frame(minHeight: 44)
-                } footer: {
-                    Text("伏地挺身、深蹲、划船各測一次，第一次的重量會推得比較準。之後也可以在設定裡做。")
-                }
-                .listRowBackground(Theme.surface)
-                Section {
-                    Button {
-                        start()
-                    } label: {
-                        Text("開始第 1 週")
-                    }
-                    .buttonStyle(HotButtonStyle())
-                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
-                }
-                .listRowBackground(Color.clear)
-            }
-            .themeForm()
-            .navigationTitle("練壯")
-        }
-    }
-
-    private func start() {
-        startDate = Date().timeIntervalSince1970
-        onboarded = true
     }
 }
 

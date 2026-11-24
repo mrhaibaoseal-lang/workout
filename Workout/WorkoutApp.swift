@@ -20,6 +20,7 @@ struct WorkoutApp: App {
 
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutSession.date, order: .reverse) private var sessions: [WorkoutSession]
     @StateObject private var inventory = InventoryStore()
     @ObservedObject private var commands = AppCommands.shared
@@ -76,8 +77,12 @@ struct RootView: View {
         .onReceive(commands.$pendingStart) { if $0 { tab = 0 } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { sync() }
-            if phase != .active { SettingsBackup.flush() }
+            if phase != .active {
+                SettingsBackup.flush()
+                CloudSync.shared.scheduleUpload()
+            }
         }
+        .onAppear { CloudSync.shared.context = modelContext }
     }
 
     private func sync() {

@@ -23,6 +23,8 @@ enum SettingsBackup {
         Keys.weakSide, Keys.weakExtra, Keys.weakExtraSnooze, Keys.weakLeg, Keys.sideSnoozeArm, Keys.sideSnoozeLeg,
         Keys.focusMuscles, Keys.focusAskedBlock, Keys.specialization,
         Keys.bodyWeight, Keys.bodyWeightDate, Keys.upgrades, Keys.levelTest, Keys.trainingPauses, Keys.proteinLog,
+        Keys.birthYear, Keys.sex, Keys.experience, Keys.injuryNote, Keys.defaultLength, Keys.questionnaireDate,
+        Keys.cloudEnabled,
         ClassStore.key, EventStore.key,
     ]
 

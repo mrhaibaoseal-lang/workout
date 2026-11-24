@@ -554,3 +554,49 @@
 - `GoalEngine.facts` 紀錄沒變就用上次的結果（今天頁、分頁紅點、牌位每次重畫都會用到）。
 - `SettingsBackup` 2 秒內的變動合併成一次，App 進背景時立刻存；提醒重排不會兩次同時跑。
 
+
+## 第一次的問卷、雲端備份（0.42.0）
+
+### 問卷（`Onboarding/`）
+- `OnboardingView(mode: .first)` 取代舊的引導（介紹 → 器材 → 評估）；設定 → 訓練 →「重新填問卷」用 `mode: .redo`。
+  頁面：身體資料 → 訓練經驗 → 每週幾天／每次多久 → 會痛的部位 → 器材 → 程度評估 → 左右平衡 →（雲端備份，網址設定後才有）。
+  每頁都有「略過」（那一頁填的都不算）；答案放在 `OnboardingAnswers`，按完成才由 `OnboardingFlow.apply` 一次寫進設定，**每個欄位是 nil 就不動**，所以重填不會清掉東西，也不會動訓練紀錄。
+- 身體資料：身高 → `Keys.height`；體重 → 寫一筆 `BodyLog` ＋ `StartWeight.noteBodyWeight`；出生年 → `Keys.birthYear`；性別 → `Keys.sex`（男／女／不想說）。
+  `Nutrition.calories` 用 Mifflin-St Jeor × 1.55 估每天消耗，增肌建議再加每週增 0.375% 體重所需的盈餘（約 +250～350）。
+  **性別是「不想說」或沒填、或缺身高／年齡，就不顯示大卡數字**，只剩原本的增重速度建議。
+- 訓練經驗（`Keys.experience`）：2 年以上直接 `Graduation.setLevel(.intermediate)`；其他維持新手（已經是中階的不會被降回去）。
+- 每週幾天：3 天（含以下）→ `BuiltInProgram.fullBody3.activate()`，4 天以上 → `split4`；再把 `Keys.weeklyGoal` 設成選的天數。
+  正在用自訂課表時不切課表，只改每週目標。星期用 `OnboardingFlow.suggestedWeekdays`（可自己改）→ `Keys.reminderWeekdays`。
+- 每次 30 分鐘以內 → `Keys.defaultLength = short`。**這個設定是 0.42.0 新做的**（之前訓練長度只有今天頁的 `@State` 和排程器自動挑）：
+  `WorkoutLength.preferred` 給今天頁的初始值，`Planner` 在偏好精簡時不排完整版。設定 → 訓練 → 預設長度也能改。
+- 會痛的部位：選 `Joint`（可複選／都沒有）。`OnboardingFlow.painExerciseIds`：動作類型最吃力的關節（`Joint.of`）是選的那個，
+  這類的內建動作用 `Avoid.mark(_, reason: .pain)` 標起來，**但每一類至少留一個現在排得了的（優先不用器材的）**，免得整個部位排不出動作。
+  已經標過的不重複標；不寫 `painLog`（不會觸發「最近痛」提醒）。想放回來：設定 → 課表與動作 → 不排的動作。
+  注意：標記的時間是問卷當下，第一個區塊的每週回顧（`PersonalVolume.recovery`）會把它算成「痛」。
+- 程度評估：划船改成「挑一個重量，左右手各做到還剩 2 下左右，記兩邊次數」。`LevelTest.Result` 加 `rowLeftReps`／`rowRightReps`（optional，舊資料照舊解得開，換算用 10 下）。
+  換算最大力量用弱的那手（偏保守）。**兩手差 ≥ 2 下 → `SideBalance.set(較弱那手, .arm)`**（`LevelTestView` 存的時候就設，設定頁單獨做評估也一樣）。
+- 左右平衡頁：手、腳各問「沒有／左／右」；這次問卷有實測且差 ≥ 2 下時，手的選項鎖住、畫面說明「已依實測設成 X 手較弱」，自己選的不同就以實測為準。
+  再問「以前有沒有受過傷」→ `Keys.injuryNote`（只是備註）。
+- 新 Keys：`birthYear`、`sex`、`trainingExperience`、`injuryNote`、`defaultLength`、`questionnaireDate`、`cloudEnabled`，都加進 `SettingsBackup.keys`；
+  `FullBackup` 備份整個 UserDefaults，所以自動帶到（只有雲端的同步狀態 `cloudLastSync`／`cloudLastError`／`cloudLastHash` 排除，不然每次同步都會讓內容變動）。
+
+### 加密雲端備份（`Cloud/`、`cloud/worker/`）
+- 內容就是 `FullBackup` 的 JSON（沿用匯出／還原，沒有另一份格式）→ zlib 壓縮 → `AES.GCM`（256-bit）加密。
+  檔案格式：1 byte 版本 ＋ `combined`（nonce 12 ＋ 密文 ＋ tag 16）；版本號也進 AES 的附加驗證資料。
+- 金鑰（32 bytes）和存取 token（32 bytes，送出去是 base64url 43 字元）都在 Keychain（`CloudKeychain`，`AfterFirstUnlockThisDeviceOnly`），不進 UserDefaults、備份檔或 log。
+- **恢復碼**（`RecoveryCode`）：版本 1 ＋ 金鑰 32 ＋ token 32 ＋ SHA-256 前 2 bytes 檢查碼 = 67 bytes → Crockford Base32 108 個字，每 6 字一組、18 組。
+  輸入時不分大小寫、空白橫線不管、O→0、I／L→1；抄錯會被檢查碼擋下。
+  第一次開啟（`CloudSetupView`）要輸入第 1 組和最後一組才能繼續；之後在設定 → 資料 →「查看恢復碼」要先 Face ID／密碼（`LocalAuthentication`，`NSFaceIDUsageDescription` 在 `project.yml`）。
+- 換手機：問卷第一頁或設定 → 資料 →「從雲端還原」→ 輸入恢復碼 → 列出雲端最近 5 個版本 → 選一個 → 下載、解密 → 顯示內容（幾次訓練、幾筆身體數據、存的時間）→ 確認後走 `FullBackup.restore`，再用同一把金鑰繼續同步。
+- 上傳時機（`CloudSync.scheduleUpload`）：練完按「完成」存檔之後、App 離開前景時，2 秒內合併成一次；上傳前算內容雜湊，和上次一樣就不傳；
+  上傳中又有新的就等這次傳完再補一次；切到背景時借一個 background task 讓它做完。失敗默默等下次，設定頁顯示「上次同步：時間」或「失敗：原因」。最後上傳的為準。
+- 預設關閉。問卷最後一頁（網址設定後才有）和設定 → 資料都能開關；關掉時金鑰留在 Keychain，再開就不用重抄。
+- `CloudConfig.workerURLString` 空字串 = 整個功能隱藏（沒有問卷最後一頁、設定沒有區塊）。
+- Worker（`cloud/worker/`，TypeScript，D1）：`PUT /v1/blob`、`GET /v1/blob[?version=N]`、`GET /v1/blob/versions`，`Authorization: Bearer <token>`。
+  只存 sha256(token) 當使用者 id；密文單筆上限 5 MB（D1 單列上限 2 MB，所以切成 512 KB 的小塊存）；留最近 5 版；
+  頻率限制：每個使用者每分鐘 30 次、每個 IP 每分鐘 60 次（用 D1 的 `rate` 表）；不記錄內容、不 `console.log`、例外一律回 `server_error`。
+  `cloud/worker/test/worker.test.ts` 用 Node 內建的 SQLite 假裝 D1 跑了一遍（上傳下載、分塊、保留 5 版、別人讀不到、413、429）。
+- 部署：`.github/workflows/deploy-worker.yml`（main 上 `cloud/worker/**` 有變更才跑；沒設 secrets 或 `database_id` 還沒填就只跑型別檢查和測試）。使用者要做的事見 `docs/roadmap.md`。
+
+### 測試
+- `WorkoutTests/OnboardingCloudTests.swift`：恢復碼來回／容錯／抄錯偵測、加解密（錯金鑰、被改過）、舊的 `LevelTest.Result` 照舊解得開、划船差 2 下判斷、熱量、年齡、課表對應、標會痛至少留一個動作。

@@ -1,0 +1,17 @@
+# 練壯：端對端加密雲端備份的 Worker。
+# 部署前要做的事見 docs/roadmap.md →「使用者要做的 Cloudflare 設定」。
+name = "workout-sync"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "workout-sync"
+# 建好 D1 後，把 `wrangler d1 create workout-sync` 印出的 database_id 貼在這裡
+# （database_id 不是祕密，可以放進 repo）
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# 不記錄請求內容：只留 Cloudflare 預設的錯誤統計
+[observability]
+enabled = false

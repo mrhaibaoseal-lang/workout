@@ -33,7 +33,7 @@ struct TodayView: View {
     @State private var refresh = 0
     @State private var lengthChosen = false
 
-    @State private var length: WorkoutLength = .full
+    @State private var length: WorkoutLength = .preferred
     @State private var pickedDay: DayTemplate?
     @State private var active: ActiveWorkout?
     @State private var showIntervals = false

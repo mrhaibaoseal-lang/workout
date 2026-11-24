@@ -61,6 +61,11 @@ enum Phase: String {
 enum WorkoutLength: String, CaseIterable, Identifiable {
     case full, short, minimal
 
+    /// 使用者設的預設長度（問卷「每次 30 分鐘以內」或設定 → 訓練）：只有完整／精簡兩種，沒設就是完整。
+    static var preferred: WorkoutLength {
+        UserDefaults.standard.string(forKey: Keys.defaultLength) == WorkoutLength.short.rawValue ? .short : .full
+    }
+
     var id: String { rawValue }
 
     var title: String {
