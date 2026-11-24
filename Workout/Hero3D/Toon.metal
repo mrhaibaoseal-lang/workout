@@ -34,15 +34,9 @@ static half3 toonColor(realitykit::surface_parameters params)
     return half3(saturate(c));
 }
 
-// 「著色」選項：B＝寫 base color、E＝寫 emissive（自發光），用來確認 unlit 吃哪一個
+// unlit 模式只吃 emissive（寫 base color 會全黑，0.36.3 在手機上驗證過）
 [[visible]]
 void toonSurface(realitykit::surface_parameters params)
-{
-    params.surface().set_base_color(toonColor(params));
-}
-
-[[visible]]
-void toonSurfaceE(realitykit::surface_parameters params)
 {
     params.surface().set_base_color(half3(0));
     params.surface().set_emissive_color(toonColor(params));
@@ -51,12 +45,6 @@ void toonSurfaceE(realitykit::surface_parameters params)
 // 發光、眼睛、描邊：純色
 [[visible]]
 void flatSurface(realitykit::surface_parameters params)
-{
-    params.surface().set_base_color(half3(params.material_constants().base_color_tint()));
-}
-
-[[visible]]
-void flatSurfaceE(realitykit::surface_parameters params)
 {
     params.surface().set_base_color(half3(0));
     params.surface().set_emissive_color(half3(params.material_constants().base_color_tint()));
