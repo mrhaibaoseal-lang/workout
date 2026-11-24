@@ -9,3 +9,6 @@ WorkoutWidget/Info.plist
 
 # 3D 工具輸出（clipbatch 快取、review_sheet 總覽圖）
 /out/
+
+# graphify 知識圖（本機產生，graphify update . 重建）
+graphify-out/
