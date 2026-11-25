@@ -44,7 +44,7 @@ enum Reminders {
                 content.title = "絕不連續兩次 🔥"
                 content.body = "上次沒練到，今天 \(TimeFmt.hm(start)) 別再漏了。真的很累就做 1 組，也算數。"
             } else {
-                content.title = "\(TimeFmt.hm(start)) 練\(length == .full ? "完整 60 分" : "精簡 20 分")"
+                content.title = "\(TimeFmt.hm(start)) 練\(length == .full ? "完整版" : "精簡版")"
                 let lines = [
                     "換好衣服，先做 1 組再說 💪",
                     "累的話改精簡版，20 分鐘也算數。",

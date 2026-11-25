@@ -103,7 +103,7 @@ struct CustomSlot: Codable, Identifiable, Equatable {
     var high: Int
     /// 休息秒數（完整版用；精簡版最多 60 秒）
     var rest: Int
-    /// 精簡 20 分、只做 1 組也要做
+    /// 精簡版、只做 1 組也要做
     var essential: Bool
     /// 從內建課表複製來的臀推位置：「少排槓鈴」時仍用槓鈴。畫面上不顯示。
     var keepBarbell: Bool

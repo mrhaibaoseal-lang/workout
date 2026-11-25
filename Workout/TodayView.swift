@@ -468,6 +468,12 @@ struct TodayView: View {
                 }
             }
 
+            if let note = fatigueNote {
+                Label(note, systemImage: "bed.double")
+                    .font(.caption)
+                    .foregroundStyle(Theme.gold)
+            }
+
             if let reason = today?.reason, !reason.isEmpty, !trainedToday {
                 Text(reason)
                     .font(.caption)
@@ -478,7 +484,7 @@ struct TodayView: View {
                 ForEach(WorkoutLength.allCases) { l in
                     let on = l == length
                     Button { length = l } label: {
-                        Text(l.title)
+                        Text(lengthLabel(l))
                             .font(.footnote.weight(.bold))
                             .foregroundStyle(on ? Theme.bg : Color(gearHex: "#DCE4F7"))
                             .frame(maxWidth: .infinity, minHeight: 36)
@@ -552,7 +558,31 @@ struct TodayView: View {
         if length == .minimal { return "\(day.focus) · 做 1 組就算數" }
         let minutes = ProgramBuilder.estimatedMinutes(plan, sessions: sessions, gym: placeRaw == TrainingPlace.gym.rawValue,
                                                       increment: increment, autoWarmup: autoWarmup, week: week, length: length)
-        return "約 \(minutes) 分鐘 · \(plan.count) 個動作 · \(sets) 組"
+        return "\(sets) 組 · \(plan.count) 個動作 · 約 \(minutes) 分鐘"
+    }
+
+    /// 長度按鈕：完整／精簡顯示今天實際排到的正式組數（0.51.0 起取代「60 分」「20 分」）。
+    private func lengthLabel(_ l: WorkoutLength) -> String {
+        if l == .minimal { return l.title }
+        let p = l == length ? plan : ProgramBuilder.plan(day: day, equipment: equipment, week: week, length: l,
+                                                         limitBarbell: limitBarbell && placeRaw == TrainingPlace.home.rawValue,
+                                                         gym: placeRaw == TrainingPlace.gym.rawValue)
+        return "\(l.title) \(p.reduce(0) { $0 + $1.sets }) 組"
+    }
+
+    /// 自動排到的這天，主要肌肉平均還沒恢復（< 0.6）時提醒；自己選的天、今天練過就不提。
+    private var fatigueNote: String? {
+        guard !trainedToday, pickedDay == nil, length != .minimal else { return nil }
+        let load = MuscleStats.fatigue(sessions)
+        let rec = MuscleStats.recovery(sessions)
+        guard let score = MuscleStats.readiness(day, recovery: rec), score < 0.6 else { return nil }
+        let slow = MuscleStats.primaryMuscles(day)
+            .map { ($0, MuscleStats.hoursUntilRecovered($0, fatigue: load[$0] ?? 0)) }
+            .filter { $0.1 > 0 }
+            .sorted { $0.1 > $1.1 }
+        guard let worst = slow.first else { return nil }
+        let names = slow.prefix(2).map(\.0.name).joined(separator: "、")
+        return "\(names)還在恢復（約 \(Int(worst.1.rounded(.up))) 小時），可以改精簡、只做 1 組，或今天休息。"
     }
 
     // MARK: Exercises

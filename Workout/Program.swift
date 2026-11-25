@@ -70,8 +70,8 @@ enum WorkoutLength: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .full: "完整 60 分"
-        case .short: "精簡 20 分"
+        case .full: "完整"
+        case .short: "精簡"
         case .minimal: "只做 1 組"
         }
     }
@@ -551,16 +551,36 @@ enum ProgramBuilder {
 
     /// 下一次練哪一天（0.25.0 起以週為單位）：這週答應併成的全身日 → 課表裡這週還沒練的第一天 →
     /// 這週都練完了（多練）才照上次的下一天輪。所以一週沒練完，下週還是從第一天開始（少的那天用「併成全身日」補）。
-    static func nextDay(after sessions: [WorkoutSession]) -> DayTemplate {
+    /// 0.51.0 起：這週還沒練的天裡，挑主要肌肉最恢復的（`MuscleStats.readiness`）；差不多（差距 < `pickMargin`）就照課表順序。
+    static func nextDay(after sessions: [WorkoutSession], now: Date = .now) -> DayTemplate {
         let days = self.days
         if let merged = WeekFit.acceptedDay(sessions: sessions) { return merged }
         let done = WeekFit.doneThisWeek(sessions)
-        if let d = days.first(where: { !done.contains($0.id) }) { return d }
+        let left = days.filter { !done.contains($0.id) }
+        if let first = left.first {
+            return mostRecovered(left, sessions: sessions, now: now) ?? first
+        }
         guard let last = sessions.first,
               let idx = days.firstIndex(where: { $0.id == WeekFit.parts(last.dayKey).last }) else {
             return days[0]
         }
         return days[(idx + 1) % days.count]
+    }
+
+    /// 恢復度要比課表順序的第一天高這麼多，才換成別天（避免為了一點點差距跳來跳去）。
+    static let pickMargin = 0.15
+
+    /// 候選天（照課表順序）裡挑主要肌肉最恢復的；第一天就夠好或算不出來回 nil。
+    static func mostRecovered(_ candidates: [DayTemplate], sessions: [WorkoutSession], now: Date = .now) -> DayTemplate? {
+        guard candidates.count > 1, let first = candidates.first else { return nil }
+        let rec = MuscleStats.recovery(sessions, now: now)
+        let base = MuscleStats.readiness(first, recovery: rec) ?? 1
+        var best: (day: DayTemplate, score: Double)?
+        for d in candidates.dropFirst() {
+            guard let s = MuscleStats.readiness(d, recovery: rec), s >= base + pickMargin else { continue }
+            if best == nil || s > best!.score { best = (d, s) }
+        }
+        return best?.day
     }
 }
 

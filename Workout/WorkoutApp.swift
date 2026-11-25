@@ -96,7 +96,7 @@ struct RootView: View {
         let nextText: String
         if let n = next, let start = n.start, let length = n.length {
             let day = Calendar.current.isDateInToday(n.day) ? "今天" : "週" + TimeFmt.weekday(n.day)
-            nextText = "\(day) \(TimeFmt.hm(start)) \(length == .full ? "60 分" : "20 分")"
+            nextText = "\(day) \(TimeFmt.hm(start)) \(length == .full ? "完整" : "精簡")"
         } else {
             nextText = ProgramBuilder.nextDay(after: sessions).name
         }

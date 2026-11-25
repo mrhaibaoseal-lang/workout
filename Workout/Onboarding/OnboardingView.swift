@@ -296,7 +296,7 @@ struct OnboardingView: View {
             } header: {
                 SectionLabel("每次大概能練多久？")
             } footer: {
-                SectionLabel("30 分鐘以內：預設排精簡版（約 20 分鐘）；其他預設完整版。今天頁隨時可以改。")
+                SectionLabel("30 分鐘以內：預設排精簡版（只留重點動作，組數少一半左右）；其他預設完整版。今天頁隨時可以改，按鈕上會寫今天幾組。")
             }
             .listRowBackground(Theme.surface)
         }

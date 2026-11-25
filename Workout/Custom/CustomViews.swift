@@ -527,7 +527,7 @@ struct SlotEditor: View {
                     set: { slot.high = max($0, slot.low) }
                 ), in: 1...100)
                 Stepper("休息 \(slot.rest) 秒", value: $slot.rest, in: 0...300, step: 15)
-                Toggle("精簡 20 分也要做", isOn: $slot.essential)
+                Toggle("精簡版也要做", isOn: $slot.essential)
             } header: {
                 SectionLabel("組數和次數")
             } footer: {

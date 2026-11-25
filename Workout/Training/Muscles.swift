@@ -47,6 +47,19 @@ enum Muscle: String, CaseIterable, Identifiable {
         }
     }
 
+    /// 練完一次（約 6 個有效組、離力竭還差 1～3 下）大約幾小時恢復（0.51.0，依研究整理，見 `docs/training-system.md`「各部位恢復時間」）。
+    /// 小肌群、單關節為主的快；臀腿、下背這種大重量多關節動作練的慢。
+    var recoveryHours: Double {
+        switch self {
+        case .calves, .abs, .obliques, .forearms, .sideDelt, .rearDelt: return 36
+        case .chest, .lats, .traps, .frontDelt, .biceps, .triceps: return 48
+        case .quads, .hamstrings, .glutes, .lowerBack: return 72
+        }
+    }
+
+    /// 疲勞衰減的時間常數：一次典型訓練（疲勞 6）在 `recoveryHours` 降到 1.2（恢復度 0.8，地圖變綠）。
+    var fatigueTau: Double { recoveryHours / log(5) }
+
     /// 前臂、腹斜肌只會被當成次要出力，不另外排專門動作。
     var tracked: Bool { self != .forearms && self != .obliques }
 
@@ -132,23 +145,54 @@ enum MuscleStats {
         return out
     }
 
-    /// 0 = 剛練完很累，1 = 完全恢復。最近 4 天的組數，隨時間指數衰減（半衰約 30 小時）。
-    static func recovery(_ sessions: [WorkoutSession], now: Date = .now) -> [Muscle: Double] {
-        var fatigue: [Muscle: Double] = [:]
+    /// 每個部位目前的疲勞（有效組數 × 隨時間指數衰減；各部位用自己的 `fatigueTau`）。看最近 6 天。
+    static func fatigue(_ sessions: [WorkoutSession], now: Date = .now) -> [Muscle: Double] {
+        var load: [Muscle: Double] = [:]
         for s in sessions {
             for e in s.entries where e.isWork {
                 let hours = now.timeIntervalSince(e.date) / 3600
-                if hours < 0 || hours > 96 { continue }
+                if hours < 0 || hours > 144 { continue }
                 guard let ex = ExerciseLibrary.byId(e.exerciseId) else { continue }
-                let decay = exp(-hours / 30)
-                for (m, w) in ex.trainedMuscles { fatigue[m, default: 0] += w * decay }
+                for (m, w) in ex.trainedMuscles { load[m, default: 0] += w * exp(-hours / m.fatigueTau) }
             }
         }
+        return load
+    }
+
+    /// 0 = 剛練完很累，1 = 完全恢復。疲勞 6（約一次典型訓練）= 0。
+    static func recovery(_ sessions: [WorkoutSession], now: Date = .now) -> [Muscle: Double] {
+        let load = fatigue(sessions, now: now)
         var out: [Muscle: Double] = [:]
         for m in Muscle.allCases {
-            out[m] = max(0, 1 - (fatigue[m] ?? 0) / 6)
+            out[m] = max(0, 1 - (load[m] ?? 0) / 6)
         }
         return out
+    }
+
+    /// 恢復度 0.8 算「已恢復」（地圖綠色）。
+    static let recoveredLevel = 0.8
+
+    /// 還要幾小時恢復到 `recoveredLevel`；已經恢復回 0。
+    static func hoursUntilRecovered(_ m: Muscle, fatigue: Double) -> Double {
+        let limit = (1 - recoveredLevel) * 6
+        guard fatigue > limit else { return 0 }
+        return m.fatigueTau * log(fatigue / limit)
+    }
+
+    /// 一天的主要肌肉（動作類型權重 1 的）。
+    static func primaryMuscles(_ day: DayTemplate) -> Set<Muscle> {
+        var primary = Set<Muscle>()
+        for slot in day.slots {
+            for (m, w) in slot.pattern.muscles where w >= 1 { primary.insert(m) }
+        }
+        return primary
+    }
+
+    /// 這一天主要肌肉的平均恢復度；沒有主要肌肉回 nil。
+    static func readiness(_ day: DayTemplate, recovery: [Muscle: Double]) -> Double? {
+        let primary = primaryMuscles(day)
+        if primary.isEmpty { return nil }
+        return primary.reduce(0.0) { $0 + (recovery[$1] ?? 1) } / Double(primary.count)
     }
 
     /// 今天適合練哪一天：該天主要肌肉（權重 1）平均恢復度最高的。
@@ -156,12 +200,7 @@ enum MuscleStats {
         var best: DayTemplate?
         var bestScore = -1.0
         for day in ProgramBuilder.days {
-            var primary = Set<Muscle>()
-            for slot in day.slots {
-                for (m, w) in slot.pattern.muscles where w >= 1 { primary.insert(m) }
-            }
-            if primary.isEmpty { continue }
-            let score = primary.reduce(0.0) { $0 + (recovery[$1] ?? 1) } / Double(primary.count)
+            guard let score = readiness(day, recovery: recovery) else { continue }
             if score > bestScore {
                 bestScore = score
                 best = day

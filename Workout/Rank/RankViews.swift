@@ -280,8 +280,8 @@ struct RankDetailView: View {
     private var rules: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("怎麼拿分")
-            rule("完成完整 60 分", "+\(RankEngine.fullPoints)")
-            rule("完成精簡 20 分", "+\(RankEngine.shortPoints)")
+            rule("完成完整版", "+\(RankEngine.fullPoints)")
+            rule("完成精簡版", "+\(RankEngine.shortPoints)")
             rule("只做 1 組", "+\(RankEngine.minimalPoints)")
             rule("破個人紀錄（每個動作）", "+\(RankEngine.prPoints)，單次最多 +\(RankEngine.prCap)")
             rule("一週練滿 \(weeklyGoal) 次", "+\(RankEngine.goalBonus)")

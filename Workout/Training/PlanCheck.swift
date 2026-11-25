@@ -48,7 +48,7 @@ enum PlanCheck {
     static let maxPerCategory = 2
     static let maxTotal = 5
 
-    /// 這個長度的目標分鐘（照 `WorkoutLength.title` 的「完整 60 分」「精簡 20 分」）；只做 1 組不檢查。
+    /// 這個長度的目標分鐘（完整約 60 分、精簡約 20 分）；只做 1 組不檢查。
     static func targetMinutes(_ length: WorkoutLength) -> Int? {
         switch length {
         case .full: return 60

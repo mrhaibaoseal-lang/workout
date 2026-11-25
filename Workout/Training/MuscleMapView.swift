@@ -273,6 +273,7 @@ struct FatigueMapCard: View {
     }
 
     var body: some View {
+        let load = MuscleStats.fatigue(sessions)
         let rec = MuscleStats.recovery(sessions)
         let tired = Muscle.allCases
             .filter { (rec[$0] ?? 1) < 0.6 }
@@ -301,7 +302,10 @@ struct FatigueMapCard: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.accentSoft)
             } else {
-                Text("還在累：" + tired.map { $0.name }.joined(separator: "、"))
+                Text("還在累：" + tired.map { m in
+                    let h = Int(MuscleStats.hoursUntilRecovered(m, fatigue: load[m] ?? 0).rounded(.up))
+                    return h > 0 ? "\(m.name)（約 \(h) 小時）" : m.name
+                }.joined(separator: "、"))
                     .font(.subheadline)
                     .foregroundStyle(Theme.accentSoft)
             }
@@ -311,7 +315,7 @@ struct FatigueMapCard: View {
                     .foregroundStyle(Theme.green)
             }
 
-            Text("依最近 4 天練的組數估算，練完約 2–3 天恢復。")
+            Text("依最近 6 天練的組數估算。小腿、腹、側／後肩約 36 小時恢復；胸、背、手臂約 48 小時；臀腿、下背約 72 小時。練越多組恢復越久。")
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
         }
