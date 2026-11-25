@@ -297,6 +297,61 @@ struct CloudRestoreView: View {
     }
 }
 
+/// 同步狀態那一行：圖示 + 文字。同步中圖示脈動；成功換成打勾；失敗輕搖一下並給錯誤觸覺。
+/// 只讀 `CloudSync` 現有的 status／lastError／lastSync，不改同步邏輯。
+struct CloudStatusRow: View {
+    @ObservedObject var sync: CloudSync
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var failures = 0
+
+    private enum Phase { case syncing, failed, done, never }
+
+    private var phase: Phase {
+        if sync.status == .syncing { return .syncing }
+        if sync.lastError != nil { return .failed }
+        return sync.lastSync != nil ? .done : .never
+    }
+
+    private var symbol: String {
+        switch phase {
+        case .syncing: "arrow.triangle.2.circlepath.icloud"
+        case .failed: "exclamationmark.icloud.fill"
+        case .done: "checkmark.icloud.fill"
+        case .never: "icloud"
+        }
+    }
+
+    private var tint: Color {
+        switch phase {
+        case .syncing: Theme.accent
+        case .failed: Theme.hotText
+        case .done: Theme.green
+        case .never: Theme.muted
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(tint)
+                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
+                .symbolEffect(.pulse, isActive: phase == .syncing && !reduceMotion)
+            Text(sync.statusText)
+                .font(.footnote)
+                .foregroundStyle(phase == .failed ? Theme.hotText : Theme.muted)
+        }
+        .shake(trigger: failures)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: phase)
+        .onChange(of: sync.status) { old, new in
+            // 同步結束時 lastError 已經是最後的結果
+            if old == .syncing, new == .idle, sync.lastError != nil { failures += 1 }
+        }
+        .sensoryFeedback(.error, trigger: failures)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// 設定 → 資料 裡的「加密雲端備份」區塊。還沒設定 Worker 網址時整段不顯示。
 struct CloudSettingsSection: View {
     @ObservedObject private var sync = CloudSync.shared
@@ -323,9 +378,7 @@ struct CloudSettingsSection: View {
                     }
                 }
                 if enabled {
-                    Text(sync.statusText)
-                        .font(.footnote)
-                        .foregroundStyle(sync.lastError == nil ? Theme.muted : Theme.hotText)
+                    CloudStatusRow(sync: sync)
                     Button {
                         sync.uploadNow()
                     } label: {

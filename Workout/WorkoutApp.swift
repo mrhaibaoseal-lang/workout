@@ -65,6 +65,8 @@ struct RootView: View {
                         .tabItem { Label("設定", systemImage: "gearshape") }
                         .tag(4)
                 }
+                // 切換分頁的選擇觸覺。系統 tab bar 的圖示不吃 symbolEffect（UIKit 畫的），所以只配觸覺
+                .sensoryFeedback(.selection, trigger: tab)
             } else {
                 OnboardingView()
             }
