@@ -1,6 +1,6 @@
 """原型：程序化 3D 角色（玩具公仔風）+ 骨架 + 啞鈴深蹲動畫，EEVEE 卡通著色。
 GEAR=titan xvfb-run -a blender -b -P hero_proto.py -- <outdir> [frames...]
-GEAR：basic（示範用）、titan／frost／pig／night／dawn／rune／astral（整套，不含特效）、或逐部位混搭，例如 GEAR="head=titan,hands=titan"
+GEAR：basic（示範用）、titan／frost／pig／night／dawn／rune／astral／street／neon／lava／gold／shadow（整套，不含特效）、或逐部位混搭，例如 GEAR="head=titan,hands=titan"
 部位：head top bottom feet hands back bell fx（沒寫的部位用基本款）"""
 import bpy, bmesh, math, sys, os
 from mathutils import Vector, Matrix
@@ -11,7 +11,7 @@ FRAMES = [int(a) for a in argv[1:]]
 GEAR = os.environ.get('GEAR', 'basic')
 SLOTS = ('head', 'top', 'bottom', 'feet', 'hands', 'back', 'bell', 'fx')
 G = {k: 'basic' for k in SLOTS}
-SERIES_FILES = ('titan', 'frost', 'pig', 'night', 'dawn', 'rune', 'astral')   # 有 3D 版的系列，各一個 gear_<id>.py
+SERIES_FILES = ('titan', 'frost', 'pig', 'night', 'dawn', 'rune', 'astral', 'street', 'neon', 'lava', 'gold', 'shadow')   # 有 3D 版的系列，各一個 gear_<id>.py
 if GEAR in SERIES_FILES:
     G.update({k: GEAR for k in SLOTS if k != 'fx'})
 elif '=' in GEAR:
@@ -48,7 +48,8 @@ def want(slot, series):
     return ok
 TOP = G['top'] == 'titan'                       # 全身緊身衣（冰霜 T 恤是塗色，不算）
 # 長褲（褲管到腳踝）的系列和褲子底色；身體在褲子底下的面也塗這個顏色
-PANTS = {'titan': '#2A3340', 'frost': '#4FB8FF', 'night': '#1C2230', 'dawn': '#2E6BFF', 'rune': '#2C2F3A', 'astral': '#22184A'}
+PANTS = {'titan': '#2A3340', 'frost': '#4FB8FF', 'night': '#1C2230', 'dawn': '#2E6BFF', 'rune': '#2C2F3A', 'astral': '#22184A',
+         'neon': '#222B3A', 'shadow': '#221A30'}
 BOT = G['bottom'] in PANTS
 def hexc(h):
     h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4 for i in (0, 2, 4))

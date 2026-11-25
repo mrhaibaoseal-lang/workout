@@ -154,16 +154,16 @@ struct ProgressScreen: View {
 
     private func statTiles(records: Int) -> some View {
         HStack(spacing: 8) {
-            tile("\(sessions.count)", unit: nil, "累積訓練", color: Theme.fg)
-            tile("\(Stats.weekStreak(sessions))", unit: "週", "連續達標", color: Theme.fg)
-            tile("\(records)", unit: nil, "破個人紀錄", color: Theme.hotText)
+            tile(sessions.count, unit: nil, "累積訓練", color: Theme.fg)
+            tile(Stats.weekStreak(sessions), unit: "週", "連續達標", color: Theme.fg)
+            tile(records, unit: nil, "破個人紀錄", color: Theme.hotText)
         }
     }
 
-    private func tile(_ value: String, unit: String?, _ label: String, color: Color) -> some View {
+    private func tile(_ value: Int, unit: String?, _ label: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value).font(Theme.number(28)).foregroundStyle(color)
+                CountUpText(value).font(Theme.number(28)).foregroundStyle(color)
                 if let unit { Text(unit).font(.footnote).foregroundStyle(Theme.muted) }
             }
             Text(label).font(.caption).foregroundStyle(Theme.muted)
@@ -264,7 +264,7 @@ struct ProgressScreen: View {
             if let last = pts.last {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text(ex.loaded ? String(format: "%.1f", last.value) : "\(Int(last.value))")
+                        CountUpText(last.value) { ex.loaded ? String(format: "%.1f", $0) : "\(Int($0))" }
                             .font(Theme.number(34))
                             .foregroundStyle(Theme.fg)
                         Text(unit).font(.subheadline).foregroundStyle(Theme.muted)
@@ -307,6 +307,15 @@ struct ProgressScreen: View {
                     AxisValueLabel(format: .dateTime.month(.defaultDigits).day()).foregroundStyle(Theme.muted)
                 }
             }
+            .chartOverlay { proxy in
+                if let last = pts.last {
+                    ChartLastPointMarker(proxy: proxy, x: last.date, y: last.value,
+                                         color: prDays.contains(last.date) ? Theme.hot : Theme.accent)
+                }
+            }
+            // 切換動作時資料平順過渡（不重畫）；第一次出現才由左往右畫出
+            .animation(.smooth(duration: 0.5), value: ex.id)
+            .chartDrawIn()
             .frame(height: 170)
 
             if !prDays.isEmpty {
@@ -348,7 +357,7 @@ struct ProgressScreen: View {
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 1) {
-                                Text("\(Progression.format(r.weight)) kg × \(r.reps)")
+                                CountUpText(r.weight) { "\(Progression.format($0)) kg × \(r.reps)" }
                                     .font(Theme.number(16))
                                     .foregroundStyle(Theme.fg)
                                 Text(r.previousReps.map { "原本 \($0) 下" } ?? "原本 \(Progression.format(r.previous)) kg")
