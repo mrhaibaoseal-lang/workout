@@ -140,7 +140,7 @@ App 的跟做時間是每個動作 30～40 秒（單側的每邊約 15～20 秒�
   - Yoga Matters 人面獅身式（手肘在肩下、前臂平行、胸口抬起；前臂支撐會限制腰椎伸展的幅度）：https://www.yogamatters.com/blogs/pose-library/sphinx-pose-salamba-bhujangasana
   - MasterClass 人面獅身式指南（手肘在肩下、肩膀遠離耳朵、感到下背夾擠就把手肘往前移降低角度）：https://www.masterclass.com/articles/sphinx-pose-guide
   - Eskenazi Health 當月運動：https://eskenazihealth.edu/news/exercise-of-the-month
-  - **沒有找到 ACE、NSCA 等級的同一個變化式**，上面是瑜伽教學網站和醫院衛教頁；排進教練審查時要特別看這個。來源一致的重點：手肘在肩正下方、肩膀下沉、有夾擠就降低角度。
+  - **沒有找到 ACE、NSCA 等級的同一個變化式**，上面是瑜伽教學網站和醫院衛教頁。來源一致的重點：手肘在肩正下方、肩膀下沉、有夾擠就降低角度。
 - **App 提示**：「趴下，前臂平放，手肘在肩膀正下方，吸氣時胸口輕輕抬起，肩膀往下遠離耳朵。下背有夾擠、疼痛就降低高度或把手肘往前放，不要硬撐。」
 - 風險：一般（腰椎伸展；下背有傷的人 App 要提示）。
 
@@ -190,26 +190,15 @@ clipcheck 的數字是「整段動作裡單一格的最大總對數」，括號�
 ## 給主對話
 
 ### BRIEF 進度表要寫的那一行（「動作：Claude」表）
-| 伸展 | `chestStretch`、`crossBody`、`tricepsStretch`、`childPose`、`quadStretch`、`seatedFold`、`kneeHug`、`calfStretch`、`hipFlexor`、`cobra`（動作卡 `docs/3d-moves/stretch.md`，總覽 `docs/art/blender/stretch_batch.png`）。… | 完成待審查（Claude，2026-11-25） |
+| 伸展 | `chestStretch`、`crossBody`、`tricepsStretch`、`childPose`、`quadStretch`、`seatedFold`、`kneeHug`、`calfStretch`、`hipFlexor`、`cobra`（動作卡 `docs/3d-moves/stretch.md`，總覽 `docs/art/blender/stretch_batch.png`）。… | 完成（Claude，2026-11-25） |
 
-### coach-review.md 要加的列
-| `chestStretch` 胸部伸展 | 伸展 | 一般 | 未做 | 未看 | | |
-| `crossBody` 手臂橫跨胸前 | 伸展 | 一般 | 未做 | 未看 | | |
-| `tricepsStretch` 過頭三頭伸展 | 伸展 | 一般（肩在頭上、無負重） | 未做 | 未看 | | |
-| `childPose` 嬰兒式 | 伸展 | 一般 | 未做 | 未看 | | |
-| `quadStretch` 站姿股四頭伸展 | 伸展 | 一般 | 未做 | 未看 | | |
-| `seatedFold` 坐姿體前彎 | 伸展 | 一般 | 未做 | 未看 | | |
-| `kneeHug` 仰躺抱膝 | 伸展 | 一般 | 未做 | 未看 | | |
-| `calfStretch` 推牆小腿伸展 | 伸展 | 一般 | 未做 | 未看 | | |
-| `hipFlexor` 跪姿髖屈肌伸展 | 伸展 | 一般 | 未做 | 未看 | | |
-| `cobra` 人面獅身式 | 伸展 | 一般 | 未做（沒有 ACE／NSCA 等級的同一個變化式，要補） | 未看 | | |
 
 ### 待使用者決定
 1. **要不要為伸展另外做「進入」那段？**（建議：不做。）使用者的要求是「進入 → 停住 → 微幅呼吸起伏，片段頭尾要接得起來」；兩者同時成立只能這樣：片段第 0 格＝輕輕到位的姿勢、第 24 格＝吐氣加深、第 47 格接回第 0 格（頭尾相同、可無限循環），進入由 App 的姿勢切換（交叉淡入）處理。
    如果要片段內含完整進入（站→跪→趴那種），循環接不起來，要分成「進入片段」「停住片段」兩個動畫。選項：A 維持現狀（建議）；B 另做進入片段（每個約 +1 天工作量，地面動作最值得）。
 2. **`cobra` 做人面獅身式還是眼鏡蛇式？**（建議：維持人面獅身。）App 的畫面名稱和 2D 示範都是「人面獅身式」（前臂撐地），交辦單寫「眼鏡蛇式」；3D 照 App 做，腰椎伸展較小、對新手保守。要眼鏡蛇（手掌撐直）的話改一個參數就行，但 App 的名稱和 2D 也要同步改。
 3. **`tricepsStretch` 第二隻手的位置**：因為公仔頭大手短，第二隻手托在右手肘**下方前面**（標準是手肘上方），經過脖子前面，基本款鎖骨×前臂 97 對。選項：A 維持（建議，看起來像「手托手肘」）；B 改成第二隻手叉腰、不拉（沒有穿模，但少了「輕拉手肘」的重點，要靠 App 提示補）。
-4. **`cobra` 沒有 ACE／NSCA 等級的同一個變化式來源**（只有瑜伽教學網站和醫院衛教頁），要不要補或請教練特別看？（已排進 coach-review 備註。）
+4. **`cobra` 沒有 ACE／NSCA 等級的同一個變化式來源**（只有瑜伽教學網站和醫院衛教頁）；要不要補？
 5. **`calfStretch` 的牆**在審查總覽圖正面鏡頭會擋住人（牆是整面）：要不要改成只畫一小塊牆面？（只影響審查圖，不影響 App。）
 6. 伸展動作的 App 提示請主對話併進 App 端文案（每個動作的「App 提示」已寫在上面）。
 

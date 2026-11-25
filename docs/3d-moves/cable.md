@@ -51,8 +51,8 @@
   1. Fitness Volt，Cable Overhead Triceps Extension（面向外、雙手握繩、手肘貼頭）：https://fitnessvolt.com/cable-overhead-triceps-extension/
   2. Rep Fitness，Cable Tricep Overhead Extensions: Form（腳在髖下、膝軟、髖微鉸、胸挺、手肘貼近頭）：https://repfitness.com/blogs/training/cable-tricep-overhead-extensions-mastering-form-benefits-and-variations
   3. 輔助：UNMC 滑輪三頭伸展影片逐字稿、Muscle & Strength（也有坐姿低位滑輪版 Seated Low Pulley Overhead Tricep Extension）。
-- 來源分歧：多數來源用**低位**滑輪（鋼索從下往上拉），也有說高位也行。**ACE 沒有這個動作的頁面**，目前沒有 ACE／NSCA／ExRx 等級的第二個來源，請審查者補；坐姿高位版也沒有直接來源，請教練確認。
-- 風險：**高**（肩關節在頭上）；排進教練審查。
+- 來源分歧：多數來源用**低位**滑輪（鋼索從下往上拉），也有說高位也行。**ACE 沒有這個動作的頁面**，目前沒有 ACE／NSCA／ExRx 等級的第二個來源，請審查者補；坐姿高位版也沒有直接來源。
+- 風險：**高**（肩關節在頭上）。
 
 ## 3. 直臂下拉 `straightArmPulldown`（下拉的變化版）
 - 姿勢：靠背放平，**跨站在長長的椅面兩側**、面向立柱（離立柱約 0.6～0.7 m），髖往後坐、上身前傾約 35°，膝蓋微彎；直槓握距略寬於肩。
@@ -100,7 +100,7 @@
   1. Fitness Volt，Kneeling Cable Crunch（作者為 ACE 認證教練；繩在頭兩側、髖固定）：https://fitnessvolt.com/kneeling-cable-crunch/
   2. MasterClass，Cable Crunches Guide：https://www.masterclass.com/articles/cable-crunches-guide
   3. 輔助：Breaking Muscle、Legion、Bodybuilding.com。
-- 來源分歧：握法有「繩子中心在頭後」和「手掌貼上胸」兩種；有說髖固定、也有說允許髖微微後移。取：繩在頭兩側、髖固定（較保守）。**ACE／NSCA／ExRx 都沒有找到這個動作的頁面，兩個來源都是二手，也都是跪姿**，坐姿版需審查者／教練確認。
+- 來源分歧：握法有「繩子中心在頭後」和「手掌貼上胸」兩種；有說髖固定、也有說允許髖微微後移。取：繩在頭兩側、髖固定（較保守）。**ACE／NSCA／ExRx 都沒有找到這個動作的頁面，兩個來源都是二手，也都是跪姿**，坐姿版未經專業確認。
 - 風險：一般（脊椎屈曲負重；新手用輕重量）。
 
 ---

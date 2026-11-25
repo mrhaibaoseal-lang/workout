@@ -21,7 +21,7 @@
 - 來源：**沒有找到「同一個變化式」的權威來源**（站姿叉腰深呼吸恢復）。目前只有組間休息時間的來源，支持「要休息、要恢復」，不支持具體姿勢：
   1. NSCA, How to Manipulate Rest Intervals to Maximize Strength Training Effectiveness（組間休息 2～5 分鐘，依疲勞調整）：https://www.nsca.com/education/articles/ptq/manipulate-rest-intervals-to-maximize-strength-training/
   2. NASM, Determining best rest periods（耐力 0～90 秒、最大肌力 3～5 分鐘）：https://blog.nasm.org/uncategorized/determining-best-rest-periods-resistance-exercise-training-goals
-  - 差在：以上兩篇講**休息多久**，沒講**怎麼站、怎麼呼吸**；姿勢是依一般恢復站姿設計的，請教練確認。
+  - 差在：以上兩篇講**休息多久**，沒講**怎麼站、怎麼呼吸**；姿勢是依一般恢復站姿設計的。
 - 來源分歧：無（沒有可比的）。取保守的：不彎腰、不憋氣、不做過大的胸腔動作。
 - 風險：一般（低）。
 
@@ -101,15 +101,10 @@
 
 **BRIEF §10「動作：Claude」表要加的一列**：
 
-| 休息頁 | `breathe`（站姿叉腰深呼吸）、`drink`（右手拿水壺喝水，新器材 `moves/props_rest.py` 的 `build_bottle`）、`ready`（運動員預備姿勢＋小彈跳）（動作卡 `docs/3d-moves/rest.md`，總覽 `docs/art/blender/rest_batch.png`）。`[angles]` 基本款全 PASS（範圍依量測放寬了叉腰手肘、喝水手肘，卡片已寫原因）。clipcheck（單格最大）：基本款 ≤3；冰霜 ≤12；小豬 breathe 100、drink 48（大腿 × 豬蹄手套，叉腰）；鈦甲 breathe 49、drink 115、ready 94（前臂 × 胸甲，留給裝備端）。deformcheck（基本款）單格壞面 324／348／377，集中在手肘窩和肩膀（骨架權重，同已完成動作量級），不是 0。`breathe` 站姿叉腰，和 2D（彎腰扶膝）不同，待確認。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-25） |
+| 休息頁 | `breathe`（站姿叉腰深呼吸）、`drink`（右手拿水壺喝水，新器材 `moves/props_rest.py` 的 `build_bottle`）、`ready`（運動員預備姿勢＋小彈跳）（動作卡 `docs/3d-moves/rest.md`，總覽 `docs/art/blender/rest_batch.png`）。`[angles]` 基本款全 PASS（範圍依量測放寬了叉腰手肘、喝水手肘，卡片已寫原因）。clipcheck（單格最大）：基本款 ≤3；冰霜 ≤12；小豬 breathe 100、drink 48（大腿 × 豬蹄手套，叉腰）；鈦甲 breathe 49、drink 115、ready 94（前臂 × 胸甲，留給裝備端）。deformcheck（基本款）單格壞面 324／348／377，集中在手肘窩和肩膀（骨架權重，同已完成動作量級），不是 0。`breathe` 站姿叉腰，和 2D（彎腰扶膝）不同，待確認。AI 審查（§8-1）未做 | 完成（Claude，2026-11-25） |
 
 並且把 §10「動作：還沒做的」表的「休息頁」那列刪掉。
 
-**coach-review.md 要加的列**（風險都是一般，排在最後）：
-
-| `ready` 準備（預備姿勢＋小彈跳） | 休息頁 | 一般 | 未做 | 未看 | | |
-| `drink` 喝水 | 休息頁 | 一般 | 未做 | 未看 | | |
-| `breathe` 深呼吸（站姿叉腰） | 休息頁 | 一般 | 未做（來源沒有同一個變化式，要補） | 未看 | | |
 
 **共用檔案異動（§10 表）**：這批沒有改任何共用檔，只新增 `moves/rest.py`、`moves/props_rest.py`（`hero_proto`／`moves3d` 會自動收集，不用登記）。
 **README**：建議在 `scripts/blender/README.md` 加一段休息頁批次說明（`_rs_stand`、`build_bottle`／`key_bottle`、水壺用 `hand` 骨頭量握點）；我沒有改（規定不准）。
