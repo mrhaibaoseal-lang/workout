@@ -37,8 +37,8 @@ final class TrainingLogicTests: XCTestCase {
 
     func testEveryLoadedBuiltInHasStrength() {
         let missing = ExerciseLibrary.builtIn.filter { $0.loaded && StartWeight.strength[$0.id] == nil }.map(\.id)
-        // 輔助引體向上機是「減輕的重量」、農夫走路是計時動作，都不推估
-        XCTAssertEqual(missing, ["assisted_pullup", "farmer_walk"])
+        // 輔助引體向上機是「減輕的重量」、農夫走路、手提箱行走是計時動作，都不推估
+        XCTAssertEqual(missing, ["assisted_pullup", "farmer_walk", "suitcase_carry"])
     }
 
     func testUpgradePathsStayInPattern() {
