@@ -384,23 +384,11 @@ finish(_h, 'head', 'skin', 1)
 # 刺蝟短髮：幾束尖錐
 bpy.ops.object.select_all(action='DESELECT')
 def base_head():
-  pass
-  ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))
-  for i, (ax, ay, az) in enumerate([(0, -0.07, 1.86), (0.08, -0.05, 1.85), (-0.08, -0.05, 1.85), (0.04, 0.05, 1.89), (-0.05, 0.04, 1.89), (0.12, 0.03, 1.83), (-0.12, 0.03, 1.83)]):
-      base = Vector((ax * 0.6, ay * 0.4 + 0.01, 1.80)); tip = Vector((ax * 1.25, ay * 1.3, az + 0.03))
-      bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.07, depth=(tip - base).length, location=(base + tip) / 2)
-      ob = bpy.context.object; ob.rotation_mode = 'QUATERNION'
-      ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(tip - base)
-      bpy.ops.object.transform_apply(location=False, rotation=True, scale=True); finish(ob, 'head', 'hair', 1)
+  hair_lite()          # 頭髮底＋刺蝟髮尖（gear_util 的低面數版，2026-11-26 減量）
   # 頭帶
   bpy.ops.mesh.primitive_torus_add(major_radius=0.162, minor_radius=0.018, location=(0, -0.005, 1.77), rotation=(math.radians(-8), 0, 0))
   finish(bpy.context.object, 'head', 'band', 1)
-  # 眼睛：專注的斜眼
-  for sx in (1, -1):
-      ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
-      ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
-      ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))  # 眉毛
-if want('head', 'basic'): base_head()
+  face_lite()          # 眼睛：專注的斜眼＋眉毛
 for s, sx in (('L', 1), ('R', -1)):
     ua, fa, ha = B[f'upper_arm.{s}'], B[f'forearm.{s}'], B[f'hand.{s}']
     th, sh, ft = B[f'thigh.{s}'], B[f'shin.{s}'], B[f'foot.{s}']
@@ -428,6 +416,7 @@ for s, sx in (('L', 1), ('R', -1)):
 
 _GD = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('-P') + 1]))
 exec(open(os.path.join(_GD, 'gear_util.py'), encoding='utf-8').read())
+if want('head', 'basic'): base_head()   # 要用 gear_util 的 hair_lite／face_lite
 for _ser in SERIES_FILES:   # 每個系列一個 gear_<id>.py
     if _ser in G.values() or _ser in EXP_SERIES:
         exec(open(os.path.join(_GD, f'gear_{_ser}.py'), encoding='utf-8').read())

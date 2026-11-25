@@ -1,6 +1,7 @@
 # 給 App（RealityKit）用的匯出：hero.blend → USDZ（骨架＋動畫）＋ 材質表 JSON ＋ 動作 JSON ＋ 換裝貼圖。
 #   blender -b <輸出>/hero.blend -P scripts/blender/export_app.py -- <目標資料夾> <動作名> [full|clip|outfit]
 # full：所有零件（用 EXPORT=frost,titan 建出來的 hero.blend），App 逐件開關；clip：只取動作，不輸出模型。
+#   full 依系列分檔：hero3d.usdz（骨架、身體、衣服網格、基本款）＋ hero3d_<系列>.usdz（該系列的零件），對照表在 hero3d.json 的 files。
 # outfit：給換裝用，hero.blend 是 GEAR="top=X,bottom=X" 建的。存這個系列的塗色（outfit.json）和
 #   上衣／下身的零件、衣服網格（parts.blend），目標資料夾就是那次建模的資料夾。
 # full／clip 會讀環境變數 OUTFITS（系列清單，例如 basic,frost,titan,pig）和 OUTFIT_DIR（各系列 outfit_<系列>/ 所在資料夾），
@@ -211,7 +212,17 @@ for ob in list(sc.objects):
         bpy.data.objects.remove(ob, do_unlink=True)
 rig.data.pose_position = 'POSE'
 
+# ---------- 分檔（2026-11-26）：主檔 hero3d.usdz 放骨架、身體、衣服網格和基本款；每個系列的零件（頭、手、腳、背、啞鈴、
+# 上衣／下身小零件）各一個 hero3d_<系列>.usdz，App 選到那個系列才載入。每個檔都帶同一副骨架和動畫。
+def file_of(part):
+    if part == 'base' or part in CLOTH_PARTS: return 'hero3d'
+    ser = part.split('_', 1)[1] if '_' in part else 'basic'
+    return 'hero3d' if ser == 'basic' else f'hero3d_{ser}'
+groups = {}
+for o in made: groups.setdefault(file_of(o.name.split('__')[0]), []).append(o)
+
 info = {'parts': sorted({o.name.split('__')[0] for o in made}), 'meshes': sorted(o.name for o in made),
+        'files': {f[len('hero3d_'):]: f for f in groups if f != 'hero3d'},
         'materials': {m.name: mat_info(m) for m in bpy.data.materials if m.users and (m.use_nodes or m.name == 'body' or m.name.startswith('cloth_'))},
         'outfits': outfits, 'textures': tex_sizes,
         'verts': {o.name: len(o.data.vertices) for o in made}}
@@ -219,10 +230,17 @@ json.dump(info, open(os.path.join(DST, 'hero3d.json'), 'w'), ensure_ascii=False,
 print('meshes', len(made), 'verts', sum(info['verts'].values()), 'textures', len(tex_sizes), sum(tex_sizes.values()))
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(os.path.dirname(bpy.data.filepath), 'hero_app.blend'))   # 給 outfit_review.py 出總覽圖
 
-bpy.ops.object.select_all(action='SELECT')
-bpy.ops.wm.usd_export(filepath=os.path.join(DST, 'hero3d.usdz'), export_animation=True, export_armatures=True,
-                      only_deform_bones=True, export_materials=False, export_uvmaps=True, rename_uvmaps=True,
-                      export_mesh_colors=False, export_lights=False, export_cameras=False,
-                      convert_orientation=True, export_global_up_selection='Y', export_global_forward_selection='NEGATIVE_Z',
-                      triangulate_meshes=True, export_custom_properties=False, evaluation_mode='VIEWPORT')
-print('usdz', os.path.getsize(os.path.join(DST, 'hero3d.usdz')))
+sizes = {}
+for fname, obs in sorted(groups.items()):
+    bpy.ops.object.select_all(action='DESELECT')
+    rig.select_set(True)
+    for o in obs: o.select_set(True)
+    path = os.path.join(DST, fname + '.usdz')
+    bpy.ops.wm.usd_export(filepath=path, selected_objects_only=True, export_animation=True, export_armatures=True,
+                          only_deform_bones=True, export_materials=False, export_uvmaps=True, rename_uvmaps=True,
+                          export_mesh_colors=False, export_lights=False, export_cameras=False,
+                          convert_orientation=True, export_global_up_selection='Y', export_global_forward_selection='NEGATIVE_Z',
+                          triangulate_meshes=True, export_custom_properties=False, evaluation_mode='VIEWPORT')
+    sizes[fname] = os.path.getsize(path)
+    print('usdz', fname, sizes[fname], 'verts', sum(len(o.data.vertices) for o in obs))
+print('usdz total', sum(sizes.values()))

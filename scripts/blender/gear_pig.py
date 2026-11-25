@@ -50,7 +50,7 @@ def snout(bone, c, d, r, depth, nost=True):
 # ---------- 豬耳豬鼻帽 ----------
 if want('head', 'pig'):
     import bmesh as _bm
-    ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))     # 帽沿下露出的短髮
+    hair_lite(False)                                                         # 帽沿下露出的短髮
     bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=32, location=(0, 0.012, 1.768))
     ob = bpy.context.object; ob.scale = (0.168, 0.18, 0.155); bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     bm = _bm.new(); bm.from_mesh(ob.data)
@@ -70,10 +70,7 @@ if want('head', 'pig'):
         flatcone('head', 'pg1', (0.105 * sx, 0.0, 1.875), d, 0.06, 0.12, 0.33)
         flatcone('head', 'pg2', (0.105 * sx, -0.014, 1.877), d, 0.038, 0.088, 0.25)
     # 臉：眼睛、眼睛高光、眉毛（同基本款）
-    for sx in (1, -1):
-        ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
-        ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
-        ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))
+    face_lite()
 
 # ---------- 小豬 T 恤：粉紅短袖（塗在身體上），前面一塊奶油色圓肚皮，領口袖口玫瑰滾邊 ----------
 if want('top', 'pig'):

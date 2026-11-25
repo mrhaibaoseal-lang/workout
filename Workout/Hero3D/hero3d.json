@@ -1,52 +1,195 @@
 {
  "parts": [
+  "back_astral",
+  "back_dawn",
   "back_frost",
+  "back_gold",
+  "back_lava",
+  "back_neon",
+  "back_night",
+  "back_pig",
+  "back_rune",
+  "back_shadow",
   "back_titan",
   "base",
+  "bell_astral",
   "bell_basic",
+  "bell_dawn",
   "bell_frost",
+  "bell_gold",
+  "bell_lava",
+  "bell_neon",
+  "bell_night",
+  "bell_pig",
+  "bell_rune",
+  "bell_shadow",
+  "bell_street",
   "bell_titan",
   "bottom_astral",
   "bottom_dawn",
   "bottom_frost",
+  "bottom_gold",
   "bottom_long",
+  "bottom_neon",
   "bottom_night",
   "bottom_pig",
+  "bottom_rune",
+  "bottom_shadow",
   "bottom_short",
   "bottom_titan",
+  "feet_astral",
   "feet_basic",
+  "feet_dawn",
   "feet_frost",
+  "feet_gold",
+  "feet_lava",
+  "feet_neon",
+  "feet_night",
+  "feet_pig",
+  "feet_rune",
+  "feet_shadow",
+  "feet_street",
   "feet_titan",
+  "hands_astral",
   "hands_basic",
+  "hands_dawn",
   "hands_frost",
+  "hands_gold",
+  "hands_lava",
+  "hands_neon",
+  "hands_night",
+  "hands_pig",
+  "hands_rune",
+  "hands_shadow",
+  "hands_street",
   "hands_titan",
+  "head_astral",
   "head_basic",
+  "head_dawn",
   "head_frost",
+  "head_gold",
+  "head_lava",
+  "head_neon",
+  "head_night",
+  "head_pig",
+  "head_rune",
+  "head_shadow",
+  "head_street",
   "head_titan",
   "top_astral",
   "top_dawn",
   "top_frost",
+  "top_gold",
+  "top_lava",
+  "top_neon",
   "top_night",
   "top_pig",
+  "top_rune",
+  "top_shadow",
+  "top_street",
   "top_suit",
   "top_titan"
  ],
  "meshes": [
+  "back_astral__as1",
+  "back_astral__ascy",
+  "back_astral__asgem",
+  "back_astral__asglow",
+  "back_astral__asglow2",
+  "back_astral__aspk",
+  "back_dawn__dw1",
+  "back_dawn__dw3",
+  "back_dawn__dwglow",
+  "back_dawn__dwgold",
   "back_frost__fr1",
   "back_frost__fr2",
   "back_frost__frglow",
   "back_frost__frice",
+  "back_gold__gd1",
+  "back_gold__gd3",
+  "back_gold__gdfur",
+  "back_gold__gdgem",
+  "back_gold__gdspot",
+  "back_gold__gdvel",
+  "back_lava__lv1",
+  "back_lava__lv2",
+  "back_lava__lv3",
+  "back_lava__lvdk",
+  "back_lava__lvhot",
+  "back_neon__ne2",
+  "back_neon__ne3",
+  "back_neon__nemetal",
+  "back_night__nt1",
+  "back_night__nt2",
+  "back_night__nt3",
+  "back_night__ntglow",
+  "back_pig__eye",
+  "back_pig__pg2",
+  "back_pig__pgbank",
+  "back_pig__pggold",
+  "back_pig__pggolddk",
+  "back_pig__pghoof",
+  "back_pig__pgnose",
+  "back_rune__rn1",
+  "back_rune__rnbz",
+  "back_rune__rnbzdk",
+  "back_rune__rnglow",
+  "back_rune__rnleather",
+  "back_shadow__sd1",
+  "back_shadow__sd2",
+  "back_shadow__sdglow",
+  "back_shadow__sdk",
   "back_titan__flame",
   "back_titan__glow",
   "back_titan__ti",
   "back_titan__tidk",
   "base__body",
   "base__skin",
+  "bell_astral__as1",
+  "bell_astral__ascrys",
+  "bell_astral__asglow",
+  "bell_astral__aspk",
   "bell_basic__grip",
   "bell_basic__iron",
+  "bell_dawn__dw1",
+  "bell_dawn__dw3",
+  "bell_dawn__dwglow",
+  "bell_dawn__dwgold",
   "bell_frost__fr2",
   "bell_frost__fr3",
   "bell_frost__frice",
+  "bell_gold__gd1",
+  "bell_gold__gd2",
+  "bell_gold__gd3",
+  "bell_gold__gdfur",
+  "bell_lava__lv1",
+  "bell_lava__lvdk",
+  "bell_lava__lvglow",
+  "bell_lava__lvhot",
+  "bell_neon__ne1",
+  "bell_neon__ne2",
+  "bell_neon__ne3",
+  "bell_neon__nemetal",
+  "bell_night__nt3",
+  "bell_night__ntglow",
+  "bell_night__ntmat",
+  "bell_pig__eye",
+  "bell_pig__pg1",
+  "bell_pig__pg2",
+  "bell_pig__pggold",
+  "bell_pig__pgnose",
+  "bell_rune__rnbz",
+  "bell_rune__rnglow",
+  "bell_rune__rnleather",
+  "bell_rune__rnstone",
+  "bell_shadow__sd2",
+  "bell_shadow__sd3",
+  "bell_shadow__sdglow",
+  "bell_shadow__sdk",
+  "bell_street__grip",
+  "bell_street__sr1",
+  "bell_street__sr3",
+  "bell_street__srchrome",
   "bell_titan__glow",
   "bell_titan__ti",
   "bell_titan__tidk",
@@ -54,45 +197,196 @@
   "bottom_astral__ascy",
   "bottom_dawn__dwgold",
   "bottom_frost__fr3",
+  "bottom_gold__gd1",
+  "bottom_gold__gd2",
+  "bottom_gold__gdgem",
+  "bottom_gold__gdvel",
   "bottom_long__cloth_long",
+  "bottom_neon__ne2",
+  "bottom_neon__ne3",
+  "bottom_neon__nemetal",
   "bottom_night__nt1",
   "bottom_night__nt2",
   "bottom_night__nt3",
   "bottom_pig__pg1",
+  "bottom_rune__rn1",
+  "bottom_rune__rnbz",
+  "bottom_rune__rnbzdk",
+  "bottom_rune__rnglow",
+  "bottom_shadow__sd2",
+  "bottom_shadow__sd3",
+  "bottom_shadow__sdk",
   "bottom_short__cloth_short",
   "bottom_titan__glow",
   "bottom_titan__ti",
   "bottom_titan__tidk",
+  "feet_astral__as1",
+  "feet_astral__ascy",
+  "feet_astral__aspk",
   "feet_basic__shoe",
   "feet_basic__sole",
+  "feet_dawn__dw3",
+  "feet_dawn__dwgold",
   "feet_frost__fr2",
   "feet_frost__fr3",
   "feet_frost__frblade",
   "feet_frost__frglow",
   "feet_frost__frice",
+  "feet_gold__gd1",
+  "feet_gold__gd2",
+  "feet_gold__gd3",
+  "feet_gold__gdgem",
+  "feet_lava__lv1",
+  "feet_lava__lvdk",
+  "feet_lava__lvglow",
+  "feet_lava__lvhot",
+  "feet_neon__ne1",
+  "feet_neon__ne2",
+  "feet_neon__ne3",
+  "feet_neon__nemetal",
+  "feet_night__nt1",
+  "feet_night__nt2",
+  "feet_night__nt3",
+  "feet_night__ntmat",
+  "feet_pig__pg1",
+  "feet_pig__pg2",
+  "feet_pig__pggold",
+  "feet_pig__pghoof",
+  "feet_rune__rn1",
+  "feet_rune__rnbz",
+  "feet_rune__rnbzdk",
+  "feet_rune__rnglow",
+  "feet_rune__rnleather",
+  "feet_shadow__sd1",
+  "feet_shadow__sd2",
+  "feet_shadow__sdk",
+  "feet_street__sr1",
+  "feet_street__sr2",
+  "feet_street__sr3",
   "feet_titan__flame",
   "feet_titan__glow",
   "feet_titan__ti",
   "feet_titan__tidk",
+  "hands_astral__ascy",
+  "hands_astral__asglow2",
+  "hands_astral__aspk",
   "hands_basic__band",
   "hands_basic__skin",
+  "hands_dawn__dw1",
+  "hands_dawn__dw3",
+  "hands_dawn__dwgold",
   "hands_frost__fr2",
   "hands_frost__fr3",
   "hands_frost__frglow",
   "hands_frost__frice",
+  "hands_gold__gd1",
+  "hands_gold__gd2",
+  "hands_gold__gd3",
+  "hands_gold__gdfur",
+  "hands_lava__lv1",
+  "hands_lava__lvglow",
+  "hands_lava__lvhot",
+  "hands_neon__ne1",
+  "hands_neon__ne2",
+  "hands_neon__ne3",
+  "hands_neon__nemetal",
+  "hands_night__nt1",
+  "hands_night__nt2",
+  "hands_night__nt3",
+  "hands_pig__pg1",
+  "hands_pig__pg2",
+  "hands_pig__pghoof",
+  "hands_rune__rn1",
+  "hands_rune__rnbz",
+  "hands_rune__rnbzdk",
+  "hands_rune__rnglow",
+  "hands_shadow__sd1",
+  "hands_shadow__sd3",
+  "hands_shadow__sdglow",
+  "hands_shadow__sdk",
+  "hands_street__skin",
+  "hands_street__sr1",
+  "hands_street__sr2",
+  "hands_street__sr3",
   "hands_titan__glow",
   "hands_titan__ti",
   "hands_titan__tidk",
+  "head_astral__ascrys",
+  "head_astral__asglow",
+  "head_astral__asglow2",
+  "head_astral__aspk",
+  "head_astral__eye",
+  "head_astral__eyehi",
+  "head_astral__hair",
   "head_basic__band",
   "head_basic__eye",
   "head_basic__eyehi",
   "head_basic__hair",
+  "head_dawn__dwgem",
+  "head_dawn__dwgold",
+  "head_dawn__eye",
+  "head_dawn__eyehi",
+  "head_dawn__hair",
   "head_frost__eye",
   "head_frost__eyehi",
   "head_frost__fr2",
   "head_frost__fr3",
   "head_frost__frice",
   "head_frost__hair",
+  "head_gold__eye",
+  "head_gold__eyehi",
+  "head_gold__gd1",
+  "head_gold__gd2",
+  "head_gold__gdgem",
+  "head_gold__gdvel",
+  "head_gold__hair",
+  "head_lava__eye",
+  "head_lava__eyehi",
+  "head_lava__hair",
+  "head_lava__lv1",
+  "head_lava__lvglow",
+  "head_lava__lvhot",
+  "head_neon__eye",
+  "head_neon__eyehi",
+  "head_neon__hair",
+  "head_neon__ne1",
+  "head_neon__ne2",
+  "head_neon__ne3",
+  "head_neon__nemetal",
+  "head_night__eye",
+  "head_night__eyehi",
+  "head_night__hair",
+  "head_night__nt1",
+  "head_night__nt2",
+  "head_night__nt3",
+  "head_night__ntglow",
+  "head_pig__eye",
+  "head_pig__eyehi",
+  "head_pig__hair",
+  "head_pig__pg1",
+  "head_pig__pg2",
+  "head_pig__pgnose",
+  "head_rune__eye",
+  "head_rune__eyehi",
+  "head_rune__hair",
+  "head_rune__rn1",
+  "head_rune__rnbz",
+  "head_rune__rnbzdk",
+  "head_rune__rnglow",
+  "head_shadow__eye",
+  "head_shadow__eyehi",
+  "head_shadow__hair",
+  "head_shadow__sd1",
+  "head_shadow__sd2",
+  "head_shadow__sd3",
+  "head_shadow__sdglow",
+  "head_street__eye",
+  "head_street__eyehi",
+  "head_street__hair",
+  "head_street__sr1",
+  "head_street__sr2",
+  "head_street__sr3",
+  "head_street__srdk",
   "head_titan__glow",
   "head_titan__ti",
   "head_titan__tidk",
@@ -105,16 +399,53 @@
   "top_dawn__dwgold",
   "top_frost__frglow",
   "top_frost__frice",
+  "top_gold__gd1",
+  "top_gold__gd2",
+  "top_gold__gd3",
+  "top_lava__lv1",
+  "top_lava__lvdk",
+  "top_lava__lvglow",
+  "top_lava__lvhot",
+  "top_neon__ne2",
+  "top_neon__ne3",
+  "top_neon__nemetal",
   "top_night__nt1",
   "top_night__nt2",
   "top_night__nt3",
   "top_pig__pggold",
   "top_pig__pggolddk",
+  "top_rune__rn1",
+  "top_rune__rnbz",
+  "top_rune__rnbzdk",
+  "top_rune__rnfur",
+  "top_rune__rnglow",
+  "top_rune__rnleather",
+  "top_shadow__sd2",
+  "top_shadow__sdglow",
+  "top_shadow__sdk",
+  "top_street__sr1",
+  "top_street__sr2",
+  "top_street__sr3",
+  "top_street__srdk",
   "top_suit__cloth_suit",
   "top_titan__glow",
   "top_titan__ti",
   "top_titan__tidk"
  ],
+ "files": {
+  "astral": "hero3d_astral",
+  "dawn": "hero3d_dawn",
+  "frost": "hero3d_frost",
+  "gold": "hero3d_gold",
+  "lava": "hero3d_lava",
+  "neon": "hero3d_neon",
+  "night": "hero3d_night",
+  "pig": "hero3d_pig",
+  "rune": "hero3d_rune",
+  "shadow": "hero3d_shadow",
+  "titan": "hero3d_titan",
+  "street": "hero3d_street"
+ },
  "materials": {
   "as1": {
    "kind": "toon",
@@ -125,6 +456,16 @@
    ],
    "shade": 0.6,
    "spec": false
+  },
+  "ascrys": {
+   "kind": "toon",
+   "color": [
+    0.4851,
+    0.8714,
+    1.0
+   ],
+   "shade": 0.5,
+   "spec": true
   },
   "ascy": {
    "kind": "toon",
@@ -154,6 +495,15 @@
     0.6724
    ],
    "strength": 3.200000047683716
+  },
+  "asglow2": {
+   "kind": "flat",
+   "color": [
+    0.2747,
+    0.7682,
+    1.0
+   ],
+   "strength": 2.5999999046325684
   },
   "aspk": {
    "kind": "toon",
@@ -214,6 +564,36 @@
    ],
    "shade": 0.55,
    "spec": false
+  },
+  "dw1": {
+   "kind": "toon",
+   "color": [
+    0.855,
+    0.8963,
+    0.956
+   ],
+   "shade": 0.7,
+   "spec": false
+  },
+  "dw3": {
+   "kind": "toon",
+   "color": [
+    0.0273,
+    0.147,
+    1.0
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "dwgem": {
+   "kind": "toon",
+   "color": [
+    0.0273,
+    0.147,
+    1.0
+   ],
+   "shade": 0.5,
+   "spec": true
   },
   "dwglow": {
    "kind": "flat",
@@ -320,6 +700,76 @@
    "shade": 0.55,
    "spec": true
   },
+  "gd1": {
+   "kind": "toon",
+   "color": [
+    0.8879,
+    0.4678,
+    0.0296
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
+  "gd2": {
+   "kind": "toon",
+   "color": [
+    1.0,
+    0.8796,
+    0.4793
+   ],
+   "shade": 0.66,
+   "spec": true
+  },
+  "gd3": {
+   "kind": "toon",
+   "color": [
+    0.5776,
+    0.0296,
+    0.0252
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "gdfur": {
+   "kind": "toon",
+   "color": [
+    0.9301,
+    0.9047,
+    0.855
+   ],
+   "shade": 0.7,
+   "spec": false
+  },
+  "gdgem": {
+   "kind": "toon",
+   "color": [
+    0.7454,
+    0.0513,
+    0.0423
+   ],
+   "shade": 0.5,
+   "spec": true
+  },
+  "gdspot": {
+   "kind": "toon",
+   "color": [
+    0.0103,
+    0.0103,
+    0.0103
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "gdvel": {
+   "kind": "toon",
+   "color": [
+    0.2542,
+    0.0103,
+    0.0091
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
   "glow": {
    "kind": "flat",
    "color": [
@@ -359,6 +809,102 @@
    "shade": 0.55,
    "spec": false
   },
+  "lv1": {
+   "kind": "toon",
+   "color": [
+    0.0467,
+    0.0232,
+    0.0176
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "lv2": {
+   "kind": "toon",
+   "color": [
+    1.0,
+    0.1022,
+    0.0137
+   ],
+   "shade": 0.62,
+   "spec": false
+  },
+  "lv3": {
+   "kind": "toon",
+   "color": [
+    1.0,
+    0.5395,
+    0.0467
+   ],
+   "shade": 0.66,
+   "spec": false
+  },
+  "lvdk": {
+   "kind": "toon",
+   "color": [
+    0.013,
+    0.006,
+    0.0052
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "lvglow": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.1022,
+    0.0137
+   ],
+   "strength": 3.0
+  },
+  "lvhot": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.5395,
+    0.0467
+   ],
+   "strength": 3.5
+  },
+  "ne1": {
+   "kind": "toon",
+   "color": [
+    0.016,
+    0.0242,
+    0.0423
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "ne2": {
+   "kind": "flat",
+   "color": [
+    0.0097,
+    0.7682,
+    1.0
+   ],
+   "strength": 3.0
+  },
+  "ne3": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.0467,
+    0.5972
+   ],
+   "strength": 3.0
+  },
+  "nemetal": {
+   "kind": "toon",
+   "color": [
+    0.0423,
+    0.0595,
+    0.0931
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
   "nt1": {
    "kind": "toon",
    "color": [
@@ -389,6 +935,25 @@
    "shade": 0.58,
    "spec": true
   },
+  "ntglow": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.2542,
+    0.0137
+   ],
+   "strength": 3.0
+  },
+  "ntmat": {
+   "kind": "toon",
+   "color": [
+    0.0232,
+    0.0296,
+    0.0423
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
   "outline": {
    "kind": "flat",
    "color": [
@@ -407,6 +972,26 @@
    ],
    "shade": 0.66,
    "spec": false
+  },
+  "pg2": {
+   "kind": "toon",
+   "color": [
+    0.807,
+    0.1329,
+    0.2747
+   ],
+   "shade": 0.62,
+   "spec": false
+  },
+  "pgbank": {
+   "kind": "toon",
+   "color": [
+    1.0,
+    0.6514,
+    0.7305
+   ],
+   "shade": 0.7,
+   "spec": true
   },
   "pggold": {
    "kind": "toon",
@@ -428,6 +1013,26 @@
    "shade": 0.55,
    "spec": true
   },
+  "pghoof": {
+   "kind": "toon",
+   "color": [
+    0.1559,
+    0.0437,
+    0.063
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
+  "pgnose": {
+   "kind": "toon",
+   "color": [
+    0.3325,
+    0.0331,
+    0.0976
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
   "ring": {
    "kind": "flat",
    "color": [
@@ -436,6 +1041,124 @@
     0.2
    ],
    "strength": 4.0
+  },
+  "rn1": {
+   "kind": "toon",
+   "color": [
+    0.0423,
+    0.0482,
+    0.0723
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
+  "rnbz": {
+   "kind": "toon",
+   "color": [
+    0.5841,
+    0.3916,
+    0.1441
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
+  "rnbzdk": {
+   "kind": "toon",
+   "color": [
+    0.2623,
+    0.147,
+    0.0423
+   ],
+   "shade": 0.55,
+   "spec": true
+  },
+  "rnfur": {
+   "kind": "toon",
+   "color": [
+    0.1946,
+    0.1274,
+    0.0802
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "rnglow": {
+   "kind": "flat",
+   "color": [
+    0.0467,
+    0.9131,
+    0.3515
+   ],
+   "strength": 3.5
+  },
+  "rnleather": {
+   "kind": "toon",
+   "color": [
+    0.0685,
+    0.0423,
+    0.0273
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "rnstone": {
+   "kind": "toon",
+   "color": [
+    0.1046,
+    0.1144,
+    0.147
+   ],
+   "shade": 0.55,
+   "spec": false
+  },
+  "sd1": {
+   "kind": "toon",
+   "color": [
+    0.0252,
+    0.0168,
+    0.0513
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "sd2": {
+   "kind": "toon",
+   "color": [
+    0.3278,
+    0.107,
+    1.0
+   ],
+   "shade": 0.62,
+   "spec": false
+  },
+  "sd3": {
+   "kind": "toon",
+   "color": [
+    0.7605,
+    0.6584,
+    1.0
+   ],
+   "shade": 0.66,
+   "spec": true
+  },
+  "sdglow": {
+   "kind": "flat",
+   "color": [
+    0.3278,
+    0.107,
+    1.0
+   ],
+   "strength": 3.0
+  },
+  "sdk": {
+   "kind": "toon",
+   "color": [
+    0.008,
+    0.0052,
+    0.0137
+   ],
+   "shade": 0.6,
+   "spec": false
   },
   "shirt": {
    "kind": "toon",
@@ -497,6 +1220,56 @@
    "shade": 0.55,
    "spec": false
   },
+  "sr1": {
+   "kind": "toon",
+   "color": [
+    0.0284,
+    0.159,
+    0.7454
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
+  "sr2": {
+   "kind": "toon",
+   "color": [
+    0.9047,
+    0.9131,
+    0.9301
+   ],
+   "shade": 0.66,
+   "spec": false
+  },
+  "sr3": {
+   "kind": "toon",
+   "color": [
+    1.0,
+    0.6038,
+    0.0331
+   ],
+   "shade": 0.62,
+   "spec": false
+  },
+  "srchrome": {
+   "kind": "toon",
+   "color": [
+    0.7157,
+    0.7682,
+    0.8228
+   ],
+   "shade": 0.5,
+   "spec": true
+  },
+  "srdk": {
+   "kind": "toon",
+   "color": [
+    0.0123,
+    0.0782,
+    0.3916
+   ],
+   "shade": 0.6,
+   "spec": false
+  },
   "stage": {
    "kind": "toon",
    "color": [
@@ -533,15 +1306,15 @@
    "basic": {
     "body": "hero3d_top_basic"
    },
-   "frost": {
-    "body": "hero3d_top_frost",
-    "part": "top_frost"
-   },
    "titan": {
     "body": "hero3d_top_titan",
     "mesh": "suit",
     "cloth": "hero3d_cloth_suit_titan",
     "part": "top_titan"
+   },
+   "frost": {
+    "body": "hero3d_top_frost",
+    "part": "top_frost"
    },
    "pig": {
     "body": "hero3d_top_pig",
@@ -555,9 +1328,33 @@
     "body": "hero3d_top_dawn",
     "part": "top_dawn"
    },
+   "rune": {
+    "body": "hero3d_top_rune",
+    "part": "top_rune"
+   },
    "astral": {
     "body": "hero3d_top_astral",
     "part": "top_astral"
+   },
+   "street": {
+    "body": "hero3d_top_street",
+    "part": "top_street"
+   },
+   "neon": {
+    "body": "hero3d_top_neon",
+    "part": "top_neon"
+   },
+   "lava": {
+    "body": "hero3d_top_lava",
+    "part": "top_lava"
+   },
+   "gold": {
+    "body": "hero3d_top_gold",
+    "part": "top_gold"
+   },
+   "shadow": {
+    "body": "hero3d_top_shadow",
+    "part": "top_shadow"
    }
   },
   "bottom": {
@@ -566,17 +1363,17 @@
     "mesh": "short",
     "cloth": "hero3d_cloth_short_basic"
    },
-   "frost": {
-    "body": "hero3d_bottom_frost",
-    "mesh": "long",
-    "cloth": "hero3d_cloth_long_frost",
-    "part": "bottom_frost"
-   },
    "titan": {
     "body": "hero3d_bottom_titan",
     "mesh": "long",
     "cloth": "hero3d_cloth_long_titan",
     "part": "bottom_titan"
+   },
+   "frost": {
+    "body": "hero3d_bottom_frost",
+    "mesh": "long",
+    "cloth": "hero3d_cloth_long_frost",
+    "part": "bottom_frost"
    },
    "pig": {
     "body": "hero3d_bottom_pig",
@@ -596,11 +1393,45 @@
     "cloth": "hero3d_cloth_long_dawn",
     "part": "bottom_dawn"
    },
+   "rune": {
+    "body": "hero3d_bottom_rune",
+    "mesh": "long",
+    "cloth": "hero3d_cloth_long_rune",
+    "part": "bottom_rune"
+   },
    "astral": {
     "body": "hero3d_bottom_astral",
     "mesh": "long",
     "cloth": "hero3d_cloth_long_astral",
     "part": "bottom_astral"
+   },
+   "street": {
+    "body": "hero3d_bottom_street",
+    "mesh": "short",
+    "cloth": "hero3d_cloth_short_street"
+   },
+   "neon": {
+    "body": "hero3d_bottom_neon",
+    "mesh": "long",
+    "cloth": "hero3d_cloth_long_neon",
+    "part": "bottom_neon"
+   },
+   "lava": {
+    "body": "hero3d_bottom_lava",
+    "mesh": "short",
+    "cloth": "hero3d_cloth_short_lava"
+   },
+   "gold": {
+    "body": "hero3d_bottom_gold",
+    "mesh": "short",
+    "cloth": "hero3d_cloth_short_gold",
+    "part": "bottom_gold"
+   },
+   "shadow": {
+    "body": "hero3d_bottom_shadow",
+    "mesh": "long",
+    "cloth": "hero3d_cloth_long_shadow",
+    "part": "bottom_shadow"
    }
   }
  },
@@ -608,13 +1439,13 @@
   "hero3d_top_basic": 16419,
   "hero3d_bottom_basic": 13959,
   "hero3d_cloth_short_basic": 26123,
-  "hero3d_top_frost": 22978,
-  "hero3d_bottom_frost": 23168,
-  "hero3d_cloth_long_frost": 26300,
   "hero3d_top_titan": 23275,
   "hero3d_bottom_titan": 23171,
   "hero3d_cloth_long_titan": 22990,
   "hero3d_cloth_suit_titan": 26636,
+  "hero3d_top_frost": 22978,
+  "hero3d_bottom_frost": 23168,
+  "hero3d_cloth_long_frost": 26300,
   "hero3d_top_pig": 27063,
   "hero3d_bottom_pig": 16428,
   "hero3d_cloth_short_pig": 31241,
@@ -624,67 +1455,302 @@
   "hero3d_top_dawn": 27499,
   "hero3d_bottom_dawn": 23168,
   "hero3d_cloth_long_dawn": 23677,
+  "hero3d_top_rune": 17582,
+  "hero3d_bottom_rune": 23169,
+  "hero3d_cloth_long_rune": 22989,
   "hero3d_top_astral": 28538,
   "hero3d_bottom_astral": 23170,
-  "hero3d_cloth_long_astral": 25621
+  "hero3d_cloth_long_astral": 25621,
+  "hero3d_top_street": 28687,
+  "hero3d_bottom_street": 15988,
+  "hero3d_cloth_short_street": 31857,
+  "hero3d_top_neon": 28205,
+  "hero3d_bottom_neon": 23170,
+  "hero3d_cloth_long_neon": 23761,
+  "hero3d_top_lava": 22457,
+  "hero3d_bottom_lava": 18523,
+  "hero3d_cloth_short_lava": 35040,
+  "hero3d_top_gold": 21919,
+  "hero3d_bottom_gold": 16110,
+  "hero3d_cloth_short_gold": 31815,
+  "hero3d_top_shadow": 30521,
+  "hero3d_bottom_shadow": 23170,
+  "hero3d_cloth_long_shadow": 34603
  },
  "verts": {
+  "back_astral__as1": 112,
+  "back_astral__ascy": 24,
+  "back_astral__asgem": 14,
+  "back_astral__asglow": 248,
+  "back_astral__asglow2": 140,
+  "back_astral__aspk": 36,
+  "back_dawn__dw1": 528,
+  "back_dawn__dw3": 528,
+  "back_dawn__dwglow": 64,
+  "back_dawn__dwgold": 1190,
   "back_frost__fr1": 204,
   "back_frost__fr2": 168,
   "back_frost__frglow": 24,
   "back_frost__frice": 179,
+  "back_gold__gd1": 310,
+  "back_gold__gd3": 300,
+  "back_gold__gdfur": 470,
+  "back_gold__gdgem": 28,
+  "back_gold__gdspot": 340,
+  "back_gold__gdvel": 300,
+  "back_lava__lv1": 98,
+  "back_lava__lv2": 504,
+  "back_lava__lv3": 590,
+  "back_lava__lvdk": 504,
+  "back_lava__lvhot": 24,
+  "back_neon__ne2": 640,
+  "back_neon__ne3": 32,
+  "back_neon__nemetal": 128,
+  "back_night__nt1": 462,
+  "back_night__nt2": 1132,
+  "back_night__nt3": 180,
+  "back_night__ntglow": 48,
+  "back_pig__eye": 2596,
+  "back_pig__pg2": 1666,
+  "back_pig__pgbank": 2298,
+  "back_pig__pggold": 208,
+  "back_pig__pggolddk": 48,
+  "back_pig__pghoof": 440,
+  "back_pig__pgnose": 2596,
+  "back_rune__rn1": 54,
+  "back_rune__rnbz": 206,
+  "back_rune__rnbzdk": 80,
+  "back_rune__rnglow": 102,
+  "back_rune__rnleather": 252,
+  "back_shadow__sd1": 518,
+  "back_shadow__sd2": 1268,
+  "back_shadow__sdglow": 28,
+  "back_shadow__sdk": 144,
   "back_titan__flame": 22,
   "back_titan__glow": 46,
   "back_titan__ti": 256,
   "back_titan__tidk": 568,
   "base__body": 8994,
   "base__skin": 2498,
+  "bell_astral__as1": 48,
+  "bell_astral__ascrys": 5192,
+  "bell_astral__asglow": 88,
+  "bell_astral__aspk": 1536,
   "bell_basic__grip": 64,
   "bell_basic__iron": 672,
+  "bell_dawn__dw1": 48,
+  "bell_dawn__dw3": 480,
+  "bell_dawn__dwglow": 160,
+  "bell_dawn__dwgold": 816,
   "bell_frost__fr2": 124,
   "bell_frost__fr3": 64,
   "bell_frost__frice": 224,
+  "bell_gold__gd1": 960,
+  "bell_gold__gd2": 192,
+  "bell_gold__gd3": 48,
+  "bell_gold__gdfur": 88,
+  "bell_lava__lv1": 192,
+  "bell_lava__lvdk": 48,
+  "bell_lava__lvglow": 72,
+  "bell_lava__lvhot": 32,
+  "bell_neon__ne1": 448,
+  "bell_neon__ne2": 64,
+  "bell_neon__ne3": 64,
+  "bell_neon__nemetal": 48,
+  "bell_night__nt3": 336,
+  "bell_night__ntglow": 96,
+  "bell_night__ntmat": 144,
+  "bell_pig__eye": 10384,
+  "bell_pig__pg1": 672,
+  "bell_pig__pg2": 1360,
+  "bell_pig__pggold": 48,
+  "bell_pig__pgnose": 10384,
+  "bell_rune__rnbz": 560,
+  "bell_rune__rnglow": 112,
+  "bell_rune__rnleather": 48,
+  "bell_rune__rnstone": 216,
+  "bell_shadow__sd2": 480,
+  "bell_shadow__sd3": 208,
+  "bell_shadow__sdglow": 432,
+  "bell_shadow__sdk": 936,
+  "bell_street__grip": 48,
+  "bell_street__sr1": 384,
+  "bell_street__sr3": 384,
+  "bell_street__srchrome": 480,
   "bell_titan__glow": 128,
   "bell_titan__ti": 448,
   "bell_titan__tidk": 496,
   "bottom_short__cloth_short": 202,
+  "feet_astral__as1": 552,
+  "feet_astral__ascy": 352,
+  "feet_astral__aspk": 44,
   "feet_basic__shoe": 392,
   "feet_basic__sole": 52,
+  "feet_dawn__dw3": 444,
+  "feet_dawn__dwgold": 452,
   "feet_frost__fr2": 864,
   "feet_frost__fr3": 384,
   "feet_frost__frblade": 160,
   "feet_frost__frglow": 16,
   "feet_frost__frice": 38,
+  "feet_gold__gd1": 544,
+  "feet_gold__gd2": 336,
+  "feet_gold__gd3": 240,
+  "feet_gold__gdgem": 28,
+  "feet_lava__lv1": 484,
+  "feet_lava__lvdk": 112,
+  "feet_lava__lvglow": 280,
+  "feet_lava__lvhot": 216,
+  "feet_neon__ne1": 352,
+  "feet_neon__ne2": 476,
+  "feet_neon__ne3": 80,
+  "feet_neon__nemetal": 112,
+  "feet_night__nt1": 384,
+  "feet_night__nt2": 784,
+  "feet_night__nt3": 192,
+  "feet_night__ntmat": 672,
+  "feet_pig__pg1": 192,
+  "feet_pig__pg2": 240,
+  "feet_pig__pggold": 240,
+  "feet_pig__pghoof": 5304,
+  "feet_rune__rn1": 280,
+  "feet_rune__rnbz": 226,
+  "feet_rune__rnbzdk": 112,
+  "feet_rune__rnglow": 24,
+  "feet_rune__rnleather": 840,
+  "feet_shadow__sd1": 932,
+  "feet_shadow__sd2": 384,
+  "feet_shadow__sdk": 112,
+  "feet_street__sr1": 384,
+  "feet_street__sr2": 1364,
+  "feet_street__sr3": 60,
   "feet_titan__flame": 18,
   "feet_titan__glow": 16,
   "feet_titan__ti": 192,
   "feet_titan__tidk": 672,
+  "hands_astral__ascy": 196,
+  "hands_astral__asglow2": 900,
+  "hands_astral__aspk": 2836,
   "hands_basic__band": 196,
   "hands_basic__skin": 196,
+  "hands_dawn__dw1": 196,
+  "hands_dawn__dw3": 240,
+  "hands_dawn__dwgold": 284,
   "hands_frost__fr2": 192,
   "hands_frost__fr3": 2596,
   "hands_frost__frglow": 64,
   "hands_frost__frice": 114,
+  "hands_gold__gd1": 800,
+  "hands_gold__gd2": 16,
+  "hands_gold__gd3": 80,
+  "hands_gold__gdfur": 240,
+  "hands_lava__lv1": 330,
+  "hands_lava__lvglow": 372,
+  "hands_lava__lvhot": 324,
+  "hands_neon__ne1": 388,
+  "hands_neon__ne2": 16,
+  "hands_neon__ne3": 64,
+  "hands_neon__nemetal": 112,
+  "hands_night__nt1": 388,
+  "hands_night__nt2": 52,
+  "hands_night__nt3": 148,
+  "hands_pig__pg1": 2596,
+  "hands_pig__pg2": 240,
+  "hands_pig__pghoof": 5192,
+  "hands_rune__rn1": 196,
+  "hands_rune__rnbz": 322,
+  "hands_rune__rnbzdk": 840,
+  "hands_rune__rnglow": 48,
+  "hands_shadow__sd1": 192,
+  "hands_shadow__sd3": 516,
+  "hands_shadow__sdglow": 16,
+  "hands_shadow__sdk": 196,
+  "hands_street__skin": 196,
+  "hands_street__sr1": 176,
+  "hands_street__sr2": 196,
+  "hands_street__sr3": 192,
   "hands_titan__glow": 48,
   "hands_titan__ti": 336,
   "hands_titan__tidk": 224,
+  "head_astral__ascrys": 126,
+  "head_astral__asglow": 22,
+  "head_astral__asglow2": 384,
+  "head_astral__aspk": 22,
+  "head_astral__eye": 724,
+  "head_astral__eyehi": 84,
+  "head_astral__hair": 1443,
   "head_basic__band": 2304,
-  "head_basic__eye": 2596,
-  "head_basic__eyehi": 2596,
-  "head_basic__hair": 4132,
-  "head_frost__eye": 2596,
-  "head_frost__eyehi": 2596,
+  "head_basic__eye": 724,
+  "head_basic__eyehi": 84,
+  "head_basic__hair": 1443,
+  "head_dawn__dwgem": 14,
+  "head_dawn__dwgold": 785,
+  "head_dawn__eye": 724,
+  "head_dawn__eyehi": 84,
+  "head_dawn__hair": 1443,
+  "head_frost__eye": 724,
+  "head_frost__eyehi": 84,
   "head_frost__fr2": 6254,
   "head_frost__fr3": 480,
   "head_frost__frice": 160,
-  "head_frost__hair": 3894,
+  "head_frost__hair": 1366,
+  "head_gold__eye": 724,
+  "head_gold__eyehi": 84,
+  "head_gold__gd1": 730,
+  "head_gold__gd2": 800,
+  "head_gold__gdgem": 56,
+  "head_gold__gdvel": 101,
+  "head_gold__hair": 1366,
+  "head_lava__eye": 724,
+  "head_lava__eyehi": 84,
+  "head_lava__hair": 1443,
+  "head_lava__lv1": 295,
+  "head_lava__lvglow": 270,
+  "head_lava__lvhot": 282,
+  "head_neon__eye": 724,
+  "head_neon__eyehi": 84,
+  "head_neon__hair": 1443,
+  "head_neon__ne1": 408,
+  "head_neon__ne2": 178,
+  "head_neon__ne3": 64,
+  "head_neon__nemetal": 64,
+  "head_night__eye": 724,
+  "head_night__eyehi": 84,
+  "head_night__hair": 444,
+  "head_night__nt1": 2155,
+  "head_night__nt2": 270,
+  "head_night__nt3": 144,
+  "head_night__ntglow": 48,
+  "head_pig__eye": 724,
+  "head_pig__eyehi": 84,
+  "head_pig__hair": 1366,
+  "head_pig__pg1": 6438,
+  "head_pig__pg2": 820,
+  "head_pig__pgnose": 2596,
+  "head_rune__eye": 724,
+  "head_rune__eyehi": 84,
+  "head_rune__hair": 444,
+  "head_rune__rn1": 108,
+  "head_rune__rnbz": 2302,
+  "head_rune__rnbzdk": 266,
+  "head_rune__rnglow": 24,
+  "head_shadow__eye": 724,
+  "head_shadow__eyehi": 84,
+  "head_shadow__hair": 444,
+  "head_shadow__sd1": 1340,
+  "head_shadow__sd2": 502,
+  "head_shadow__sd3": 142,
+  "head_shadow__sdglow": 84,
+  "head_street__eye": 724,
+  "head_street__eyehi": 84,
+  "head_street__hair": 1728,
+  "head_street__sr1": 1104,
+  "head_street__sr2": 56,
+  "head_street__sr3": 74,
+  "head_street__srdk": 52,
   "head_titan__glow": 178,
   "head_titan__ti": 1410,
   "head_titan__tidk": 604,
-  "top_frost__frice": 84,
-  "top_frost__frglow": 12,
-  "bottom_long__cloth_long": 842,
-  "bottom_frost__fr3": 192,
   "top_titan__tidk": 3280,
   "top_titan__ti": 2692,
   "top_titan__glow": 52,
@@ -692,6 +1758,10 @@
   "bottom_titan__tidk": 224,
   "bottom_titan__ti": 2708,
   "bottom_titan__glow": 48,
+  "bottom_long__cloth_long": 842,
+  "top_frost__frice": 84,
+  "top_frost__frglow": 12,
+  "bottom_frost__fr3": 192,
   "top_pig__pggolddk": 48,
   "top_pig__pggold": 144,
   "bottom_pig__pg1": 420,
@@ -704,12 +1774,49 @@
   "top_dawn__dwgold": 3098,
   "top_dawn__dwglow": 54,
   "bottom_dawn__dwgold": 288,
+  "top_rune__rnleather": 56,
+  "top_rune__rnglow": 160,
+  "top_rune__rnfur": 19470,
+  "top_rune__rnbzdk": 2950,
+  "top_rune__rnbz": 2732,
+  "top_rune__rn1": 528,
+  "bottom_rune__rnglow": 48,
+  "bottom_rune__rnbzdk": 242,
+  "bottom_rune__rnbz": 3044,
+  "bottom_rune__rn1": 112,
   "top_astral__aspk": 44,
   "top_astral__asglow": 14,
   "top_astral__asgem": 42,
   "top_astral__ascy": 526,
   "top_astral__as1": 300,
   "bottom_astral__ascy": 240,
-  "bottom_astral__as1": 40
+  "bottom_astral__as1": 40,
+  "top_street__srdk": 354,
+  "top_street__sr3": 54,
+  "top_street__sr2": 300,
+  "top_street__sr1": 610,
+  "top_neon__nemetal": 84,
+  "top_neon__ne3": 60,
+  "top_neon__ne2": 96,
+  "bottom_neon__nemetal": 384,
+  "bottom_neon__ne3": 64,
+  "bottom_neon__ne2": 64,
+  "top_lava__lvhot": 14,
+  "top_lava__lvglow": 16,
+  "top_lava__lvdk": 98,
+  "top_lava__lv1": 86,
+  "top_gold__gd3": 56,
+  "top_gold__gd2": 274,
+  "top_gold__gd1": 444,
+  "bottom_gold__gdvel": 192,
+  "bottom_gold__gdgem": 14,
+  "bottom_gold__gd2": 56,
+  "bottom_gold__gd1": 430,
+  "top_shadow__sdk": 56,
+  "top_shadow__sdglow": 14,
+  "top_shadow__sd2": 264,
+  "bottom_shadow__sdk": 368,
+  "bottom_shadow__sd3": 58,
+  "bottom_shadow__sd2": 16
  }
 }

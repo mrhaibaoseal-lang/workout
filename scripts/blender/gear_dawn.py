@@ -22,8 +22,8 @@ def sunburst(bone, c, d, r, n, L, mat='dwgold', ray_r=None, up=(0, 0, 1), arc=No
 
 # ---------- 旭日頭環：金環＋額前扇形光芒＋藍寶石，露出頭髮 ----------
 if want('head', 'dawn'):
-    hair()
-    face()
+    hair_lite()
+    face_lite()
     bpy.ops.mesh.primitive_torus_add(major_radius=0.165, minor_radius=0.016, location=(0, -0.008, 1.775), rotation=(math.radians(-10), 0, 0))
     ob = bpy.context.object; ob.scale = (1.0, 1.07, 1.0); bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
     finish(ob, 'head', 'dwgold', 0)

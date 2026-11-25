@@ -40,7 +40,7 @@ if want('head', 'night'):
     # 眼罩：貼著臉的一條帶子（眼睛從帶子上凸出來）
     cap_shell('head', 'nt1', (0, -0.01, 1.70), (0.156, 0.166, 0.186),
               lambda x, y, z: abs(z - 1.705) < 0.03 and y < -0.07, 0.006)
-    face(brow_tilt=-26, eye_tilt=-18)                     # 眉毛壓低：夜巡者比較兇
+    face_lite(brow_tilt=-26, eye_tilt=-18)                     # 眉毛壓低：夜巡者比較兇
     # 兜帽兩側的橘色通訊燈
     for sx in (1, -1):
         cyl('head', 'nt3', (0.188 * sx, 0.0, 1.69), 0.03, 0.02, (sx, 0, 0), 12, 0.004)

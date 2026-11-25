@@ -8,7 +8,8 @@ import Metal
 // 0.38 試做：著色器描邊（同一份網格畫兩次、沿平均法線外撐；0.39.0 起 USDZ 不再烘外殼）、泛光後處理（Hero3DBloom）。
 // 0.44.0 上衣／下身換裝：身體只有一份網格（base__body），換裝＝換貼圖（hero3d_top_<系列>.png、hero3d_bottom_<系列>.png，Toon.metal 的 outfitSurface）；
 // 長褲、短褲、鈦甲緊身衣是另外的網格（bottom_long／bottom_short／top_suit），各系列一張貼圖；胸章、腿甲這類小零件是 top_<系列>／bottom_<系列>。
-// 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架＋全部零件）、hero3d.json（材質表、換裝表）、hero3d_clip_<動作>.json、換裝貼圖。
+// 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架、身體、衣服網格、基本款）、hero3d_<系列>.usdz（該系列的零件，選到才載入，0.52.0）、
+// hero3d.json（材質表、換裝表、系列檔對照）、hero3d_clip_<動作>.json、換裝貼圖。
 
 struct Hero3DInfo: Decodable {
     struct Mat: Decodable {
@@ -31,6 +32,8 @@ struct Hero3DInfo: Decodable {
     let meshes: [String]
     let materials: [String: Mat]
     let outfits: [String: [String: Outfit]]?
+    /// 系列 → 該系列零件的 USDZ 檔名（不含副檔名）；沒寫的系列在主檔裡
+    let files: [String: String]?
 }
 
 struct Hero3DClip: Decodable {
@@ -67,8 +70,9 @@ final class Hero3DModel: ObservableObject {
     static let slots = [Slot(id: "head", name: "頭"), Slot(id: "hands", name: "手"), Slot(id: "feet", name: "腳"),
                         Slot(id: "back", name: "背"), Slot(id: "bell", name: "啞鈴")]
     static let seriesName = ["basic": "基本", "frost": "冰霜", "titan": "鈦甲", "pig": "小豬", "night": "暗夜", "dawn": "曙光",
-                             "rune": "符文", "astral": "星界", "none": "無"]
-    static let seriesOrder = ["basic", "frost", "titan", "pig", "night", "dawn", "rune", "astral"]
+                             "rune": "符文", "astral": "星界", "street": "街頭", "neon": "霓虹", "lava": "熔岩", "gold": "黃金",
+                             "shadow": "暗影", "none": "無"]
+    static let seriesOrder = ["basic", "street", "frost", "titan", "pig", "neon", "lava", "night", "dawn", "rune", "astral", "gold", "shadow"]
     static let clothPart = ["suit": "top_suit", "long": "bottom_long", "short": "bottom_short"]
 
     @Published var choice: [String: String] = ["head": "basic", "hands": "basic", "feet": "basic", "back": "none", "bell": "basic"]
@@ -88,6 +92,8 @@ final class Hero3DModel: ObservableObject {
     private var holder = Entity()            // 轉向用
     private var model = Entity()             // 抬高用
     private var info: Hero3DInfo?
+    private var roots: [Entity] = []          // 主檔＋已載入的系列檔
+    private var loadedFiles: Set<String> = []
     private var clips: [String: Hero3DClip] = [:]
     // RealityKit 讀 USD 時，綁同一副骨架的網格會合併成「一個」實體，零件變成網格裡的 part。
     // 所以在 part 這層辨認零件（名字 = hero3d.json 的 meshes，例如 head_titan__ti）、套材質、換裝時重組網格。
@@ -229,16 +235,9 @@ final class Hero3DModel: ObservableObject {
                     clips[m] = try JSONDecoder().decode(Hero3DClip.self, from: Data(contentsOf: u))
                 }
             }
-            let size = (try? FileManager.default.attributesOfItem(atPath: usdURL.path)[.size] as? Int) ?? 0
-            let t0 = CACurrentMediaTime()
-            let root = try Entity.load(contentsOf: usdURL)
-            log.append(String(format: "載入 %.0f ms，檔案 %.1f MB", (CACurrentMediaTime() - t0) * 1000, Double(size) / 1_048_576))
-            model.addChild(root)
-
             try makeMaterials(&log)
-            collectBodies(root, &log)
+            let root = try loadRoot(usdURL, "主檔", &log)
             log.append("USD 內建動畫 \(root.availableAnimations.count) 段")
-            mapJoints(&log)
         } catch {
             log.append("❌ \(error.localizedDescription)")
         }
@@ -250,7 +249,41 @@ final class Hero3DModel: ObservableObject {
         }
     }
 
+    /// 載入一個 USDZ 檔、辨認零件、對應骨頭（主檔和系列檔共用）
+    @discardableResult
+    private func loadRoot(_ url: URL, _ label: String, _ log: inout [String]) throws -> Entity {
+        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+        let t0 = CACurrentMediaTime()
+        let root = try Entity.load(contentsOf: url)
+        log.append(String(format: "載入\(label) %.0f ms，檔案 %.1f MB", (CACurrentMediaTime() - t0) * 1000, Double(size) / 1_048_576))
+        model.addChild(root)
+        roots.append(root)
+        loadedFiles.insert(url.deletingPathExtension().lastPathComponent)
+        let first = bodies.count
+        collectBodies(root, &log)
+        mapJoints(bodies[first...], &log)
+        return root
+    }
+
+    /// 目前選到的系列（頭、手、腳、背、啞鈴、上衣、下身）有分檔的，還沒載入就載入
+    private func ensureSeriesLoaded() {
+        guard let files = info?.files else { return }
+        let want = Set(choice.values).union(outfit.values)
+        var log: [String] = []
+        for s in want.sorted() {
+            guard let f = files[s], !loadedFiles.contains(f) else { continue }
+            guard let url = Bundle.main.url(forResource: f, withExtension: "usdz") else {
+                log.append("❌ 找不到 \(f).usdz"); loadedFiles.insert(f); continue
+            }
+            do { try loadRoot(url, Self.seriesName[s] ?? s, &log) } catch {
+                log.append("❌ \(f)：\(error.localizedDescription)"); loadedFiles.insert(f)
+            }
+        }
+        report.append(contentsOf: log)
+    }
+
     private func collectBodies(_ root: Entity, _ log: inout [String]) {
+        let first = bodies.count
         let names = (info?.meshes ?? []).sorted { $0.count > $1.count }   // 長的先比，避免 skin 吃掉 skintank
         func match(_ s: String) -> String? { names.first { s.contains($0) } }
         var all = 0, partCount = 0, matched = 0
@@ -278,14 +311,14 @@ final class Hero3DModel: ObservableObject {
         }
         walk(root, "")
         // 著色器描邊：每個本體做一個不遞迴的複本（帶同一副骨架），網格在 applyChoice 裡從本體的 part 組
-        for b in bodies {
+        for b in bodies[first...] {
             let ol = b.entity.clone(recursive: false)
             ol.name = b.entity.name + "_outline"
             ol.isEnabled = false
             b.entity.parent?.addChild(ol)
             outlines[ObjectIdentifier(b.entity)] = ol
         }
-        let vAll = bodies.reduce(0) { $0 + $1.contents.models.reduce(0) { $0 + $1.parts.reduce(0) { $0 + $1.positions.count } } }
+        let vAll = bodies[first...].reduce(0) { $0 + $1.contents.models.reduce(0) { $0 + $1.parts.reduce(0) { $0 + $1.positions.count } } }
         log.append("USDZ 頂點 \(vAll)")
         log.append("實體 \(all) 個，有網格 \(bodies.count) 個，part \(partCount) 個，認出零件 \(matched) 個")
         log.append(contentsOf: samples)
@@ -343,12 +376,12 @@ final class Hero3DModel: ObservableObject {
         mats.append(UnlitMaterial(color: .gray))
     }
 
-    private func mapJoints(_ log: inout [String]) {
+    private func mapJoints(_ list: ArraySlice<Body>, _ log: inout [String]) {
         guard let clip = clips.values.first else { log.append("❌ 沒有動作檔"); return }
         let idx = Dictionary(uniqueKeysWithValues: clip.joints.enumerated().map { ($1, $0) })
         let short = Dictionary(clip.joints.enumerated().map { ($1.components(separatedBy: "/").last!, $0) }, uniquingKeysWith: { a, _ in a })
         var matched = 0, total = 0
-        for b in bodies {
+        for b in list {
             let map = Self.jointNames(b.entity).map { n -> Int? in
                 idx[n] ?? short[n.components(separatedBy: "/").last ?? n]
             }
@@ -360,6 +393,7 @@ final class Hero3DModel: ObservableObject {
 
     /// 依目前選的裝備，從原始內容篩出要顯示的 part，重組網格並指定材質
     func applyChoice() {
+        ensureSeriesLoaded()
         let active = activeParts
         var vBody = 0, vLine = 0
         for b in bodies {
@@ -397,10 +431,13 @@ final class Hero3DModel: ObservableObject {
             }
         }
         vertexLine = "畫面上頂點：本體 \(vBody)，描邊 \(vLine)（與本體共用頂點資料，USDZ 不用存）"
-        if useUSDAnimation, let root = model.children.first, let anim = root.availableAnimations.first {
-            root.playAnimation(anim.repeat())
-        } else {
-            model.children.first?.stopAllAnimations()
+        // 每個檔各帶一份同樣的動畫，一起從頭播才會同步
+        for root in roots {
+            if useUSDAnimation, let anim = root.availableAnimations.first {
+                root.playAnimation(anim.repeat())
+            } else {
+                root.stopAllAnimations()
+            }
         }
     }
 

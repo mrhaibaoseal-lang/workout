@@ -76,13 +76,6 @@ def tee_parts(x, y, z):
     return neck, hem, sleeve
 
 # ---------- 英雄類四系列（night／dawn／rune／astral）共用 ----------
-def face(brow_tilt=-20, eye_tilt=-14):
-    """臉：眼睛、眼睛高光、眉毛（同基本款）。換頭部裝備時各系列自己呼叫"""
-    for sx in (1, -1):
-        ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(eye_tilt * sx)))
-        ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
-        ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(brow_tilt * sx), 0))
-
 def tube(bone, mat, pts, r, closed=False, taper=None, res=3):
     """沿一串點拉出圓管（曲線轉網格）。taper：每點的半徑倍率；res：截面圓的細分（細環用 1，省頂點）"""
     cu = bpy.data.curves.new('tb', 'CURVE'); cu.dimensions = '3D'
@@ -154,16 +147,6 @@ def on_ellipsoid(c, r, x, z, front=True):
     k = max(0.0, 1 - ((x - c[0]) / r[0]) ** 2 - ((z - c[2]) / r[2]) ** 2)
     return c[1] + (-1 if front else 1) * r[1] * math.sqrt(k)
 
-def hair():
-    """基本款的刺蝟短髮（不含頭帶），給露出頭髮的頭飾用"""
-    ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))
-    for ax, ay, az in [(0, -0.07, 1.86), (0.08, -0.05, 1.85), (-0.08, -0.05, 1.85), (0.04, 0.05, 1.89), (-0.05, 0.04, 1.89), (0.12, 0.03, 1.83), (-0.12, 0.03, 1.83)]:
-        base = Vector((ax * 0.6, ay * 0.4 + 0.01, 1.80)); tip = Vector((ax * 1.25, ay * 1.3, az + 0.03))
-        bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.07, depth=(tip - base).length, location=(base + tip) / 2)
-        ob = bpy.context.object; ob.rotation_mode = 'QUATERNION'
-        ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(tip - base)
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True); finish(ob, 'head', 'hair', 1)
-
 # ---------- 街頭／霓虹／熔岩／黃金／暗影共用（2026-11-25） ----------
 def blob(bone, mat, c, r, rot=(0, 0, 0), seg=12, ring=8, subd=1):
     """低面數的橢球（ellipsoid 是 24×14＋細分 1，一顆 1300 頂點；小零件用這個，約 1/4）"""
@@ -173,14 +156,14 @@ def blob(bone, mat, c, r, rot=(0, 0, 0), seg=12, ring=8, subd=1):
     return finish(ob, bone, mat, subd)
 
 def face_lite(brow_tilt=-20, eye_tilt=-14):
-    """face() 的低面數版（同位置、同大小）：face() 6 顆高面數橢球約 7,500 頂點，這個約 1,500"""
+    """臉：眼睛、眼睛高光、眉毛（同基本款；各系列換頭部時自己呼叫）。低面數版：原本 6 顆高面數橢球約 7,500 頂點，這個約 1,500"""
     for sx in (1, -1):
         blob('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(eye_tilt * sx)), 12, 8)
         blob('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01), seg=8, ring=6, subd=0)
         blob('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(brow_tilt * sx), 0), 10, 6)
 
 def hair_lite(spikes=True):
-    """hair() 的低面數版：頭髮底（帽子底下露出的短髮）＋刺蝟髮尖（不細分）"""
+    """頭髮：頭髮底（帽子底下露出的短髮）＋刺蝟髮尖（不細分）。spikes=False 只留頭髮底"""
     blob('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135), seg=20, ring=12)
     if not spikes: return
     for ax, ay, az in [(0, -0.07, 1.86), (0.08, -0.05, 1.85), (-0.08, -0.05, 1.85), (0.04, 0.05, 1.89), (-0.05, 0.04, 1.89), (0.12, 0.03, 1.83), (-0.12, 0.03, 1.83)]:

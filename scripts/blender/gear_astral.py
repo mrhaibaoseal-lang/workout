@@ -21,8 +21,8 @@ def ring(bone, mat, c, R, r, normal):
 
 # ---------- 漂浮星晶冠：頭頂上方一圈晶石（往外斜）、細光環、額前粉色星 ----------
 if want('head', 'astral'):
-    hair()
-    face(brow_tilt=-14, eye_tilt=-10)                     # 法師：眼神比較冷靜
+    hair_lite()
+    face_lite(brow_tilt=-14, eye_tilt=-10)                     # 法師：眼神比較冷靜
     C = Vector((0, 0.0, 1.93))
     ring('head', 'asglow2', C, 0.15, 0.006, (0, 0.2, 1))   # 光環（略往後傾）
     for k in range(7):

@@ -18,7 +18,7 @@ def crystal(bone, mat, base, d, r, L):
 # ---------- 冰晶毛帽 ----------
 if want('head', 'frost'):
     import bmesh as _bm
-    ellipsoid('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135))     # 帽沿下露出的短髮
+    hair_lite(False)                                                         # 帽沿下露出的短髮
     # 帽身：半顆橢球，只留帽沿以上
     bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=32, location=(0, 0.012, 1.775))
     ob = bpy.context.object; ob.scale = (0.166, 0.178, 0.15); bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
@@ -39,10 +39,7 @@ if want('head', 'frost'):
     for d, L, r in (((0, 0.05, 1), 0.17, 0.036), ((0.6, 0.15, 1), 0.12, 0.028), ((-0.55, -0.2, 1), 0.115, 0.027), ((-0.15, 0.65, 1), 0.10, 0.024)):
         crystal('head', 'frice', (0, 0.015, 1.895), d, r, L)
     # 臉：眼睛、眼睛高光、眉毛（同基本款）
-    for sx in (1, -1):
-        ellipsoid('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(-14 * sx)))
-        ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
-        ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(-20 * sx), 0))
+    face_lite()
 
 # ---------- 冰霜 T 恤：塗在身體上（短袖＋圓領），肩頸是冰柱垂下的冰藍色 ----------
 if want('top', 'frost'):

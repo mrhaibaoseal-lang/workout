@@ -30,7 +30,7 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   - `gear_shadow.py` 暗影（傳說）：包頭面罩（只露眼縫、紫光眼、新月、腦後飄帶）、長袖戰衣（`sdline` V 線、`sdwrapt` 前臂綁帶）＋厚圍巾飄尾＋紫晶、長褲交叉綁腿（`sdwrap`）＋大腿短刀、分趾忍者鞋、利爪手甲、破布下緣披風、虛空球啞鈴。
   - 共用工具（`gear_util.py`）：`blob`（低面數橢球）、`face_lite`／`hair_lite`（臉、頭髮低面數版）、`seg_field`（身體塗色的折線紋路）、`flame`（火舌）、`rock`（石塊）、`ring_arc`（圓弧管）、`torso_y`（軀幹表面 y）、`shorts_trim`（短褲花色＋身體褲管口同步塗）。
   - 材質前綴 `sr`／`ne`／`lv`／`gd`／`sd` 在 `clipcheck.py` 算硬裝備；長褲 `pants_<系列>2`、短褲 `shorts_<系列>`、身體塗色 `skin_<系列>` 算身體。
-- `gear_util.py`：各系列共用的造型工具（`obox`、`cyl`、`shell`、身體塗色 `add_layer`、T 恤形狀 `tee_parts`、袖長可調 `sleeve_paint`、臉 `face`、頭髮 `hair`、頭盔殼 `cap_shell`、圓管 `tube`、面片 `panel`、星形 `star`、寶石 `gem`、披風 `back_drape`），hero_proto 在載入系列檔前 exec；新系列加進 hero_proto 的 `SERIES_FILES`。
+- `gear_util.py`：各系列共用的造型工具（`obox`、`cyl`、`shell`、身體塗色 `add_layer`、T 恤形狀 `tee_parts`、袖長可調 `sleeve_paint`、臉 `face_lite`、頭髮 `hair_lite`（低面數版，2026-11-26 起所有系列都用）、頭盔殼 `cap_shell`、圓管 `tube`、面片 `panel`、星形 `star`、寶石 `gem`、披風 `back_drape`），hero_proto 在載入系列檔前 exec；新系列加進 hero_proto 的 `SERIES_FILES`。
 
 混搭：`GEAR="head=titan,hands=titan"` 逐部位指定（head top bottom feet hands back bell fx），沒寫的用基本款。
 每個部位是獨立零件；上衣／下身換鈦甲時，緊身衣袖子／褲管和底下身體的顏色一起換。預覽 `docs/art/blender/mix.png`。
