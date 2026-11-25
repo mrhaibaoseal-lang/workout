@@ -33,7 +33,7 @@ struct ExerciseCard: View {
     @State private var painJoint: Joint?
     /// 備註框：有上次的備註或已經寫了才一直開著，不然按「加備註」才出現
     @State private var noteOpen = false
-    /// 「看影片」示範（`DemoVideoSheet`）
+    /// 「動作說明」（`DemoVideoSheet`：動畫、肌群圖、影片連結）
     @State private var showVideo = false
 
     private var ex: Exercise { draft.item.exercise }
@@ -53,7 +53,7 @@ struct ExerciseCard: View {
                 in: RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .bottomTrailing) {
                 Button { showVideo = true } label: {
-                    Label(DemoVideos.video(for: ex) != nil ? "看影片" : "找影片", systemImage: "play.rectangle.fill")
+                    Label("動作說明", systemImage: "figure.strengthtraining.traditional")
                         .font(.caption.weight(.bold))
                         .padding(.horizontal, 10)
                         .frame(minHeight: 32)

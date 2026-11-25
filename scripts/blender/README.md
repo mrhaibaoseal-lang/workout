@@ -22,6 +22,14 @@ blender.org 下載站被網路政策擋，PyPI 的 `bpy` 需要 Python 3.11。
   - `gear_rune.py` 符文戰神（傳說）：青銅角盔、無袖戰甲（胸甲片、毛皮披肩、尖刺圓肩甲、發光符文）、腿甲（鱗片、膝刺、脛甲）、青銅戰靴、尖刺拳套、背負巨劍、符石啞鈴。
   - `gear_astral.py` 星界魔導（傳說）：漂浮星晶冠、靛藍法袍（`tank`＋`astrim`，扇形立領、菱形寶石、喇叭袖、燕尾後擺）、星點長褲（`asdot`）＋尖角褲口、捲尖巫師鞋、手背漂浮行星、能量羽翼、星核啞鈴。
   - 材質名前綴 `nt`／`dw`／`rn`／`as` 在 `clipcheck.py` 算硬裝備；身體塗色叫 `skin_<系列>`、長褲叫 `pants_<系列>`（算身體）。長褲系列和底色在 `hero_proto.py` 的 `PANTS`。
+- 街頭／霓虹／熔岩／黃金／暗影（2026-11-25，`GEAR=street|neon|lava|gold|shadow`，不含特效；預覽 `docs/art/blender/<系列>.png`、5 套並排＋換裝混搭 `gear5.png`）：
+  - `gear_street.py` 街頭（稀有，6 部位）：反戴棒球帽（帽舌朝後、黃星）、長袖帽 T（`tank`＋`srpocket` 袋鼠口袋＋`srtrim` 羅紋，抽繩、背後帽兜）、白籃球褲＋藍側條（`srstripe`）、高筒籃球鞋、露指手套＋毛巾護腕、電鍍疊片啞鈴。
+  - `gear_neon.py` 霓虹（史詩）：環繞發光護目鏡＋耳機天線、長袖緊身衣（`necy`／`nemg` 青、洋紅電路紋，發光端點、六角核心）、深色長褲＋青側線（`nestripe`）＋膝燈、低筒發光跑鞋、發光指節手套、分段能量背環、八角發光啞鈴。
+  - `gear_lava.py` 熔岩（史詩）：岩石頭帶冒火舌、岩石背心（`lvcrack`／`lvcore` 發光裂紋、肩上岩塊、岩漿核）、橘短褲＋褲管火舌（`lvflame`、`lvhem`）、岩石戰靴＋鞋跟火焰、岩石火拳、火舌下緣披風、岩漿縫石塊啞鈴。
+  - `gear_gold.py` 黃金（傳說）：王者之冠（尖頂珍珠、紅絨、金球十字）、金背心＋紅滾邊（`gdtrim`）＋金鍊大獎牌、紅拳擊短褲＋金側條（`gdstripe`）＋冠軍腰帶、翼靴、黃金拳擊手套、白貂毛邊紅披風＋白貂披肩、金星啞鈴。
+  - `gear_shadow.py` 暗影（傳說）：包頭面罩（只露眼縫、紫光眼、新月、腦後飄帶）、長袖戰衣（`sdline` V 線、`sdwrapt` 前臂綁帶）＋厚圍巾飄尾＋紫晶、長褲交叉綁腿（`sdwrap`）＋大腿短刀、分趾忍者鞋、利爪手甲、破布下緣披風、虛空球啞鈴。
+  - 共用工具（`gear_util.py`）：`blob`（低面數橢球）、`face_lite`／`hair_lite`（臉、頭髮低面數版）、`seg_field`（身體塗色的折線紋路）、`flame`（火舌）、`rock`（石塊）、`ring_arc`（圓弧管）、`torso_y`（軀幹表面 y）、`shorts_trim`（短褲花色＋身體褲管口同步塗）。
+  - 材質前綴 `sr`／`ne`／`lv`／`gd`／`sd` 在 `clipcheck.py` 算硬裝備；長褲 `pants_<系列>2`、短褲 `shorts_<系列>`、身體塗色 `skin_<系列>` 算身體。
 - `gear_util.py`：各系列共用的造型工具（`obox`、`cyl`、`shell`、身體塗色 `add_layer`、T 恤形狀 `tee_parts`、袖長可調 `sleeve_paint`、臉 `face`、頭髮 `hair`、頭盔殼 `cap_shell`、圓管 `tube`、面片 `panel`、星形 `star`、寶石 `gem`、披風 `back_drape`），hero_proto 在載入系列檔前 exec；新系列加進 hero_proto 的 `SERIES_FILES`。
 
 混搭：`GEAR="head=titan,hands=titan"` 逐部位指定（head top bottom feet hands back bell fx），沒寫的用基本款。

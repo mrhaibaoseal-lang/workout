@@ -404,6 +404,20 @@ struct DataSettingsView: View {
                 SectionLabel("匯出成 CSV（重量是 kg），可以用 Excel、Numbers 打開。")
             }
             .listRowBackground(Theme.surface)
+
+            Section {
+                NavigationLink {
+                    RepTestHomeView()
+                } label: {
+                    Label("數次數測試", systemImage: "figure.strengthtraining.traditional")
+                }
+                .frame(minHeight: 44)
+            } header: {
+                SectionLabel("實驗功能")
+            } footer: {
+                SectionLabel("用相機測試能不能自動數次數。只記錄關節座標，影像不會存下來，也不會上傳。")
+            }
+            .listRowBackground(Theme.surface)
         }
         .themeForm()
         .navigationTitle("資料")

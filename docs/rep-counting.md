@@ -6,7 +6,14 @@
 
 使用者條件：不想拍到身材，所以**影像一律不存、不上傳**；手機：iPhone 16 Plus（沒有 LiDAR）。
 
-## 第一階段：測試頁（要做的）
+## 第一階段：測試頁（**已完成，0.47.0**，2026-11-25）
+
+實作在 `Workout/RepTest/`（RepTestModels／RepTestStore／RepCaptureEngine／RepTestViews），測試在 `WorkoutTests/RepTestCSVTests.swift`。與下面規格不同的地方：
+- Vision 在擷取的背景佇列同步處理，來不及的格由 AVFoundation 丟掉（`didDrop`），計入 `dropped_frames`；沒有另外做「Vision 忙就丟」的第二層。
+- CSV 沒加 BOM、換行用 LF（Python `pd.read_csv` 直接讀；用 Excel 開中文備註可能亂碼）。
+- 多人入鏡時取信心總和最高的人；信心值 0 的關節視為沒偵測到（三欄留空）。
+- 前鏡頭預覽與火柴人顯示時左右翻成鏡像（只影響畫面），存的座標仍是原始、未鏡像。
+- 尚未在實機驗證（編譯與單元測試通過）；使用者實測後若有問題再修。
 
 ### 入口
 設定 →「資料」頁（`DataSettingsView`，`Workout/Settings/SettingsPages.swift`）最下面加一個區塊「實驗功能」，
