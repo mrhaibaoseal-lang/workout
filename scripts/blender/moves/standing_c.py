@@ -107,19 +107,19 @@ if MOVE in ('farmerWalk', 'suitcaseCarry'):
 if MOVE == 'kbSwing':
     N = 48
     kb = build_kettlebell()
-    AW = 0.22
-    PHI0, PHI1 = D(-62), D(88)                              # 手臂方向離垂直往前的角度：底部在身後（往後下）、頂端水平
+    AW = 0.24
+    PHI0, PHI1 = D(-12), D(82)                            # 手臂方向離垂直往前的角度：底部在身後（往後下）、頂端水平
     POL = {s_: Vector((0.5 * sx_, 0.2, -0.6)) for s_, sx_ in SX}
     def pose(t):                                            # t＝0 底部、1 頂端
-        sh = _hinge(D(56) * (1 - t) + D(2) * t, D(60) * (1 - t) + D(2) * t, D(42) * (1 - t) + D(2) * t,
+        sh = _hinge(D(58) * (1 - t) + D(2) * t, D(62) * (1 - t) + D(2) * t, D(42) * (1 - t) + D(2) * t,
                     142 + 34 * t, 0.20 * (1 - t) + 0.03 * t, aw=AW)
         phi = PHI0 + (PHI1 - PHI0) * t
         d = Vector((0, -math.sin(phi), -math.cos(phi)))
         def wf(cur):
             mid = (cur['L'] + cur['R']) / 2
-            r = math.sqrt((REACH_ * 0.985) ** 2 - 0.22 ** 2)
+            r = math.sqrt((REACH_ * 0.985) ** 2 - 0.13 ** 2)
             C = mid + d * r
-            return {s_: C + Vector((0.05 * sx_, 0, 0)) for s_, sx_ in SX}
+            return {s_: C + Vector((0.08 * sx_, 0, 0)) for s_, sx_ in SX}
         W = lift_wrists(sh, wf, POL)
         for s, sx in SX:
             e = ik2(sh[s], W[s], blen[f'upper_arm.{s}'], blen[f'forearm.{s}'], POL[s])
@@ -139,7 +139,7 @@ if MOVE == 'kbSwing':
 if MOVE == 'arnoldPress':
     N = 48
     H = stand_legs(width=0.13, hip_z=0.955)
-    K0 = Vector((-0.13, -0.20, -0.02)); KM = Vector((0.04, -0.15, 0.24)); K1 = Vector((0.05, -0.04, 0.58))   # 手腕相對肩膀（x 乘 sx）
+    K0 = Vector((-0.08, -0.20, -0.08)); KM = Vector((0.04, -0.15, 0.24)); K1 = Vector((0.05, -0.04, 0.58))   # 手腕相對肩膀（x 乘 sx）
     def pose(t):
         u = ease(t)
         _, sh = trunk(H + Vector((0, 0, 0.04)), 0, 0, 0)
@@ -198,6 +198,14 @@ if MOVE == 'leanLateral':
     kill_bell('R')                                          # 右手握柱，沒有啞鈴
     A_LEAN = D(24); XM, YP = 0.06, -0.80
     POST = Vector((0.0, -0.62, 0.0))
+    # 手握的那一段立柱（和手同高）掛在 bar 底下：握柱是故意的接觸，clipcheck 只跳過頂層父物件叫 bar 的道具
+    _bar = bpy.data.objects.get('bar') or bpy.data.objects.new('bar', None)
+    if _bar.name not in sc.objects: sc.collection.objects.link(_bar)
+    for _o in list(sc.objects):
+        if _o.type != 'MESH' or _o.parent is not None: continue
+        _bb = [_o.matrix_world @ Vector(c) for c in _o.bound_box]
+        if all(abs(p.x - POST.x) < 0.10 and abs(p.y - POST.y) < 0.10 for p in _bb) and min(p.z for p in _bb) < 1.25 and max(p.z for p in _bb) > 0.85:
+            _o.parent = _bar; print('[leanLateral] 立柱零件掛 bar：', _o.name)
     def pose(t):
         a = A_LEAN
         up = Vector((math.sin(a), 0, math.cos(a))); fr = Vector((0, -1, 0))
@@ -217,8 +225,8 @@ if MOVE == 'leanLateral':
         # 左手啞鈴側平舉
         d0 = Vector((0.06, -0.10, -1.0)).normalized(); d1 = Vector((1.0, -0.30, 0.10)).normalized()
         d = d0.lerp(d1, t).normalized()
-        wl = sh['L'] + d * (REACH_ * 0.975)
         pl = Vector((0.25, 1.0, -0.35 + 0.70 * t))
+        wl = lift_wrists(sh, lambda cur: {'L': cur['L'] + d * (REACH_ * 0.975)}, {'L': pl})['L']   # 鎖骨跟轉會抬高肩膀，手腕相對抬完的肩
         e0 = ik2(sh['L'], wl, blen['upper_arm.L'], blen['forearm.L'], pl)
         arm_to('L', sh['L'], wl, pl, (wl - e0).normalized(), hand_roll=0.0)
     for f in range(N):

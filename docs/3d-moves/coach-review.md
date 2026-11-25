@@ -28,6 +28,9 @@
 | `stepUp` 登階 | 弓步／臀橋 | 一般 | 未做 | 未看 | | |
 | `bridge` 啞鈴臀橋 | 弓步／臀橋 | 一般 | 未做 | 未看 | | |
 | `overheadCableExt` 繩索過頭三頭伸展 | 滑輪 A | 高 | 未做（AI 審查另排；沒有 ACE／NSCA 等級的第二來源，要補） | 未看 | | |
+| `kbSwing` 壺鈴擺盪 | 站姿 C | 高 | 未做（來源是 ACE 繼續教育文章＋兩篇教練文章，沒有資料庫等級的獨立頁面；使用者沒有壺鈴，App 標「用單顆啞鈴代替」） | 未看 | | |
+| `arnoldPress` 阿諾推舉 | 站姿 C | 高 | 未做（來源是 Healthline／WebMD／MasterClass，沒有 ACE 獨立頁面） | 未看 | | |
+| `machineShoulderPress` 機器肩推 | 器械 | 高 | 未做（健身房動作；機器型式是示意，握把樞軸浮空沒畫支架） | 未看 | | |
 | `tricepsPushdown` 繩索三頭下壓 | 滑輪 A | 一般 | 未做 | 未看 | | |
 | `straightArmPulldown` 直臂下拉 | 滑輪 A | 一般 | 未做 | 未看 | | |
 | `facePull` 繩索面拉 | 滑輪 A | 一般 | 未做（來源只有 NSCA 出版社外旋版節錄，要補） | 未看 | | |

@@ -63,7 +63,7 @@
 | | machineChestPress | machine_chest_press | |
 | | machineShoulderPress | machine_shoulder_press | |
 | | machineRearDelt | machine_rear_delt | 反向飛鳥機 |
-| 5 站姿（`moves/standing_c.py`） | farmerWalk | farmer_walk | 雙手各一顆、走路（原地踏步） |
+| 5 站姿（`moves/standing_c.py`，新器材 `props_kb.py`；**2026-11-26 完成，動作卡 `standing_c.md`**） | farmerWalk | farmer_walk | 雙手各一顆、走路（原地踏步） |
 | | suitcaseCarry | suitcase_carry | 單手、身體不歪 |
 | | kbSwing | kb_swing | 壺鈴擺盪（要新器材：壺鈴） |
 | | arnoldPress | db_arnold | 手掌從朝身體轉到朝前 |
