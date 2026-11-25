@@ -83,10 +83,10 @@ def face(brow_tilt=-20, eye_tilt=-14):
         ellipsoid('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01))
         ellipsoid('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(brow_tilt * sx), 0))
 
-def tube(bone, mat, pts, r, closed=False, taper=None):
-    """沿一串點拉出圓管（曲線轉網格）。taper：每點的半徑倍率"""
+def tube(bone, mat, pts, r, closed=False, taper=None, res=3):
+    """沿一串點拉出圓管（曲線轉網格）。taper：每點的半徑倍率；res：截面圓的細分（細環用 1，省頂點）"""
     cu = bpy.data.curves.new('tb', 'CURVE'); cu.dimensions = '3D'
-    cu.bevel_depth = r; cu.bevel_resolution = 3; cu.use_fill_caps = not closed
+    cu.bevel_depth = r; cu.bevel_resolution = res; cu.use_fill_caps = not closed
     sp = cu.splines.new('POLY'); sp.points.add(len(pts) - 1); sp.use_cyclic_u = closed
     for i, q in enumerate(pts):
         sp.points[i].co = (*q, 1)
@@ -163,6 +163,99 @@ def hair():
         ob = bpy.context.object; ob.rotation_mode = 'QUATERNION'
         ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(tip - base)
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True); finish(ob, 'head', 'hair', 1)
+
+# ---------- 街頭／霓虹／熔岩／黃金／暗影共用（2026-11-25） ----------
+def blob(bone, mat, c, r, rot=(0, 0, 0), seg=12, ring=8, subd=1):
+    """低面數的橢球（ellipsoid 是 24×14＋細分 1，一顆 1300 頂點；小零件用這個，約 1/4）"""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=ring, location=c, rotation=rot)
+    ob = bpy.context.object; ob.scale = r
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    return finish(ob, bone, mat, subd)
+
+def face_lite(brow_tilt=-20, eye_tilt=-14):
+    """face() 的低面數版（同位置、同大小）：face() 6 顆高面數橢球約 7,500 頂點，這個約 1,500"""
+    for sx in (1, -1):
+        blob('head', 'eye', (0.058 * sx, -0.158, 1.705), (0.036, 0.014, 0.03), (0, math.radians(-12 * sx), math.radians(eye_tilt * sx)), 12, 8)
+        blob('head', 'eyehi', (0.050 * sx, -0.168, 1.712), (0.011, 0.005, 0.01), seg=8, ring=6, subd=0)
+        blob('head', 'hair', (0.06 * sx, -0.15, 1.745), (0.04, 0.012, 0.010), (0, math.radians(brow_tilt * sx), 0), 10, 6)
+
+def hair_lite(spikes=True):
+    """hair() 的低面數版：頭髮底（帽子底下露出的短髮）＋刺蝟髮尖（不細分）"""
+    blob('head', 'hair', (0, 0.015, 1.765), (0.165, 0.17, 0.135), seg=20, ring=12)
+    if not spikes: return
+    for ax, ay, az in [(0, -0.07, 1.86), (0.08, -0.05, 1.85), (-0.08, -0.05, 1.85), (0.04, 0.05, 1.89), (-0.05, 0.04, 1.89), (0.12, 0.03, 1.83), (-0.12, 0.03, 1.83)]:
+        base = Vector((ax * 0.6, ay * 0.4 + 0.01, 1.80)); tip = Vector((ax * 1.25, ay * 1.3, az + 0.03))
+        bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=0.07, depth=(tip - base).length, location=(base + tip) / 2)
+        ob = bpy.context.object; ob.rotation_mode = 'QUATERNION'
+        ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(tip - base)
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True); finish(ob, 'head', 'hair', 0)
+
+def seg_field(px, pz, pts, w):
+    """(px, pz) 到折線 pts（[(x, z)…]）的距離，回傳 w - 距離（>0＝在線條裡）。塗在身體上的線條紋路用"""
+    best = 9.0
+    for (ax, az), (bx, bz) in zip(pts, pts[1:]):
+        dx, dz = bx - ax, bz - az; L2 = dx * dx + dz * dz
+        t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (pz - az) * dz) / L2))
+        best = min(best, math.hypot(px - ax - t * dx, pz - az - t * dz))
+    return w - best
+
+def flame(bone, mat, base, d, r, L, bend=(0, 0, 0), n=7):
+    """火舌：沿彎曲路徑由粗到尖的圓管（base 起、方向 d、長 L、bend＝尖端往哪邊彎）"""
+    d = Vector(d).normalized(); base = Vector(base); bend = Vector(bend)
+    pts = [tuple(base + d * (L * i / (n - 1)) + bend * ((i / (n - 1)) ** 2)) for i in range(n)]
+    tp = [max(0.05, (1 - i / (n - 1)) ** 0.8) * (0.7 if i == 0 else 1) for i in range(n)]
+    cu = bpy.data.curves.new('fl', 'CURVE'); cu.dimensions = '3D'
+    cu.bevel_depth = r; cu.bevel_resolution = 1; cu.use_fill_caps = True
+    sp = cu.splines.new('POLY'); sp.points.add(n - 1)
+    for i, q in enumerate(pts): sp.points[i].co = (*q, 1); sp.points[i].radius = tp[i]
+    ob = bpy.data.objects.new('fl', cu); sc.collection.objects.link(ob)
+    bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.convert(target='MESH'); ob = bpy.context.object
+    return finish(ob, bone, mat, 0)
+
+def rock(bone, mat, c, r, seed=1, jag=0.22):
+    """不規則石塊：低面數二十面體，每個頂點往外推、往內縮一點（固定亂數，每次建都一樣）"""
+    import random as _r
+    rnd = _r.Random(seed)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1, location=(0, 0, 0))
+    ob = bpy.context.object
+    for v in ob.data.vertices: v.co *= 1 + jag * (rnd.random() * 2 - 1)
+    for v in ob.data.vertices: v.co = Vector((v.co.x * r[0], v.co.y * r[1], v.co.z * r[2])) + Vector(c)
+    ob.location = (0, 0, 0)
+    bv = ob.modifiers.new('b', 'BEVEL'); bv.width = min(r) * 0.12; bv.segments = 1; bv.limit_method = 'ANGLE'
+    o = finish(ob, bone, mat, 0)
+    for p in o.data.polygons: p.use_smooth = False       # 石頭要看得到切面
+    return o
+
+def ring_arc(bone, mat, c, R, a0, a1, r, axis_u=(1, 0, 0), axis_v=(0, 0, 1), n=10, res=3):
+    """圓弧管（c 為圓心、R 半徑，從角度 a0 到 a1，在 axis_u／axis_v 張成的平面上）"""
+    u, v = Vector(axis_u).normalized(), Vector(axis_v).normalized(); c = Vector(c)
+    pts = [tuple(c + u * (R * math.cos(a0 + (a1 - a0) * i / (n - 1))) + v * (R * math.sin(a0 + (a1 - a0) * i / (n - 1)))) for i in range(n)]
+    return tube(bone, mat, pts, r, res=res)
+
+_TORSO = [(0.95, 0.15, 0.10), (1.10, 0.125, 0.095), (1.30, 0.20, 0.12), (1.47, 0.085, 0.08)]   # 身體 P 的軀幹截面（z, 半寬, 半厚）
+def torso_y(x, z, back=False, k=0.95):
+    """軀幹表面 (x, z) 那一點的 y（前面＝負）。身體是 Skin＋細分，比節點半徑略小（k）；胸前小徽章、紋路端點用"""
+    for (z0, a0, b0), (z1, a1, b1) in zip(_TORSO, _TORSO[1:]):
+        if z <= z1 or z1 == _TORSO[-1][0]:
+            t = max(0.0, min(1.0, (z - z0) / (z1 - z0))); rx, ry = (a0 + (a1 - a0) * t) * k, (b0 + (b1 - b0) * t) * k
+            break
+    return -0.005 + (1 if back else -1) * ry * math.sqrt(max(0.0, 1 - (x / rx) ** 2))
+
+def shorts_trim(attr, field, body_band):
+    """短褲系列的褲上花色：field(x, y, z, 褲管下緣 z) → 值（>0＝塗）。也在身體褲管口那段塗一份（body_band 公尺），
+    短褲底下的身體從 0.72 起塗成短褲色，會露在褲管最下緣（見 docs/3d-system.md）。回傳褲管下緣高度"""
+    zs = {1: min(v.co.z for v in shorts.data.vertices if v.co.x > 0), -1: min(v.co.z for v in shorts.data.vertices if v.co.x < 0)}
+    a = shorts.data.attributes.new(attr, 'FLOAT', 'POINT')
+    for i, v in enumerate(shorts.data.vertices):
+        x, y, z = v.co
+        a.data[i].value = field(x, y, z, zs[1 if x > 0 else -1]) if z < 1.0 else -1
+    b = skinbody.data.attributes.new(attr, 'FLOAT', 'POINT')
+    zc = min(zs.values())
+    for i, v in enumerate(skinbody.data.vertices):
+        x, y, z = v.co
+        b.data[i].value = field(x, y, max(z, zc), zc) if 0.7 < z < zc + body_band and abs(x) < 0.25 else -1
+    return zc
 
 def back_drape(bone, mat, rows, ph, nc=17, hem=None, th=0.012, off=1):
     """背後一片弧面（披風、披肩）：rows＝[(z, rx, ry, yc)…] 由上往下，ph＝左右張開的角度（0＝正後方）。

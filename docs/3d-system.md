@@ -15,7 +15,16 @@
 - 動作：`CharacterMove` 約 60 個（訓練 ~40、熱身 8、伸展 10、休息頁 3）。動作庫 99 個動作會對應到這些示範。
   2D 版的角度資料在 `scripts/art/moves.js`，可當作 3D 的參考（側面角度 → 3D 要補左右寬度、手腳釘點）。
 - 裝備：12 系列 × 8 部位 ＝ 96 件（`GearCatalog.swift`）。CLAUDE.md 的美術規定照樣適用（灰階認得出、同部位不撞形、越稀有越華麗）。
-  目前做了 3D 測試版的系列：鈦甲（titan）、冰霜（frost，預覽 `docs/art/blender/frost.png`）、小豬（pig，預覽 `docs/art/blender/pig.png`；2026-11-24 使用者臨時提的新系列，還沒加進 `GearCatalog`／App）、英雄類四套夜巡者（night）、曙光（dawn）、符文戰神（rune）、星界魔導（astral）（2026-11-25 使用者定案，預覽 `docs/art/blender/heroes.png`），可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
+  目前做了 3D 測試版的系列：鈦甲（titan）、冰霜（frost，預覽 `docs/art/blender/frost.png`）、小豬（pig，預覽 `docs/art/blender/pig.png`；2026-11-24 使用者臨時提的新系列，還沒加進 `GearCatalog`／App）、英雄類四套夜巡者（night）、曙光（dawn）、符文戰神（rune）、星界魔導（astral）（2026-11-25 使用者定案，預覽 `docs/art/blender/heroes.png`）、
+  街頭（street，6 部位：目錄沒有背部和特效）、霓虹（neon）、熔岩（lava）、黃金（gold）、暗影（shadow）（2026-11-25 做好，待使用者看；
+  每套一張 `docs/art/blender/<系列>.png`，5 套並排＋換裝混搭 `docs/art/blender/gear5.png`），可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
+  **12 系列的 3D 造型都有了**（GearCatalog 11 套＋小豬）。
+  - 這 5 套的頂點數（`hero_proto` 該系列全部零件，不含共用身體、衣服網格）：街頭 9,004、霓虹 6,741、熔岩 7,494、黃金 10,647、暗影 10,458。
+    臉和頭髮改用低面數的 `face_lite`／`hair_lite`（`face()` 的 6 顆高面數橢球就要約 7,500 頂點，舊系列的頭部都有這筆，之後要減量可照改）。
+  - 換裝：上衣都是身體塗色（`tank`＋各自的屬性，`skin_<系列>`），霓虹、暗影是長褲（`PANTS`，`pants_<系列>2`），街頭、熔岩、黃金是短褲（`shorts_<系列>`，
+    褲上花色用 `shorts_trim` 同時塗在身體褲管口那段）。沒有新的衣服網格，`build_app.sh` 不用改就能烘貼圖（`OUTFITS=basic,street,neon,lava,gold,shadow` 試過：
+    `SERIES` 同 5 套時 USDZ 6.5 MB，貼圖每張 14～35 KB）。預設 `SERIES`／`OUTFITS` 還沒加這 5 套（App 還沒改成每系列分開載入）。
+  - 材質前綴 `sr`／`ne`／`lv`／`gd`／`sd` 在 clipcheck 算硬裝備；短褲材質不能用這些前綴（`shorts_<系列>`），否則被當成硬裝備。
 
 ## 防穿模（動作多、造型多，小穿模可接受，但要系統化排除）
 三層做法，越前面越省事：
