@@ -5,7 +5,7 @@ MOVE_META = {
     'pullup': {'angles': {'elbow': {'min': (35, 60), 'max': (165, 180)}, 'knee': (120, 175)}},
     'chinup': {'angles': {'elbow': {'min': (30, 60), 'max': (165, 180)}, 'knee': (120, 175)}},
     'hangingKnee': {'angles': {'elbow': (165, 180), 'hip': {'min': (55, 85), 'max': (160, 180)}, 'knee': {'min': (60, 110), 'max': (160, 180)}}},
-    'highChop': {'angles': {'elbow': (90, 180), 'knee.L': (80, 105), 'trunk_lean': {'min': (0, 12), 'max': (18, 40)}}},
+    'highChop': {'angles': {'elbow': (70, 180), 'knee.L': (80, 105), 'trunk_lean': {'min': (0, 12), 'max': (18, 40)}}},
     'oneArmPulldown': {'lean_back': True, 'angles': {'elbow.R': {'min': (35, 75), 'max': (150, 178)}, 'uarm_vert.R': {'min': (0, 40), 'max': (140, 175)}}},
 }
 exec(open(os.path.join(_MDIR, 'bench2.py'), encoding='utf-8').read())
@@ -131,7 +131,7 @@ if MOVE == 'highChop':
             else:                                            # 右膝著地、小腿貼地往後
                 kn = Vector((-0.11, HY + 0.02, 0.085)); an = Vector((-0.11, HY + 0.43, 0.10))
                 leg_to(s, hj[s], an, Vector((0, -1, -0.1)), Vector((0, 0.85, -0.5)))
-        d0 = Vector((-0.22, 0.62, 0.75)).normalized(); d1 = Vector((0.05, 0.75, -0.65)).normalized()      # 手相對肩膀中點的方向（胸座標：左、前、上）
+        d0 = Vector((-0.22, 0.82, 0.45)).normalized(); d1 = Vector((0.32, 0.72, -0.55)).normalized()      # 手相對肩膀中點的方向（胸座標：左、前、上）
         dd = d0.lerp(d1, t).normalized()
         poles = {s_: Vector((0.3 * sx_, 0.5, -1)) for s_, sx_ in SX}
         def rad(dd):                                         # 手離肩膀中點多遠：讓離得比較遠的那隻手臂剛好伸到 99%、近的那隻略彎
@@ -143,7 +143,8 @@ if MOVE == 'highChop':
         def wf(cur):
             mid = (cur['L'] + cur['R']) / 2
             ctr = mid + lt * dd.x * 0.0 + (lt * dd.x + fr * dd.y + up * dd.z) * rad(dd)
-            return {s_: ctr + lt * 0.05 * sx_ for s_, sx_ in SX}
+            ax_ = lt * dd.x + fr * dd.y + up * dd.z                  # 兩手沿繩子前後錯開（一前一後握同一條繩）
+            return {s_: ctr + lt * 0.06 * sx_ + ax_ * -0.045 * sx_ for s_, sx_ in SX}
         W = lift_wrists(sh, wf, poles)
         for s, sx in SX:
             e0 = ik2(sh[s], W[s], blen[f'upper_arm.{s}'], blen[f'forearm.{s}'], poles[s])
@@ -161,13 +162,13 @@ if MOVE == 'oneArmPulldown':
     HIP_Z, HIP_Y = SEAT_Z + 0.10, 0.0
     stack, XF = bench_scene(24); dh = build_dhandle(); cbl = make_cables()
     def pose(t):
+        lam = D(-4) - D(14) * t
+        cp, sh = trunk(Vector((0, HIP_Y, HIP_Z)) + Vector((0, 0, 0.04)), lam * 0.5, lam, lam * 0.35 - D(14) * (1 - t))
         for s, sx in SX:
             hj = Vector((HIPX[s], HIP_Y, HIP_Z))
             kn = hj + Vector((0.015 * sx, -blen[f'thigh.{s}'] * 0.985, -0.06))
             an = Vector((kn.x, -0.40, 0.12))
             leg_to(s, hj, an, Vector((0, -1, 0.4)), Vector((0, -1, -0.15)))
-        lam = D(-4) - D(14) * t
-        cp, sh = trunk(Vector((0, HIP_Y, HIP_Z)) + Vector((0, 0, 0.04)), lam * 0.5, lam, lam * 0.35 - D(14) * (1 - t))
         s = 'R'; sx = -1
         d0 = Vector((0.03, -0.22, 0.97)).normalized()                                                  # 起點手舉在頭上方前面
         pole = Vector((0.25 * sx, 0.35, -0.2)).lerp(Vector((0.1 * sx, 1.0, -0.9)), t)
