@@ -7,7 +7,7 @@ final class RepTestCSVTests: XCTestCase {
     private func trial(note: String = "", weight: Double? = nil) -> RepTrial {
         RepTrial(id: "T1", date: Date(timeIntervalSince1970: 1_700_000_000), exerciseId: "db_curl",
                  view: "side", camera: "front", actualReps: 10, partialReps: 2, weightKg: weight, note: note,
-                 durationS: 31.234, frames: 900, droppedFrames: 3, avgFps: 29.96, appVersion: "0.45.0")
+                 durationS: 31.234, frames: 900, droppedFrames: 3, avgFps: 29.96, appVersion: "0.47.0")
     }
 
     func testFramesHeaderHas62Columns() {
@@ -49,7 +49,7 @@ final class RepTestCSVTests: XCTestCase {
         XCTAssertEqual(lines[0], "trial_id,date,exercise_id,view,camera,actual_reps,partial_reps,weight_kg,note,duration_s,frames,dropped_frames,avg_fps,app_version")
         XCTAssertTrue(csv.contains("\"含拿放, \"\"重\"\"\n第二行\""))
         XCTAssertTrue(csv.contains(",12.50,"))
-        XCTAssertTrue(csv.contains(",31.23,900,3,30.0,0.45.0"))
+        XCTAssertTrue(csv.contains(",31.23,900,3,30.0,0.47.0"))
     }
 
     func testEmptyWeightLeavesFieldBlank() {
