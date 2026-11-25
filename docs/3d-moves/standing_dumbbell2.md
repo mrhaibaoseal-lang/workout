@@ -52,7 +52,7 @@
   - **來源分歧**：ACE 用分腿站姿、上臂垂直地面、頂端手肘朝前不鎖死；Muscle & Strength 的起始是把啞鈴從肩上推到頭頂。取 ACE（不鎖死、手肘朝前）；3D 用雙腳平行站（站姿穩定，新手容易照做）。
   - **3D 的限制（公仔比例）**：頭很大（半徑約 18 cm），肩膀很寬（左右肩關節各 27 cm），雙手握一顆啞鈴時前臂要往內收；為了不讓手肘撞到頭，頂端手肘角只有約 142°（不是 165°～170°），上臂微微後傾 15°，啞鈴頂端橫放（握把前後向，否則下面那片槓片會插進頭頂）、往下放時轉成直立，底部手肘角約 90°（真人可以更深）；下放中途前臂少收一點（不然前臂切進頭側），所以中段雙手會稍微分開、左手離握把約 10 cm。啞鈴握把由右手固定、左手貼著握把另一側（做法同 `pullover`）。
 - **App 提示**：「手肘朝前、靠近耳朵，只彎手肘。核心收緊、肋骨往下，不要仰腰。」3D 看不出：啞鈴下放時頭保持中立（不要往前探）、呼吸（下放吸氣、伸直吐氣）。
-- **風險**：高（肩關節在頭上、頸部旁負重）→ 排進 `coach-review.md`。
+- **風險**：高（肩關節在頭上、頸部旁負重）。
 
 ---
 
@@ -73,7 +73,7 @@
   - MasterClass Dumbbell Reverse Fly（同一變化式）：https://www.masterclass.com/articles/dumbbell-reverse-fly
   - 這兩個來源都沒有明確寫軀幹角度：M&S 寫「俯身到接近平行」、另一個寫約 45°；**取中間值 60° 偏保守不抬太高**（越平行下背負擔越大）。找不到 ACE／ExRx 的同一變化式頁面，之後審查時補。
 - **App 提示**：「背打直，髖往後推，手肘微彎往兩側打開到和肩同高。想像用手肘帶動、夾緊肩胛骨，不要聳肩。」3D 看不出：核心收緊、啞鈴重量要輕（後三角很小，用比側平舉更輕的重量）。
-- **風險**：高（髖鉸鏈脊椎負重）→ 排進 `coach-review.md`。
+- **風險**：高（髖鉸鏈脊椎負重）。
 
 ---
 
@@ -94,7 +94,7 @@
   - Bodybuilding.com Tricep Dumbbell Kickback（上臂貼近軀幹、與地面平行）：https://bodybuilding.com/exercises/tricep-dumbbell-kickback
   - **來源分歧**：ACE 寫上臂與軀幹平行；bodybuilding.com 寫與地面平行。軀幹前傾 54° 時兩種寫法差約 36°。取**較保守的「與軀幹平行」再略抬高 14°**（上臂在背的方向，往上抬離背不超過約 20°，肩關節後伸量較小）。
 - **App 提示**：「背打直，上臂貼著身體固定不動，只動前臂。踢到底停一秒，慢慢放回。」3D 看不出：核心收緊、上臂不要往下掉、重量用輕的。
-- **風險**：高（髖鉸鏈脊椎負重）→ 排進 `coach-review.md`。
+- **風險**：高（髖鉸鏈脊椎負重）。
 
 ---
 
@@ -116,7 +116,7 @@
   - Outside Online「How to Execute a Proper Single-Leg Romanian Deadlift」（後腿與軀幹成一直線、背平、骨盆水平；新手建議先做「單腳尖點地」的版本）：https://www.outsideonline.com/health/running/training/cross-training/how-to-execute-a-proper-single-leg-romanian-deadlift
   - 沒找到 NSCA／ExRx 的同一變化式頁面，之後審查時補。**來源分歧**：兩個來源對底部深度沒有給角度；取「後腿和軀幹成一條線、軀幹約 75°」（不勉強到水平 90°，新手背平比深度重要）。
 - **App 提示**：「站穩一隻腳，髖往後推，另一隻腳跟著往後抬、和背成一條線。背打直、骨盆保持水平，膝蓋微彎不要鎖死。」3D 看不出：腳掌要踩穩（重心在腳掌中間）、核心收緊、新手可以後腳不要抬那麼高（腳尖輕點地）。
-- **風險**：高（單腳平衡、髖鉸鏈脊椎負重）→ 排進 `coach-review.md`。
+- **風險**：高（單腳平衡、髖鉸鏈脊椎負重）。
 
 ---
 
@@ -180,16 +180,9 @@
 
 **BRIEF §10「動作：Claude」表要加的一行**：
 
-| 站姿啞鈴 2 | `calf`（雙腳站地板，App 有單腳版）、`triceps`（站姿過頭伸展、雙手一顆，頂端手肘 142°）、`rearFly`、`kickback`（雙手同時）、`slRdl`（雙手各一顆）（動作卡 `docs/3d-moves/standing_dumbbell2.md`，總覽 `docs/art/blender/standing2_batch.png`）。`[angles]` 全 PASS；deformcheck 單格壞面 calf 58、rearFly 148、slRdl 168、kickback 325、triceps 521（肩、髖、手肘窩）；clipcheck 基本款單格最大 calf 3／triceps 22／rearFly 1／kickback 0／slRdl 2；系列穿模只記錄：triceps 鈦甲 494、冰霜 1558、小豬 1315，kickback 鈦甲 108，其餘 ≤ 32。AI 審查（§8-1）未做 | 完成待審查（Claude，2026-11-25） |
+| 站姿啞鈴 2 | `calf`（雙腳站地板，App 有單腳版）、`triceps`（站姿過頭伸展、雙手一顆，頂端手肘 142°）、`rearFly`、`kickback`（雙手同時）、`slRdl`（雙手各一顆）（動作卡 `docs/3d-moves/standing_dumbbell2.md`，總覽 `docs/art/blender/standing2_batch.png`）。`[angles]` 全 PASS；deformcheck 單格壞面 calf 58、rearFly 148、slRdl 168、kickback 325、triceps 521（肩、髖、手肘窩）；clipcheck 基本款單格最大 calf 3／triceps 22／rearFly 1／kickback 0／slRdl 2；系列穿模只記錄：triceps 鈦甲 494、冰霜 1558、小豬 1315，kickback 鈦甲 108，其餘 ≤ 32。AI 審查（§8-1）未做 | 完成（Claude，2026-11-25） |
 
 **BRIEF「還沒做的」表**：刪掉「站姿啞鈴 2」那一列。
 
-**`coach-review.md` 要加的列**（照風險排序，高風險放前面）：
-
-| `slRdl` 單腳羅馬尼亞硬舉 | 站姿啞鈴 2 | 高 | 未做 | 未看 | | |
-| `rearFly` 俯身反向飛鳥 | 站姿啞鈴 2 | 高 | 未做（沒找到 ACE／ExRx 的同一變化式頁面，要補） | 未看 | | |
-| `kickback` 俯身三頭後踢 | 站姿啞鈴 2 | 高 | 未做 | 未看 | | |
-| `triceps` 站姿啞鈴過頭三頭伸展 | 站姿啞鈴 2 | 高 | 未做（頂端手肘只有 142°，公仔比例限制） | 未看 | | |
-| `calf` 站姿啞鈴提踵 | 站姿啞鈴 2 | 一般 | 未做（App 是單腳版） | 未看 | | |
 
 **共用檔案異動**：無（只新增 `moves/standing_dumbbell2.py`，所有輔助函式寫在該檔裡，沒改 `moves3d.py`）。
