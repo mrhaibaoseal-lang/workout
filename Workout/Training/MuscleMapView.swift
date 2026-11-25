@@ -8,6 +8,16 @@ struct MuscleMapView: View {
     let fill: (Muscle) -> Color
     var selected: Muscle? = nil
     var onTap: ((Muscle) -> Void)? = nil
+    /// 第一次進到畫面時，各肌群從底色依序填到目標顏色（預設不播，其他畫面不受影響）。
+    var animateIn: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var introStart: Date?
+    @State private var introDone = false
+
+    private static let introDuration = 0.6
+    private static let introStagger = 0.04
+    private var introActive: Bool { animateIn && !reduceMotion && !introDone }
 
     private static let boxX: Double = -118
     private static let boxY: Double = -6
@@ -40,23 +50,44 @@ struct MuscleMapView: View {
 
     var body: some View {
         GeometryReader { geo in
-            Canvas { ctx, size in
-                let f = Self.fit(size)
-                ctx.translateBy(x: f.ox, y: f.oy)
-                ctx.scaleBy(x: f.k, y: f.k)
-                draw(&ctx)
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                SpatialTapGesture().onEnded { value in
-                    handleTap(value.location, size: geo.size)
+            if introActive {
+                TimelineView(.animation) { tl in
+                    mapCanvas(geo.size, elapsed: introStart.map { tl.date.timeIntervalSince($0) } ?? 0)
                 }
-            )
+            } else {
+                mapCanvas(geo.size, elapsed: nil)
+            }
         }
         .accessibilityLabel(side == .front ? "正面肌肉圖" : "背面肌肉圖")
+        .onFirstVisible { startIntro() }
     }
 
-    private func draw(_ ctx: inout GraphicsContext) {
+    private func mapCanvas(_ size: CGSize, elapsed: Double?) -> some View {
+        Canvas { ctx, size in
+            let f = Self.fit(size)
+            ctx.translateBy(x: f.ox, y: f.oy)
+            ctx.scaleBy(x: f.k, y: f.k)
+            draw(&ctx, elapsed: elapsed)
+        }
+        .contentShape(Rectangle())
+        .gesture(
+            SpatialTapGesture().onEnded { value in
+                handleTap(value.location, size: size)
+            }
+        )
+    }
+
+    private func startIntro() {
+        guard introActive, introStart == nil else { return }
+        introStart = .now
+        let total = Self.introDuration + Self.introStagger * Double(Muscle.allCases.count) + 0.1
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(total))
+            introDone = true
+        }
+    }
+
+    private func draw(_ ctx: inout GraphicsContext, elapsed: Double?) {
         let list = shapes
         let body = Self.silhouettes[side] ?? Path()
         // 外框 → 身體底色 → 裁切在身體裡面畫肌肉（貼邊的肌肉和外框齊平）
@@ -72,7 +103,16 @@ struct MuscleMapView: View {
         for s in list {
             guard let id = s.muscle, let m = Muscle(rawValue: id) else { continue }
             let p = SVGPathCache.path(s.d)
-            inner.fill(p, with: .color(fill(m)))
+            if let elapsed {
+                // 先鋪底色，再依序疊上目標顏色（不同肌群錯開起跑，ease-out）
+                let idx = Double(Muscle.allCases.firstIndex(of: m) ?? 0)
+                let t = min(1, max(0, (elapsed - idx * Self.introStagger) / Self.introDuration))
+                let eased = 1 - pow(1 - t, 3)
+                inner.fill(p, with: .color(Self.idle))
+                if eased > 0 { inner.fill(p, with: .color(fill(m).opacity(eased))) }
+            } else {
+                inner.fill(p, with: .color(fill(m)))
+            }
             inner.stroke(p, with: .color(Self.seam), style: StrokeStyle(lineWidth: 1.1, lineJoin: .round))
         }
         if let sel = selected {
@@ -133,9 +173,9 @@ struct MuscleVolumeCard: View {
             .pickerStyle(.segmented)
 
             HStack(spacing: 8) {
-                MuscleMapView(side: .front, fill: { color($0, data) }, selected: selected, onTap: toggle)
+                MuscleMapView(side: .front, fill: { color($0, data) }, selected: selected, onTap: toggle, animateIn: true)
                     .frame(height: 260)
-                MuscleMapView(side: .back, fill: { color($0, data) }, selected: selected, onTap: toggle)
+                MuscleMapView(side: .back, fill: { color($0, data) }, selected: selected, onTap: toggle, animateIn: true)
                     .frame(height: 260)
             }
 
