@@ -70,6 +70,7 @@ struct WorkoutView: View {
     @State private var showStretch = false
     @State private var stretchDone = false
     @EnvironmentObject private var inventory: InventoryStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     /// 練完的分享圖卡（`ShareCardData`）
     @State private var shareData: ShareCardData?
@@ -93,6 +94,13 @@ struct WorkoutView: View {
 
     private func step(of id: UUID) -> Superset.Step? {
         order.first { drafts[$0.exercise].sets[$0.set].id == id }
+    }
+
+    /// 剛做完 old 這一組，下一組還在同一個動作裡（要捲到下一組，不是換動作）
+    private func advancedWithinExercise(from old: UUID) -> Bool {
+        guard let d = drafts.first(where: { $0.sets.contains { $0.id == old } }),
+              d.sets.contains(where: { $0.id == old && $0.done }) else { return false }
+        return d.id == activeExerciseId
     }
 
     private var activeExerciseId: String? {
@@ -170,7 +178,12 @@ struct WorkoutView: View {
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: activeExerciseId) { _, id in
                         guard let id else { return }
-                        withAnimation(.easeInOut) { proxy.scrollTo(id, anchor: .top) }
+                        withAnimation(reduceMotion ? WorkoutMotion.fade : .smooth(duration: 0.45)) { proxy.scrollTo(id, anchor: .top) }
+                    }
+                    // 同一個動作做完一組、輪到下一組：平順捲到下一組
+                    .onChange(of: activeSetId) { old, new in
+                        guard let old, let new, advancedWithinExercise(from: old) else { return }
+                        withAnimation(reduceMotion ? WorkoutMotion.fade : .smooth(duration: 0.45)) { proxy.scrollTo(new, anchor: .center) }
                     }
                 }
             }
@@ -232,16 +245,9 @@ struct WorkoutView: View {
             }
             .overlay(alignment: .top) {
                 if let t = toast {
-                    Text(t)
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(Theme.bg)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(Theme.green, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .padding(.horizontal, 24)
-                        .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
-                        .padding(.top, 60)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                    ToastBanner(text: t)
+                        .id(t)
+                        .transition(.toastDrop(reduce: reduceMotion))
                 }
             }
             .overlay {
@@ -436,13 +442,15 @@ struct WorkoutView: View {
                             Capsule().fill(Theme.line)
                             Capsule().fill(frac >= 1 ? Theme.accent : (isActive ? Theme.hot : Theme.accent))
                                 .frame(width: geo.size.width * frac)
+                                .animation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.layout), value: frac)
                         }
                     }
                     .frame(height: 6)
                 }
             }
             let current = drafts.firstIndex { $0.id == activeExerciseId }.map { $0 + 1 } ?? drafts.count
-            Text("動作 \(current) / \(drafts.count) · 已完成 \(doneSets) / \(totalSets) 組")
+            RollingText("動作 \(current) / \(drafts.count) · 已完成 \(doneSets) / \(totalSets) 組",
+                        value: Double(doneSets * 1000 + current))
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
         }
@@ -847,11 +855,13 @@ struct WorkoutView: View {
     }
 
     private func showToast(_ text: String) {
-        withAnimation(.spring(duration: 0.3)) { toast = text }
+        // 從頂端彈下來（有回彈），依內容配成功／提醒的觸覺
+        withAnimation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.toastIn)) { toast = text }
+        ToastKind.of(text).haptic()
         // 長的提醒多留一點時間讀
         let seconds = max(2.5, Double(text.count) / 12)
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
-            if toast == text { withAnimation { toast = nil } }
+            if toast == text { withAnimation(WorkoutMotion.pick(reduceMotion, .easeIn(duration: 0.22))) { toast = nil } }
         }
     }
 
@@ -923,6 +933,7 @@ struct WorkoutView: View {
                      onAvoid: { avoid(at: i, reason: $0, joint: $1) },
                      onLogPain: { logPainOnly(at: i, joint: $0) })
             .id(drafts[i].id)
+            .transition(.exercisePush(reduce: reduceMotion))
     }
 
     // MARK: 會痛／不喜歡
@@ -979,7 +990,10 @@ struct WorkoutView: View {
     private func swap(at i: Int, to ex: Exercise) {
         guard !drafts[i].locked else { return }
         let item = drafts[i].item.swapped(to: ex)
-        rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
+        // 舊動作的卡片往側邊推走、新的滑進來
+        withAnimation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.layout)) {
+            rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
+        }
         showToast("換成「\(ex.name)」")
     }
 
