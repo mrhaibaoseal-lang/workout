@@ -52,9 +52,9 @@ struct RecordsScreen: View {
                         .padding(.top, 40)
                 } else {
                     HStack(spacing: 8) {
-                        summaryTile("\(events.count)", "破紀錄總次數", color: Theme.hotText)
-                        summaryTile("\(recentCount)", "最近 30 天", color: Theme.fg)
-                        summaryTile("\(stalled.count)", "停滯中的動作", color: stalled.isEmpty ? Theme.fg : Theme.gold)
+                        summaryTile(events.count, "破紀錄總次數", color: Theme.hotText)
+                        summaryTile(recentCount, "最近 30 天", color: Theme.fg)
+                        summaryTile(stalled.count, "停滯中的動作", color: stalled.isEmpty ? Theme.fg : Theme.gold)
                     }
 
                     if let end = deloadEnd {
@@ -80,9 +80,9 @@ struct RecordsScreen: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    private func summaryTile(_ value: String, _ label: String, color: Color) -> some View {
+    private func summaryTile(_ value: Int, _ label: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(Theme.number(28)).foregroundStyle(color)
+            CountUpText(value).font(Theme.number(28)).foregroundStyle(color)
             Text(label).font(.caption).foregroundStyle(Theme.muted)
         }
         .themeCard(padding: 12, radius: 16)
@@ -212,7 +212,7 @@ struct RecordsScreen: View {
             VStack(alignment: .trailing, spacing: 2) {
                 if r.exercise.loaded {
                     if let m = r.maxWeight {
-                        Text("最重 \(Progression.format(m.weight)) kg")
+                        CountUpText(m.weight) { "最重 \(Progression.format($0)) kg" }
                             .font(Theme.number(14)).foregroundStyle(Theme.fg)
                     }
                     if let e = r.bestE1RM {
@@ -220,7 +220,7 @@ struct RecordsScreen: View {
                             .font(.caption).foregroundStyle(Theme.muted)
                     }
                 } else if let m = r.maxReps {
-                    Text("最多 \(m.reps) \(r.exercise.unit.label)")
+                    CountUpText(Double(m.reps)) { "最多 \(Int($0.rounded())) \(r.exercise.unit.label)" }
                         .font(Theme.number(14)).foregroundStyle(Theme.fg)
                 }
             }
@@ -239,7 +239,8 @@ struct ExerciseRecordsView: View {
 
     private struct TileItem: Identifiable {
         let title: String
-        let value: String
+        let number: Double
+        let text: (Double) -> String
         let sub: String
         var id: String { title }
     }
@@ -281,7 +282,7 @@ struct ExerciseRecordsView: View {
         let big: Double = ex.loaded ? (rec.bestE1RM?.value ?? 0) : Double(rec.maxReps?.reps ?? 0)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(ex.loaded ? String(format: "%.1f", big) : "\(Int(big))")
+                CountUpText(big) { ex.loaded ? String(format: "%.1f", $0) : "\(Int($0))" }
                     .font(Theme.number(40)).foregroundStyle(Theme.fg)
                 Text(unit).font(.subheadline).foregroundStyle(Theme.muted)
             }
@@ -313,6 +314,13 @@ struct ExerciseRecordsView: View {
                     AxisValueLabel(format: .dateTime.month(.defaultDigits).day()).foregroundStyle(Theme.muted)
                 }
             }
+            .chartOverlay { proxy in
+                if let last = pts.last {
+                    ChartLastPointMarker(proxy: proxy, x: last.date, y: last.value,
+                                         color: prDays.contains(last.date) ? Theme.hot : Theme.accent)
+                }
+            }
+            .chartDrawIn()
             .frame(height: 170)
 
             if !prDays.isEmpty {
@@ -331,29 +339,30 @@ struct ExerciseRecordsView: View {
         if rec.exercise.loaded {
             var items: [TileItem] = []
             if let m = rec.maxWeight {
-                items.append(TileItem(title: "最大重量", value: "\(Progression.format(m.weight)) kg",
+                items.append(TileItem(title: "最大重量", number: m.weight, text: { "\(Progression.format($0)) kg" },
                                       sub: "× \(m.reps) · \(shortDateText(m.date))"))
             }
             if let e = rec.bestE1RM {
-                items.append(TileItem(title: "推估最大力量", value: "\(Progression.format(Progression.roundHalf(e.value))) kg",
+                items.append(TileItem(title: "推估最大力量", number: Progression.roundHalf(e.value), text: { "\(Progression.format($0)) kg" },
                                       sub: "\(Progression.format(e.weight)) × \(e.reps) · \(shortDateText(e.date))"))
             }
             if let v = rec.bestSetVolume {
-                items.append(TileItem(title: "單組最大量", value: "\(Progression.format(v.value.rounded())) kg",
+                items.append(TileItem(title: "單組最大量", number: v.value.rounded(), text: { "\(Progression.format($0)) kg" },
                                       sub: shortDateText(v.date)))
             }
             if let v = rec.bestSessionVolume {
-                items.append(TileItem(title: "單次訓練最大量", value: "\(Progression.format(v.value.rounded())) kg",
+                items.append(TileItem(title: "單次訓練最大量", number: v.value.rounded(), text: { "\(Progression.format($0)) kg" },
                                       sub: shortDateText(v.date)))
             }
             return items
         }
         var items: [TileItem] = []
         if let m = rec.maxReps {
-            items.append(TileItem(title: "單組最多", value: "\(m.reps) \(rec.exercise.unit.label)",
+            items.append(TileItem(title: "單組最多", number: Double(m.reps),
+                                  text: { "\(Int($0.rounded())) \(rec.exercise.unit.label)" },
                                   sub: shortDateText(m.date)))
         }
-        items.append(TileItem(title: "累積組數", value: "\(rec.setCount)", sub: "正式組"))
+        items.append(TileItem(title: "累積組數", number: Double(rec.setCount), text: { "\(Int($0.rounded()))" }, sub: "正式組"))
         return items
     }
 
@@ -363,7 +372,7 @@ struct ExerciseRecordsView: View {
             ForEach(items) { t in
                 VStack(alignment: .leading, spacing: 3) {
                     Text(t.title).font(.caption).foregroundStyle(Theme.muted)
-                    Text(t.value).font(Theme.number(22)).foregroundStyle(Theme.fg)
+                    CountUpText(t.number, format: t.text).font(Theme.number(22)).foregroundStyle(Theme.fg)
                         .minimumScaleFactor(0.7).lineLimit(1)
                     Text(t.sub).font(.caption2).foregroundStyle(Theme.muted)
                 }
