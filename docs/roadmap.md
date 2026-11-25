@@ -159,7 +159,7 @@
 - 0.43.0（2026-11-25）：第一次開 App 的分頁問卷＋端對端加密雲端備份。細節見 `docs/training-system.md`「第一次的問卷、雲端備份（0.43.0）」。
   - 問卷（`Onboarding/`）：身體資料 → 訓練經驗 → 每週幾天／每次多久 → 會痛的部位 → 器材 → 程度評估 → 左右平衡 →（雲端）。每頁可略過；設定 → 訓練 →「重新填問卷」只更新有填的欄位。
   - 程度評估的划船改成左右手各測，兩手差 2 下以上自動設弱手；熱量估算接上身高、年齡、性別。
-  - 雲端（`Cloud/`、`cloud/worker/`）：`FullBackup` JSON → zlib → AES-256-GCM → Cloudflare Worker + D1，恢復碼換手機。**Worker 網址還沒填，功能預設整個隱藏，要先做下面「使用者要做的 Cloudflare 設定」。**
+  - 雲端（`Cloud/`、`cloud/worker/`）：`FullBackup` JSON → zlib → AES-256-GCM → Cloudflare Worker + D1，恢復碼換手機。**Worker 已部署（2026-11-25，`https://workout-sync.mr-haibaoseal.workers.dev`），網址已填進 App（0.45.0 起雲端選項會出現）；Cloudflare 設定這段已做完。**
 - 0.37.0（2026-11-24）：AI 看懂備註（`Training/NoteReader.swift`）。練完讀每個動作的備註和整次備註，教練講評頁最下面多一張「從備註看到」，
   會痛／太輕／太重／左右差／器材問題，**先問再改**，按了才生效。細節見 `docs/training-system.md`「看懂備註（0.37.0）」、規格 `docs/note-reader.md`。
 - 0.36.0：動作介紹頁（`DemoVideoSheet`，動作卡「看影片」打開的單一動作說明）最上面加示範動畫（穿目前裝備的 2D 角色，200pt，減少動態效果時定格）。
