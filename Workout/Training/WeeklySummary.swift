@@ -106,7 +106,7 @@ enum WeeklySummary {
             for e in s.entries where e.isWork {
                 workSets += 1
                 guard let ex = ExerciseLibrary.byId(e.exerciseId) else { continue }
-                for (m, c) in ex.pattern.muscles { muscle[m, default: 0] += c }
+                for (m, c) in ex.trainedMuscles { muscle[m, default: 0] += c }
                 let v = ex.loaded ? e.weight : Double(e.reps)
                 best[e.exerciseId] = max(best[e.exerciseId] ?? 0, v)
             }

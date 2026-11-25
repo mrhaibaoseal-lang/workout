@@ -42,6 +42,8 @@ enum StartWeight {
         "goblet_15": 0.33, "heel_goblet": 0.4, "db_step_up": 0.2, "db_pullover": 0.2,
         "db_incline_curl": 0.12, "db_concentration_curl": 0.13, "db_skull": 0.15, "db_kickback": 0.07,
         "db_chest_rear_fly": 0.07,
+        // 0.44.0 新增（農夫走路是計時動作，起始重量不推估，讓使用者自己選）
+        "db_fly": 0.14, "cable_one_arm_pulldown": 0.4, "db_side_lying_lateral": 0.06, "cable_high_chop": 0.25,
     ]
 
     /// 試重組的目標：還剩 2 下

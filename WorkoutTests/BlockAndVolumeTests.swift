@@ -359,6 +359,49 @@ final class BlockAndVolumeTests: XCTestCase {
         XCTAssertNil(Nutrition.average([:], days: 7, now: now))
     }
 
+    // MARK: 動作自己指定部位
+
+    func testExerciseOwnMusclesOverridePattern() {
+        func dict(_ l: [(Muscle, Double)]) -> [Muscle: Double] { Dictionary(uniqueKeysWithValues: l) }
+        // 有指定：用指定的，不是動作類型的
+        let ytw = ExerciseLibrary.byId("prone_ytw")!
+        XCTAssertEqual(dict(ytw.trainedMuscles), [.rearDelt: 1, .traps: 1])
+        XCTAssertNil(dict(ytw.trainedMuscles)[.lats])
+        let hammer = ExerciseLibrary.byId("db_hammer_curl")!
+        XCTAssertEqual(dict(hammer.trainedMuscles), [.biceps: 1, .forearms: 1])
+        for id in ["db_split_squat", "split_squat", "pause_split_squat", "db_step_up"] {
+            XCTAssertEqual(dict(ExerciseLibrary.byId(id)!.trainedMuscles), [.quads: 1, .glutes: 1], id)
+        }
+        // 沒指定：回傳動作類型的部位
+        let bench = ExerciseLibrary.byId("db_bench")!
+        XCTAssertNil(bench.muscles)
+        XCTAssertEqual(dict(bench.trainedMuscles), dict(bench.pattern.muscles))
+        // 新動作：部位正確、同動作類型的排課（VolumePlan）不受影響
+        XCTAssertEqual(dict(ExerciseLibrary.byId("side_plank")!.trainedMuscles), [.obliques: 1])
+        XCTAssertEqual(dict(ExerciseLibrary.byId("sissy_squat")!.trainedMuscles), [.quads: 1])
+        XCTAssertEqual(dict(ExerciseLibrary.byId("cable_high_chop")!.trainedMuscles), [.obliques: 1, .abs: 0.5])
+    }
+
+    func testNewExercisesInLibrary() {
+        let ids = ["sissy_squat", "reverse_nordic", "cable_high_chop", "side_plank", "farmer_walk",
+                   "cable_one_arm_pulldown", "db_side_lying_lateral", "db_fly"]
+        for id in ids { XCTAssertNotNil(ExerciseLibrary.byId(id), id) }
+        let all = ExerciseLibrary.builtIn.map(\.id)
+        XCTAssertEqual(all.count, Set(all).count, "動作 id 不重複")
+        // 滑輪動作只用高位（.cable），不用器械
+        XCTAssertEqual(ExerciseLibrary.byId("cable_high_chop")!.requires, [.cable])
+        XCTAssertEqual(ExerciseLibrary.byId("cable_one_arm_pulldown")!.requires, [.cable])
+        // 單側動作接上左右平衡
+        for id in ["cable_one_arm_pulldown", "cable_high_chop", "side_plank"] {
+            XCTAssertTrue(SideBalance.sided(ExerciseLibrary.byId(id)!), id)
+        }
+        // 腿伸展：健身房機器版還是第一個，在家有徒手版
+        let gym = ExerciseLibrary.candidates(for: .quadIso, equipment: Equipment.gym).map(\.id)
+        XCTAssertEqual(gym.first, "leg_extension")
+        let home = ExerciseLibrary.candidates(for: .quadIso, equipment: []).map(\.id)
+        XCTAssertEqual(home, ["sissy_squat", "reverse_nordic"])
+    }
+
     // MARK: DemoVideos
 
     func testDemoVideoIdsValidAndExercisesExist() {
