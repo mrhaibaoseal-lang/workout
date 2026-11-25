@@ -402,6 +402,42 @@ final class BlockAndVolumeTests: XCTestCase {
         XCTAssertEqual(home, ["sissy_squat", "reverse_nordic"])
     }
 
+    // MARK: 第二批 4 個動作（鳥狗式、手提箱行走、啞鈴傳統硬舉、單手繩索三頭下壓）
+
+    func testSecondBatchExercises() {
+        func dict(_ l: [(Muscle, Double)]) -> [Muscle: Double] { Dictionary(uniqueKeysWithValues: l) }
+        let ids = ["bird_dog", "suitcase_carry", "db_deadlift", "cable_one_arm_pushdown"]
+        for id in ids { XCTAssertNotNil(ExerciseLibrary.byId(id), id) }
+        let all = ExerciseLibrary.builtIn.map(\.id)
+        XCTAssertEqual(all.count, Set(all).count, "動作 id 不重複")
+        // 部位
+        XCTAssertEqual(dict(ExerciseLibrary.byId("bird_dog")!.trainedMuscles), [.abs: 1, .lowerBack: 1])
+        XCTAssertEqual(dict(ExerciseLibrary.byId("suitcase_carry")!.trainedMuscles), [.obliques: 1, .forearms: 1])
+        XCTAssertEqual(dict(ExerciseLibrary.byId("db_deadlift")!.trainedMuscles), [.glutes: 1, .hamstrings: 1, .quads: 0.5])
+        XCTAssertEqual(dict(ExerciseLibrary.byId("cable_one_arm_pushdown")!.trainedMuscles), [.triceps: 1])
+        // 器材：在家做得到（只有啞鈴、滑輪、徒手）；單位
+        XCTAssertEqual(ExerciseLibrary.byId("bird_dog")!.requires, [])
+        XCTAssertEqual(ExerciseLibrary.byId("suitcase_carry")!.requires, [.dumbbell])
+        XCTAssertEqual(ExerciseLibrary.byId("db_deadlift")!.requires, [.dumbbell])
+        XCTAssertEqual(ExerciseLibrary.byId("cable_one_arm_pushdown")!.requires, [.cable])
+        XCTAssertEqual(ExerciseLibrary.byId("suitcase_carry")!.unit, .seconds)
+        XCTAssertEqual(ExerciseLibrary.byId("bird_dog")!.unit, .reps)
+        // 兩個單手動作接上左右平衡
+        for id in ["suitcase_carry", "cable_one_arm_pushdown"] {
+            XCTAssertTrue(SideBalance.sided(ExerciseLibrary.byId(id)!), id)
+        }
+        // 手提箱行走只拿一支啞鈴；傳統硬舉兩支
+        XCTAssertEqual(WeightKit.use(for: ExerciseLibrary.byId("suitcase_carry")!), .single)
+        XCTAssertEqual(WeightKit.use(for: ExerciseLibrary.byId("db_deadlift")!), .pair)
+        // 起始重量比例：負重次數動作有值（計時的手提箱行走不推估）
+        XCTAssertNotNil(StartWeight.strength["db_deadlift"])
+        XCTAssertNotNil(StartWeight.strength["cable_one_arm_pushdown"])
+        XCTAssertNil(StartWeight.strength["suitcase_carry"])
+        // 示範：共用相近動作的影片
+        XCTAssertNotNil(DemoVideos.video(for: ExerciseLibrary.byId("db_deadlift")!))
+        XCTAssertNotNil(DemoVideos.video(for: ExerciseLibrary.byId("cable_one_arm_pushdown")!))
+    }
+
     // MARK: DemoVideos
 
     func testDemoVideoIdsValidAndExercisesExist() {

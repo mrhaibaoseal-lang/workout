@@ -52,6 +52,8 @@ enum DemoVideos {
     /// 進階版沿用原本動作的影片（動作一樣，只是更慢或停頓）
     static let sameAs: [String: String] = [
         "pause_pushup": "pushup", "pause_split_squat": "split_squat",
+        // 第二批動作共用相近動作的影片
+        "db_deadlift": "db_rdl", "cable_one_arm_pushdown": "cable_pushdown",
     ]
 
     static func video(for ex: Exercise) -> DemoVideo? {

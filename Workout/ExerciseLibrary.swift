@@ -143,6 +143,7 @@ enum ExerciseLibrary {
         Exercise(id: "db_rdl", name: "啞鈴羅馬尼亞硬舉", pattern: .hinge, requires: [.dumbbell], loaded: true, tip: "膝微彎，屁股往後推，背保持平直"),
         Exercise(id: "db_sl_rdl", name: "啞鈴單腳羅馬尼亞硬舉", pattern: .hinge, requires: [.dumbbell], loaded: true, tip: "單手拿啞鈴、對側腳站，屁股往後推，可以扶著下拉架保持平衡（每邊做）"),
         Exercise(id: "kb_swing", name: "壺鈴擺盪", pattern: .hinge, requires: [.kettlebell], loaded: true, tip: "用屁股發力把壺鈴甩出去，不是用手舉"),
+        Exercise(id: "db_deadlift", name: "啞鈴傳統硬舉", pattern: .hinge, requires: [.dumbbell], loaded: true, muscles: [(.glutes, 1), (.hamstrings, 1), (.quads, 0.5)], tip: "兩手各拿啞鈴放在腳邊兩側，屁股後坐、膝蓋彎得比羅馬尼亞硬舉多，背打直，用腿和臀把身體站起來，啞鈴貼著腿"),
         Exercise(id: "sl_rdl", name: "單腳羅馬尼亞硬舉", pattern: .hinge, requires: [], loaded: false, tip: "單腳站，上身往前傾到與地面平行（每邊做）"),
 
         // 弓步
@@ -185,6 +186,7 @@ enum ExerciseLibrary {
         // 三頭
         Exercise(id: "cable_pushdown", name: "繩索三頭下壓", pattern: .triceps, requires: [.cable], loaded: true, tip: "用三頭繩，手肘貼身，壓到底時把繩子往兩邊拉開"),
         Exercise(id: "cable_overhead_ext", name: "繩索過頭三頭伸展", pattern: .triceps, requires: [.cable], loaded: true, tip: "背對滑輪，手肘朝前，往前上方伸直"),
+        Exercise(id: "cable_one_arm_pushdown", name: "單手繩索三頭下壓", pattern: .triceps, requires: [.cable], loaded: true, tip: "單手握 D 把手或單條繩子，手肘貼身固定，往下壓到手臂打直，上身不要跟著動（每邊做）"),
         Exercise(id: "db_overhead_ext", name: "啞鈴過頭三頭伸展", pattern: .triceps, requires: [.dumbbell], loaded: true, tip: "雙手握一顆啞鈴，手肘朝前不外開"),
         Exercise(id: "db_skull", name: "啞鈴仰臥三頭伸展", pattern: .triceps, requires: [.dumbbell, .bench], loaded: true, tip: "躺椅上，上臂垂直地面不動，只彎手肘把啞鈴放到耳朵旁再伸直"),
         Exercise(id: "db_kickback", name: "啞鈴三頭後踢", pattern: .triceps, requires: [.dumbbell], loaded: true, tip: "上身前傾，上臂貼身體不動，把啞鈴往後踢到手臂打直，停 1 秒"),
@@ -211,10 +213,12 @@ enum ExerciseLibrary {
         Exercise(id: "decline_crunch", name: "下斜捲腹", pattern: .core, requires: [.bench], loaded: false, tip: "腳勾住健身椅的滾筒，背不用碰到底"),
         Exercise(id: "hanging_knee", name: "懸垂舉膝", pattern: .core, requires: [.pullupBar], loaded: false, muscles: [(.abs, 1), (.forearms, 0.5)], tip: "吊在單槓上，膝蓋抬到胸前，不要晃"),
         Exercise(id: "farmer_walk", name: "農夫走路", pattern: .core, requires: [.dumbbell], loaded: true, unit: .seconds, range: 30...60, muscles: [(.forearms, 1), (.traps, 1), (.abs, 0.5)], tip: "兩手各拿一顆啞鈴垂在身側，挺胸收腹、肩膀下沉，穩穩走直線，握不住就停"),
+        Exercise(id: "suitcase_carry", name: "手提箱行走（單手）", pattern: .core, requires: [.dumbbell], loaded: true, unit: .seconds, range: 30...60, muscles: [(.obliques, 1), (.forearms, 1)], tip: "單手拿一顆啞鈴垂在身側，像提行李箱，身體不要往重的那邊歪，肩膀水平，穩穩走直線（每邊做）"),
         Exercise(id: "dead_bug", name: "死蟲式", pattern: .core, requires: [], loaded: false, tip: "下背貼地，對側手腳慢慢伸直"),
         Exercise(id: "reverse_crunch", name: "反向捲腹", pattern: .core, requires: [], loaded: false, tip: "躺著，用腹部把骨盆捲起來、膝蓋帶向胸口，慢慢放下，不要甩"),
         Exercise(id: "plank", name: "棒式", pattern: .core, requires: [], loaded: false, unit: .seconds, range: 30...60, tip: "身體一直線，夾臀收腹"),
         Exercise(id: "side_plank", name: "側棒式", pattern: .core, requires: [], loaded: false, unit: .seconds, range: 20...45, muscles: [(.obliques, 1)], tip: "手肘撐地，身體側躺成一直線，髖部撐高不下垂（每邊做）"),
+        Exercise(id: "bird_dog", name: "鳥狗式", pattern: .core, requires: [], loaded: false, muscles: [(.abs, 1), (.lowerBack, 1)], tip: "四足跪姿，對側手腳同時往外伸直到和背一條線，停 1 秒再收回，骨盆不要左右晃"),
 
         // 徒手動作的進階版（0.33.0）：放在最後，平常不會排到；原本的徒手動作每組都做到次數上限才自動升級（`Upgrade`）
         Exercise(id: "pause_pushup", name: "暫停伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "胸口離地一個拳頭時停 2 秒，再推起來"),
