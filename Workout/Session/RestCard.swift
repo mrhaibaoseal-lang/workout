@@ -25,10 +25,12 @@ struct RestCard: View {
     }
 
     private func running(left: Double, now: Date) -> some View {
-        let warm = FXMath.seg(10 - left, 0, 7)
-        let col = FXMath.mix(Theme.green, Theme.hot, warm)
+        let warm = RestMotion.warm(left: left)
+        let col = RestMotion.color(left: left)
         let last3 = left < 3
-        let beat = last3 && !reduceMotion ? 1 + 0.08 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
+        // 剩 10 秒變警示色、開始心跳（每秒兩下，越接近 0 越有力）
+        let pulse = RestMotion.heartbeat(left: left)
+        let beat = reduceMotion ? 1 : 1 + 0.12 * pulse
         let p = left / max(total, 1)
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
@@ -51,7 +53,7 @@ struct RestCard: View {
                 }
                 .frame(width: 64, height: 64)
                 .scaleEffect(beat)
-                .shadow(color: col.opacity(last3 ? 0.6 : 0), radius: 10)
+                .shadow(color: col.opacity(warm > 0 ? (reduceMotion ? 0.45 : 0.25 + 0.4 * pulse) : 0), radius: 10)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(last3 ? "準備！" : "休息中").font(.subheadline.weight(.bold)).foregroundStyle(last3 ? col : Theme.fg)
                         .lineLimit(1).minimumScaleFactor(0.7)
@@ -91,6 +93,8 @@ struct RestCard: View {
     private func finished(over: Double) -> some View {
         let pop = reduceMotion ? 1 : 1 + 0.12 * exp(-over * 5) * cos(over * 16)
         let glow = reduceMotion ? 0.5 : 0.4 + 0.3 * sin(over * 5)
+        // 歸零那一下整個閃一次
+        let flash = RestMotion.flash(over: over)
         return Button(action: onSkip) {
             Label("休息結束，下一組！", systemImage: "bolt.fill")
                 .font(.headline.weight(.heavy))
@@ -109,7 +113,12 @@ struct RestCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                 }
-                .shadow(color: Theme.green.opacity(glow), radius: 14)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.white.opacity(0.7 * flash))
+                        .allowsHitTesting(false)
+                }
+                .shadow(color: Theme.green.opacity(max(glow, flash)), radius: 14 + 10 * flash)
         }
         .buttonStyle(.plain)
         .scaleEffect(pop)

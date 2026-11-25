@@ -40,6 +40,7 @@ struct ExerciseCard: View {
     private var finished: Bool { draft.sets.allSatisfy(\.done) }
     private var hasActive: Bool { draft.sets.contains { $0.id == activeSetId } }
     @EnvironmentObject private var inventory: InventoryStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var demoStage: some View {
         CharacterView(move: CharacterMove.forExercise(ex), loadout: inventory.state.loadout,
@@ -73,6 +74,7 @@ struct ExerciseCard: View {
             }
             if hasActive {
                 demoStage
+                    .transition(.exercisePush(reduce: reduceMotion))
             }
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -130,14 +132,22 @@ struct ExerciseCard: View {
                                         last: draft.lastFor(set), low: draft.item.low) {
                             onComplete(set.id)
                         }
+                        .id(set.id)
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.96).combined(with: .opacity))
                     } else {
                         CompactSetRow(set: set, tag: tag, exercise: ex) {
                             if set.done { onComplete(set.id) } else { onFocus(set.id) }
                         }
+                        .id(set.id)
+                        .transition(.opacity)
                     }
                 }
             }
+            // 換到下一組：舊的編輯卡收起來、下一組展開亮起來
+            .animation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.layout), value: activeSetId)
         }
+        // 輪到這個動作／離開這個動作：示範區推進推出，卡片高度跟著彈
+        .animation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.layout), value: hasActive)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))

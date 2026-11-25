@@ -8,7 +8,10 @@ struct CompactSetRow: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        Button {
+            WorkoutMotion.tap(.light)
+            onTap()
+        } label: {
             HStack(spacing: 10) {
                 Text(tag)
                     .font(set.kind == .work ? Theme.number(15) : .caption.weight(.heavy))
@@ -25,20 +28,14 @@ struct CompactSetRow: View {
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(g == .miss ? Theme.raised : g.color, in: Capsule())
                 }
-                ZStack {
-                    if set.done {
-                        Circle().fill(Theme.accent)
-                        Image(systemName: "checkmark").font(.caption.weight(.heavy)).foregroundStyle(Theme.bg)
-                    } else {
-                        Circle().stroke(Theme.line, lineWidth: 2)
-                    }
-                }
-                .frame(width: 30, height: 30)
+                SetCheckMark(done: set.done)
+                    .frame(width: 30, height: 30)
             }
             .padding(.horizontal, 12)
             .frame(minHeight: 52)
             .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .opacity(set.kind == .warmup && !set.done ? 0.8 : 1)
+            .setRowPress(done: set.done)
         }
         .buttonStyle(.plain)
         .accessibilityHint(set.done ? "點一下取消完成" : "點一下改做這一組")
@@ -63,6 +60,8 @@ struct ActiveSetEditor: View {
     var low: Int = 0
     let onDone: () -> Void
     @State private var holding = false
+    @FocusState private var weightFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -72,28 +71,37 @@ struct ActiveSetEditor: View {
             HStack(spacing: 10) {
                 if exercise.loaded {
                     stepperBox(
-                        minus: { set.weight = ladder.down(set.weight) },
-                        plus: { set.weight = ladder.up(set.weight) },
+                        minus: { roll { set.weight = ladder.down(set.weight) } },
+                        plus: { roll { set.weight = ladder.up(set.weight) } },
                         minusLabel: "減少重量", plusLabel: "增加重量"
                     ) {
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
+                            // 輸入框一直在；沒在輸入時蓋一個會滾動的數字（點下去就是輸入框）
                             TextField("0", value: $set.weight, format: .number)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.center)
                                 .font(Theme.number(22))
-                                .foregroundStyle(Theme.fg)
+                                .foregroundStyle(weightFocused ? Theme.fg : Color.clear)
+                                .focused($weightFocused)
                                 .frame(width: 52)
+                                .overlay {
+                                    RollingText(Progression.format(set.weight), value: set.weight)
+                                        .font(Theme.number(22))
+                                        .foregroundStyle(Theme.fg)
+                                        .opacity(weightFocused ? 0 : 1)
+                                        .allowsHitTesting(false)
+                                }
                             Text("kg").font(.caption).foregroundStyle(Theme.muted)
                         }
                     }
                 }
                 stepperBox(
-                    minus: { set.reps = max(0, set.reps - repStep) },
-                    plus: { set.reps = min(300, set.reps + repStep) },
+                    minus: { roll { set.reps = max(0, set.reps - repStep) } },
+                    plus: { roll { set.reps = min(300, set.reps + repStep) } },
                     minusLabel: "減少次數", plusLabel: "增加次數"
                 ) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text("\(set.reps)").font(Theme.number(22)).foregroundStyle(Theme.fg)
+                        RollingText("\(set.reps)", value: Double(set.reps)).font(Theme.number(22)).foregroundStyle(Theme.fg)
                         Text(exercise.unit.label).font(.caption).foregroundStyle(Theme.muted)
                     }
                     .frame(minWidth: 52)
@@ -131,7 +139,10 @@ struct ActiveSetEditor: View {
             } else {
                 TempoBar(exerciseId: exercise.id)
             }
-            Button(action: onDone) {
+            Button {
+                WorkoutMotion.tap(.rigid)
+                onDone()
+            } label: {
                 Text("完成這一組")
             }
             .buttonStyle(HotButtonStyle(height: 52))
@@ -145,6 +156,12 @@ struct ActiveSetEditor: View {
         .padding(14)
         .background(Color(gearHex: "#1E2633"), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.hot, lineWidth: 2))
+        .setActiveGlow()
+    }
+
+    /// 改數字時讓它滾動（連按時新的動畫直接接手，不會排隊）
+    private func roll(_ change: () -> Void) {
+        withAnimation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.roll)) { change() }
     }
 
     private var repStep: Int { exercise.unit == .seconds ? 5 : 1 }
@@ -213,12 +230,12 @@ struct ActiveSetEditor: View {
                 InfoTip(item: .sides)
             }
             stepperBox(
-                minus: { set.otherReps = max(0, reps - repStep) },
-                plus: { set.otherReps = min(300, reps + repStep) },
+                minus: { roll { set.otherReps = max(0, reps - repStep) } },
+                plus: { roll { set.otherReps = min(300, reps + repStep) } },
                 minusLabel: "減少\(weak.otherHand)\(noun)次數", plusLabel: "增加\(weak.otherHand)\(noun)次數"
             ) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("\(reps)").font(Theme.number(20)).foregroundStyle(Theme.fg)
+                    RollingText("\(reps)", value: Double(reps)).font(Theme.number(20)).foregroundStyle(Theme.fg)
                     Text(exercise.unit.label).font(.caption).foregroundStyle(Theme.muted)
                 }
                 .frame(minWidth: 52)

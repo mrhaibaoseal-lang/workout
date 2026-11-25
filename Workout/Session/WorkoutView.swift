@@ -41,6 +41,7 @@ struct WorkoutView: View {
     @State private var askMuscles: [Muscle] = []
     @State private var showMuscleCheck = false
     @State private var toast: String?
+    @State private var toastKind: ToastKind = .info
     /// 每組器材現在裝成什麼樣子，用來估換重量要多久
     @State private var rigs: [String: RigState] = [:]
     /// 正在休息：剛做完的是第幾個動作（用來算下一組和要換的重量）
@@ -70,6 +71,7 @@ struct WorkoutView: View {
     @State private var showStretch = false
     @State private var stretchDone = false
     @EnvironmentObject private var inventory: InventoryStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(Keys.weeklyGoal) private var weeklyGoal = 4
     /// 練完的分享圖卡（`ShareCardData`）
     @State private var shareData: ShareCardData?
@@ -93,6 +95,13 @@ struct WorkoutView: View {
 
     private func step(of id: UUID) -> Superset.Step? {
         order.first { drafts[$0.exercise].sets[$0.set].id == id }
+    }
+
+    /// 剛做完 old 這一組，下一組還在同一個動作裡（要捲到下一組，不是換動作）
+    private func advancedWithinExercise(from old: UUID) -> Bool {
+        guard let d = drafts.first(where: { $0.sets.contains { $0.id == old } }),
+              d.sets.contains(where: { $0.id == old && $0.done }) else { return false }
+        return d.id == activeExerciseId
     }
 
     private var activeExerciseId: String? {
@@ -170,7 +179,12 @@ struct WorkoutView: View {
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: activeExerciseId) { _, id in
                         guard let id else { return }
-                        withAnimation(.easeInOut) { proxy.scrollTo(id, anchor: .top) }
+                        withAnimation(reduceMotion ? WorkoutMotion.fade : .smooth(duration: 0.45)) { proxy.scrollTo(id, anchor: .top) }
+                    }
+                    // 同一個動作做完一組、輪到下一組：平順捲到下一組
+                    .onChange(of: activeSetId) { old, new in
+                        guard let old, let new, advancedWithinExercise(from: old) else { return }
+                        withAnimation(reduceMotion ? WorkoutMotion.fade : .smooth(duration: 0.45)) { proxy.scrollTo(new, anchor: .center) }
                     }
                 }
             }
@@ -232,16 +246,9 @@ struct WorkoutView: View {
             }
             .overlay(alignment: .top) {
                 if let t = toast {
-                    Text(t)
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(Theme.bg)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(Theme.green, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .padding(.horizontal, 24)
-                        .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
-                        .padding(.top, 60)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                    ToastBanner(text: t, kind: toastKind)
+                        .id(t)
+                        .transition(.toastDrop(reduce: reduceMotion))
                 }
             }
             .overlay {
@@ -436,13 +443,15 @@ struct WorkoutView: View {
                             Capsule().fill(Theme.line)
                             Capsule().fill(frac >= 1 ? Theme.accent : (isActive ? Theme.hot : Theme.accent))
                                 .frame(width: geo.size.width * frac)
+                                .animation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.layout), value: frac)
                         }
                     }
                     .frame(height: 6)
                 }
             }
             let current = drafts.firstIndex { $0.id == activeExerciseId }.map { $0 + 1 } ?? drafts.count
-            Text("動作 \(current) / \(drafts.count) · 已完成 \(doneSets) / \(totalSets) 組")
+            RollingText("動作 \(current) / \(drafts.count) · 已完成 \(doneSets) / \(totalSets) 組",
+                        value: Double(doneSets * 1000 + current))
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
         }
@@ -572,7 +581,7 @@ struct WorkoutView: View {
                 }
             }
         } else {
-            if combo >= 2 { showToast("連擊 ×\(combo) 中斷了，下一組重新開始") }
+            if combo >= 2 { showToast("連擊 ×\(combo) 中斷了，下一組重新開始", kind: .warning) }
             combo = 0
         }
     }
@@ -828,7 +837,11 @@ struct WorkoutView: View {
             drafts[i].sets[j].weight = up ? ladder.up(w) : ladder.down(w)
         }
         let next = drafts[i].sets[later[0]].weight
-        showToast(up ? "還很有力氣，接下來改 \(Progression.format(next)) kg" : "太吃力了，接下來改 \(Progression.format(next)) kg")
+        if up {
+            showToast("還很有力氣，接下來改 \(Progression.format(next)) kg", kind: .success)
+        } else {
+            showToast("太吃力了，接下來改 \(Progression.format(next)) kg", kind: .warning)
+        }
     }
 
     /// 試重組做完：用這組的推估最大力量，把後面每組調到「做到目標次數還剩 2 下」的重量（可以一次跳好幾級）。
@@ -843,15 +856,18 @@ struct WorkoutView: View {
             }
         }
         let next = drafts[i].sets[later[0]].weight
-        showToast(changed ? "試重完成：接下來用 \(Progression.format(next)) kg" : "試重完成：這個重量剛好")
+        showToast(changed ? "試重完成：接下來用 \(Progression.format(next)) kg" : "試重完成：這個重量剛好", kind: .success)
     }
 
-    private func showToast(_ text: String) {
-        withAnimation(.spring(duration: 0.3)) { toast = text }
+    private func showToast(_ text: String, kind: ToastKind = .info) {
+        toastKind = kind
+        // 從頂端彈下來（有回彈），依指定的類型配觸覺
+        withAnimation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.toastIn)) { toast = text }
+        kind.haptic()
         // 長的提醒多留一點時間讀
         let seconds = max(2.5, Double(text.count) / 12)
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
-            if toast == text { withAnimation { toast = nil } }
+            if toast == text { withAnimation(WorkoutMotion.pick(reduceMotion, .easeIn(duration: 0.22))) { toast = nil } }
         }
     }
 
@@ -893,7 +909,11 @@ struct WorkoutView: View {
             let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i),
                                           ladder: drafts[i].ladder, avoidKit: barbellKit)
             if warm.isEmpty {
-                showToast(w > 0 ? "這個動作重量不重，不用熱身" : "先填正式組的重量，才能算熱身組")
+                if w > 0 {
+                    showToast("這個動作重量不重，不用熱身")
+                } else {
+                    showToast("先填正式組的重量，才能算熱身組", kind: .warning)
+                }
                 return
             }
             drafts[i].sets.insert(contentsOf: warm.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: .warmup, kit: $0.kit) }, at: 0)
@@ -923,6 +943,7 @@ struct WorkoutView: View {
                      onAvoid: { avoid(at: i, reason: $0, joint: $1) },
                      onLogPain: { logPainOnly(at: i, joint: $0) })
             .id(drafts[i].id)
+            .transition(.exercisePush(reduce: reduceMotion))
     }
 
     // MARK: 會痛／不喜歡
@@ -946,7 +967,7 @@ struct WorkoutView: View {
         }
         Avoid.logPain(drafts[i].item.exercise.id, joint: joint)
         refreshCautions()
-        showToast("這個動作剩下的組減輕約兩成，不舒服就停下來")
+        showToast("這個動作剩下的組減輕約兩成，不舒服就停下來", kind: .warning)
     }
 
     /// 只記一筆痛的紀錄（沒有重量可減、也不能換的時候）。
@@ -954,7 +975,7 @@ struct WorkoutView: View {
         guard drafts.indices.contains(i) else { return }
         Avoid.logPain(drafts[i].item.exercise.id, joint: joint)
         refreshCautions()
-        showToast("記下來了，不舒服就停下來")
+        showToast("記下來了，不舒服就停下來", kind: .warning)
     }
 
     /// 剛回報會痛：今天其他用到同一個關節的動作，卡片上馬上出現提醒。
@@ -979,7 +1000,10 @@ struct WorkoutView: View {
     private func swap(at i: Int, to ex: Exercise) {
         guard !drafts[i].locked else { return }
         let item = drafts[i].item.swapped(to: ex)
-        rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
+        // 舊動作的卡片往側邊推走、新的滑進來
+        withAnimation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.layout)) {
+            rebuild(i, item: item, scheme: SchemeStore.scheme(for: ex.id))
+        }
         showToast("換成「\(ex.name)」")
     }
 

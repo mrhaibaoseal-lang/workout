@@ -287,13 +287,15 @@ struct RestScreen: View {
     // MARK: 倒數
 
     private func countdown(left: Double, now: Date) -> some View {
-        let warm = FXMath.seg(10 - left, 0, 7)
-        let col = FXMath.mix(Theme.green, Theme.hot, warm)
+        let warm = RestMotion.warm(left: left)
+        let col = RestMotion.color(left: left)
         let last3 = left < 3
-        let beat = last3 && !reduceMotion ? 1 + 0.06 * pow(max(0, sin(.pi * FXMath.fract(left))), 4) : 1
+        // 剩 10 秒變警示色、開始心跳（每秒兩下，越接近 0 越有力）
+        let pulse = RestMotion.heartbeat(left: left)
+        let beat = reduceMotion ? 1 : 1 + 0.07 * pulse
         let p = left / max(total, 1)
         return ZStack {
-                Circle().fill(col.opacity(last3 ? 0.10 : 0.05)).padding(14)
+                Circle().fill(col.opacity(0.05 + 0.05 * warm)).padding(14)
                 Ring(progress: p, color: col, lineWidth: 14)
                 GeometryReader { g in
                     let w = Double(g.size.width), h = Double(g.size.height)
@@ -317,7 +319,7 @@ struct RestScreen: View {
             }
             .frame(width: 210, height: 210)
             .scaleEffect(beat)
-            .shadow(color: col.opacity(last3 ? 0.55 : 0.15), radius: last3 ? 22 : 12)
+            .shadow(color: col.opacity(0.15 + 0.4 * warm * (reduceMotion ? 1 : 0.4 + 0.6 * pulse)), radius: 12 + 10 * warm)
             .frame(maxWidth: .infinity)
     }
 
@@ -330,6 +332,7 @@ struct RestScreen: View {
             ZStack {
                 Circle().fill(Theme.green.opacity(0.08)).padding(14)
                 Ring(progress: 1, color: Theme.green, lineWidth: 14)
+                RingFlash(over: over)
                 VStack(spacing: 2) {
                     Text("休息結束")
                         .font(.subheadline.weight(.heavy))
@@ -342,7 +345,7 @@ struct RestScreen: View {
                 }
             }
             .frame(width: 210, height: 210)
-            .shadow(color: Theme.green.opacity(glow), radius: 18)
+            .shadow(color: Theme.green.opacity(max(glow, RestMotion.flash(over: over))), radius: 18 + 10 * RestMotion.flash(over: over))
         }
         .buttonStyle(.plain)
         .scaleEffect(pop)
@@ -776,6 +779,7 @@ struct SecondTicks: ViewModifier {
     let end: Date
     var active: Bool = true
     @State private var fired: Set<Int> = []
+    @State private var script = HapticScript()
 
     func body(content: Content) -> some View {
         content.background {
@@ -786,7 +790,8 @@ struct SecondTicks: ViewModifier {
                         guard n <= 3, n >= 0, !fired.contains(n) else { return }
                         fired.insert(n)
                         if n == 0 {
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            // 歸零：一段觸覺節奏（重 → 漸弱 → 成功），配合整圈閃一次
+                            script.play(RestHaptics.finish)
                             AudioServicesPlaySystemSound(1005)
                         } else {
                             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
