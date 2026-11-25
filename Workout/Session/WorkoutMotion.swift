@@ -135,8 +135,8 @@ struct RollingText: View {
 enum RestMotion {
     static let warnAt = 10.0
 
-    /// 0＝還沒到警示、1＝警示色（10 秒時快速換色，不拖）
-    static func warm(left: Double) -> Double { FXMath.seg(warnAt - left, 0, 0.5) }
+    /// 0＝還沒到警示、1＝警示色：剩 10 秒到 3 秒之間漸變
+    static func warm(left: Double) -> Double { FXMath.seg(warnAt - left, 0, 7) }
 
     static func color(left: Double) -> Color { FXMath.mix(Theme.green, Theme.hot, warm(left: left)) }
 
@@ -185,19 +185,26 @@ enum RestHaptics {
 // MARK: - toast
 
 enum ToastKind {
-    case success, warning
+    /// 一般提示：輕點觸覺、中性底色
+    case info
+    /// 做到了：成功觸覺、綠底
+    case success
+    /// 提醒：警告觸覺、橘底
+    case warning
 
-    /// 依內容決定：提醒類（會痛、太吃力、連擊中斷…）用提醒，其他用成功。
-    static func of(_ text: String) -> ToastKind {
-        let warn = ["中斷", "不舒服", "太吃力", "減輕", "不排", "注意", "小心", "痛", "掉", "保守"]
-        return warn.contains { text.contains($0) } ? .warning : .success
+    var fill: Color {
+        switch self {
+        case .info: Theme.accentSoft
+        case .success: Theme.green
+        case .warning: Theme.hot
+        }
     }
 
-    var fill: Color { self == .warning ? Theme.hot : Theme.green }
     var ink: Color { self == .warning ? Theme.onHot : Theme.bg }
 
     func haptic() {
         switch self {
+        case .info: WorkoutMotion.tap(.light)
         case .success: WorkoutMotion.notify(.success)
         case .warning: WorkoutMotion.notify(.warning)
         }
@@ -207,9 +214,9 @@ enum ToastKind {
 /// 從頂端彈下來的提示。出現／換字時由外層的 `.id(text)` 和 transition 播彈跳。
 struct ToastBanner: View {
     let text: String
+    var kind: ToastKind = .info
 
     var body: some View {
-        let kind = ToastKind.of(text)
         Text(text)
             .font(.footnote.weight(.bold))
             .foregroundStyle(kind.ink)

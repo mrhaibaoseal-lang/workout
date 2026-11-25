@@ -41,6 +41,7 @@ struct WorkoutView: View {
     @State private var askMuscles: [Muscle] = []
     @State private var showMuscleCheck = false
     @State private var toast: String?
+    @State private var toastKind: ToastKind = .info
     /// 每組器材現在裝成什麼樣子，用來估換重量要多久
     @State private var rigs: [String: RigState] = [:]
     /// 正在休息：剛做完的是第幾個動作（用來算下一組和要換的重量）
@@ -245,7 +246,7 @@ struct WorkoutView: View {
             }
             .overlay(alignment: .top) {
                 if let t = toast {
-                    ToastBanner(text: t)
+                    ToastBanner(text: t, kind: toastKind)
                         .id(t)
                         .transition(.toastDrop(reduce: reduceMotion))
                 }
@@ -580,7 +581,7 @@ struct WorkoutView: View {
                 }
             }
         } else {
-            if combo >= 2 { showToast("連擊 ×\(combo) 中斷了，下一組重新開始") }
+            if combo >= 2 { showToast("連擊 ×\(combo) 中斷了，下一組重新開始", kind: .warning) }
             combo = 0
         }
     }
@@ -836,7 +837,11 @@ struct WorkoutView: View {
             drafts[i].sets[j].weight = up ? ladder.up(w) : ladder.down(w)
         }
         let next = drafts[i].sets[later[0]].weight
-        showToast(up ? "還很有力氣，接下來改 \(Progression.format(next)) kg" : "太吃力了，接下來改 \(Progression.format(next)) kg")
+        if up {
+            showToast("還很有力氣，接下來改 \(Progression.format(next)) kg", kind: .success)
+        } else {
+            showToast("太吃力了，接下來改 \(Progression.format(next)) kg", kind: .warning)
+        }
     }
 
     /// 試重組做完：用這組的推估最大力量，把後面每組調到「做到目標次數還剩 2 下」的重量（可以一次跳好幾級）。
@@ -851,13 +856,14 @@ struct WorkoutView: View {
             }
         }
         let next = drafts[i].sets[later[0]].weight
-        showToast(changed ? "試重完成：接下來用 \(Progression.format(next)) kg" : "試重完成：這個重量剛好")
+        showToast(changed ? "試重完成：接下來用 \(Progression.format(next)) kg" : "試重完成：這個重量剛好", kind: .success)
     }
 
-    private func showToast(_ text: String) {
-        // 從頂端彈下來（有回彈），依內容配成功／提醒的觸覺
+    private func showToast(_ text: String, kind: ToastKind = .info) {
+        toastKind = kind
+        // 從頂端彈下來（有回彈），依指定的類型配觸覺
         withAnimation(WorkoutMotion.pick(reduceMotion, WorkoutMotion.toastIn)) { toast = text }
-        ToastKind.of(text).haptic()
+        kind.haptic()
         // 長的提醒多留一點時間讀
         let seconds = max(2.5, Double(text.count) / 12)
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
@@ -903,7 +909,11 @@ struct WorkoutView: View {
             let warm = SetPlanner.warmups(for: ex, workWeight: w, first: isFirstInRegion(ex, before: i),
                                           ladder: drafts[i].ladder, avoidKit: barbellKit)
             if warm.isEmpty {
-                showToast(w > 0 ? "這個動作重量不重，不用熱身" : "先填正式組的重量，才能算熱身組")
+                if w > 0 {
+                    showToast("這個動作重量不重，不用熱身")
+                } else {
+                    showToast("先填正式組的重量，才能算熱身組", kind: .warning)
+                }
                 return
             }
             drafts[i].sets.insert(contentsOf: warm.map { SetDraft(weight: $0.weight, reps: $0.reps, kind: .warmup, kit: $0.kit) }, at: 0)
@@ -957,7 +967,7 @@ struct WorkoutView: View {
         }
         Avoid.logPain(drafts[i].item.exercise.id, joint: joint)
         refreshCautions()
-        showToast("這個動作剩下的組減輕約兩成，不舒服就停下來")
+        showToast("這個動作剩下的組減輕約兩成，不舒服就停下來", kind: .warning)
     }
 
     /// 只記一筆痛的紀錄（沒有重量可減、也不能換的時候）。
@@ -965,7 +975,7 @@ struct WorkoutView: View {
         guard drafts.indices.contains(i) else { return }
         Avoid.logPain(drafts[i].item.exercise.id, joint: joint)
         refreshCautions()
-        showToast("記下來了，不舒服就停下來")
+        showToast("記下來了，不舒服就停下來", kind: .warning)
     }
 
     /// 剛回報會痛：今天其他用到同一個關節的動作，卡片上馬上出現提醒。
