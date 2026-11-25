@@ -108,7 +108,8 @@ for top, bot, tag, p in cells:
         y = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]; px[i] = px[i + 1] = px[i + 2] = y
     im.pixels = px; im.filepath_raw = p.replace('.png', '_g.png'); im.file_format = 'PNG'; im.save()
 
-NAME = {'basic': '基本', 'frost': '冰霜', 'titan': '鈦甲', 'pig': '小豬', 'night': '暗夜', 'dawn': '曙光', 'rune': '符文', 'astral': '星界'}
+NAME = {'basic': '基本', 'frost': '冰霜', 'titan': '鈦甲', 'pig': '小豬', 'night': '暗夜', 'dawn': '曙光', 'rune': '符文', 'astral': '星界',
+        'street': '街頭', 'neon': '霓虹', 'lava': '熔岩', 'gold': '黃金', 'shadow': '暗影'}
 for gray in (False, True):
     W, CW, CH = 0, sc.render.resolution_x, sc.render.resolution_y
     items = []; x = 0
