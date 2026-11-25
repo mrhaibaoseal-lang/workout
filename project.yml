@@ -6,7 +6,7 @@ options:
     iOS: "17.0"
 settings:
   base:
-    MARKETING_VERSION: "0.44.0"
+    MARKETING_VERSION: "0.45.0"
     CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
@@ -37,6 +37,7 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_NSFaceIDUsageDescription: 查看雲端備份的恢復碼前，先確認是你本人。
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: 練壯會讀取行事曆裡的活動，自動避開有事的時間來排訓練。
+        INFOPLIST_KEY_NSCameraUsageDescription: 數次數測試會用相機即時辨識關節位置，影像不會存下來，也不會上傳。
 
   WorkoutTests:
     type: bundle.unit-test
