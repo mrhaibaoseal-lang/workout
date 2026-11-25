@@ -21,7 +21,7 @@ for md in hero.modifiers:
 GEAR_MATS = {'ti', 'tidk', 'glow', 'flame', 'iron', 'grip',
              'fr1', 'fr2', 'fr3', 'frice', 'frblade', 'frglow',   # 冰霜（衣服塗色和長褲不算，那些是 body）
              'pg1', 'pg2', 'pghoof', 'pgnose', 'pggold', 'pggolddk', 'pgbank'}   # 小豬（短褲不算）
-GEAR_PREFIX = ('nt', 'dw', 'rn', 'as')   # 英雄類四系列：材質名用這些前綴的都是硬裝備（塗色叫 skin_*、長褲叫 pants_*，算 body）
+GEAR_PREFIX = ('nt', 'dw', 'rn', 'as', 'sr', 'ne', 'lv', 'gd', 'sd')   # 英雄類四系列＋街頭／霓虹／熔岩／黃金／暗影：材質名用這些前綴的都是硬裝備（塗色叫 skin_*、長褲叫 pants_*，算 body）
 SKIP_PROPS = {'bar', 'cable'}                                    # 手本來就握著
 mats = [m.name if m else '' for m in hero.data.materials]
 parent = {b.name: (b.parent.name if b.parent else None) for b in rig.data.bones}
