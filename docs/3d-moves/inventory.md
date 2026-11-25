@@ -15,7 +15,8 @@
 | db_chest_row | chestRow | **未登記** |
 | db_chest_rear_fly | chestRearFly | **未登記** |
 | db_pullover、db_skull、db_kickback | pullover、skullCrusher、kickback | 已登記 |
-| db_row、bb_row、band_row、pause_table_row | row | forPattern（共用） |
+| db_row、bb_row、band_row | row | forPattern（共用） |
+| table_row、pause_table_row | — | **已移除：使用者家中沒有桌子**（2026-11-26，不做 3D、不在對照表） |
 | cable_*（下拉、窄握、直臂、三頭下壓、過頭、面拉、捲腹、划船、側平舉） | 滑輪 A／B 批 | 已登記（cable_close_pulldown 共用 pulldown） |
 | db_split_squat…、db_hip_thrust、db_glute_bridge、sl_glute_bridge、db_step_up | 弓步／臀橋批 | 已登記 |
 | db_sl_rdl、sl_rdl | slRdl | 已登記 |
@@ -32,7 +33,7 @@
 | band_pulldown、band_pushdown | pulldown、tricepsPushdown | 共用（彈力帶不畫，使用者沒有） |
 | pause_split_squat、pause_calf_raise、sl_hip_thrust | lunge／calf／hipThrust | 共用（暫停版沿用原動作） |
 
-## B. 要新做的專屬 3D（共 34 個，分 5 批；每批獨立 commit）
+## B. 要新做的專屬 3D（共 33 個，分 5 批；每批獨立 commit）
 | 批次（檔案） | 3D 動作名 | 動作庫 id | 備註 |
 |---|---|---|---|
 | 1 地板徒手（`moves/floor2.py`；**完成 2026-11-25**） | sidePlank | side_plank | 前臂側撐 |
@@ -44,7 +45,6 @@
 | | slTowelLegCurl | sl_towel_leg_curl | 單腳版（另一腳懸空） |
 | | declinePushup | decline_pushup | 腳放椅子上 |
 | | elevatedPike | elevated_pike | 腳放椅子上的屈體伏地挺身 |
-| | tableRow | table_row（暫停版共用） | 躺在桌下抓桌緣拉起 |
 | 2 椅子（`moves/bench2.py`；**完成 2026-11-26**，動作卡 `bench2.md`） | dbFly | db_fly | 平躺飛鳥 |
 | | declineCrunch | decline_crunch | 下斜捲腹（椅子靠背放下斜） |
 | | sideLyingLateral | db_side_lying_lateral | 側躺在斜背椅 |

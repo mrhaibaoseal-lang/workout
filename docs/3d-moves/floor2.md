@@ -1,6 +1,6 @@
 # 動作卡：地板徒手 2（`scripts/blender/moves/floor2.py`，2026-11-25）
 
-補動作庫缺的 3D 示範。全部徒手（椅子、桌子、立柱、毛巾是器材）。`[angles]` 範圍寫在 `MOVE_META`，`clipbatch.py --series basic` 全 PASS。
+補動作庫缺的 3D 示範。全部徒手（椅子、立柱、毛巾是器材）。`[angles]` 範圍寫在 `MOVE_META`，`clipbatch.py --series basic` 全 PASS。
 來源說明：兩個來源盡量找同一個變化式；找不到的寫「參考是 ○○ 版」。**ACE 搜尋有些動作找不到同名頁面，已寫明。**
 風險：全部「一般」，教練審查清單（`coach-review.md`）照樣登記。
 
@@ -67,14 +67,6 @@
 - App 提示：這個動作肩膀很吃力，動作要小心慢；頭頂輕輕靠近地板就停。
 - 來源：沒有找到專門的腳抬高屈體頁面；參考 [NASM decline push-up](https://www.nasm.org/resource-center/exercise-library/decline-push-up)（腳墊高的做法）和已完成的 `pikePushup`（`floor.md`）。**待確認：需要兩個獨立來源。**
 - 風險：肩關節在頭上方，排進教練審查。
-
-## tableRow 桌下反向划船（`table_row`；`pause_table_row` 共用）
-- 起始：仰躺在桌子下（頭在桌緣外），雙手握桌緣（比肩稍寬），腳跟踩地、身體一直線，手臂垂直打直；用背把胸口拉向桌緣（手肘往下收），胸口快碰到桌緣停一下，慢放。
-- 關節：手肘 35～60°（頂端）～ 150～180°（起點）；髖 165～180°；膝 165～180°。
-- 常見錯誤：髖塌、聳肩、用頭往前伸、桌子不夠穩。
-- App 提示：**桌子要夠重、夠穩，才不會翻**；肩胛先往後下夾，再拉手肘；身體像一塊木板。
-- 來源：[CoachWeb inverted row](https://www.coachweb.com/back-exercises/6907/how-to-do-the-inverted-row)（桌子要穩、腳平放比較簡單）、[Fitwill inverted row under table](https://fitwill.app/exercise/7929/inverted-row-under-table/)。
-- 來源分歧：有的只說吊在桌下；示範取「握桌緣、腳跟踩地」版本。
 
 ## 檢查結果（基本款）
 - 穿模、deformcheck：見 BLENDER_BRIEF §10 進度表。

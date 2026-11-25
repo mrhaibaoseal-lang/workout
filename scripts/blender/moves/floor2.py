@@ -11,7 +11,6 @@ MOVE_META = {
     'sissySquat': {'angles': {'knee': {'min': (85, 110), 'max': (165, 180)}, 'hip': (165, 180), 'trunk_lean': {'min': (0, 6), 'max': (28, 40)}}},
     'declinePushup': {'angles': {'elbow': {'min': (30, 60), 'max': (160, 180)}, 'hip': (165, 180), 'knee': (170, 180)}},
     'elevatedPike': {'angles': {'elbow': {'min': (80, 110), 'max': (160, 180)}, 'knee': (165, 180)}},
-    'tableRow': {'angles': {'elbow': {'min': (35, 60), 'max': (150, 180)}, 'hip': (165, 180), 'knee': (165, 180)}},
 }
 exec(open(os.path.join(_MDIR, 'floor.py'), encoding='utf-8').read())
 
@@ -323,40 +322,3 @@ if MOVE == 'elevatedPike':
     for f in range(N):
         sc.frame_set(f); pose(profile(f, N, 22, 4, 15)); keyall(f)
     CAM = dict(loc=(3.6, -1.9, 1.1), tgt=(0, 0.0, 0.55), lens=52, stage=(0, 0.0, 1.1))
-
-# ======================= 桌下反向划船（App：table_row；暫停版共用） =======================
-# 仰躺在桌子下面（頭在桌緣外），雙手握桌緣（比肩稍寬、正握），腳跟踩地、身體從頭到腳維持一直線（不塌髖）。
-# 起點手臂打直、身體懸在半空；用背把胸口拉向桌緣（手肘往後貼近身體約 45°），胸口快碰到桌緣就停一下，再慢慢放下。
-if MOVE == 'tableRow':
-    N = 48
-    ZG = 0.78                                                # 手握桌緣的高度（桌面約 76 cm）
-    YA = 0.80                                                # 腳踝 y
-    Z_AN = rest['shin.L'][1].z
-    def fm_of(th):
-        return bf_frame(Vector((0, -math.cos(th), math.sin(th))), Vector((0, math.sin(th), math.cos(th))))
-    def P_of(th):
-        fm = fm_of(th); O = Vector((0, YA, 0.11))
-        return fm, (lambda p: bf_pt(O, fm, p, Z_AN))
-    def th_for(hs):
-        lo, hi = 0.0, D(45)
-        for _ in range(40):
-            mid = (lo + hi) / 2
-            if P_of(mid)[1](rest['upper_arm.L'][0]).z < hs: lo = mid
-            else: hi = mid
-        return (lo + hi) / 2
-    TH0, TH1 = th_for(ZG - REACH2 * 0.985), th_for(ZG - 0.20)
-    YG = P_of(TH0)[1](rest['upper_arm.L'][0]).y               # 握點的 y：起點時在肩膀正上方（手臂垂直；拉到最高時肩膀移到它後方約 9 cm，手肘往下收）
-    build_table(-0.55, 0.55, YG + 0.10, YG + 0.85, ZG - 0.02)  # 桌緣在握點後方 10 cm：手掌搭在桌緣上、前臂從桌緣外側上來
-    def pose(t):
-        th = TH0 + (TH1 - TH0) * t
-        fm, P = P_of(th); lt, fr, up = fm
-        sh, hj, ctop = bf_trunk(P(rest['hips'][0]), fm, fm, fm)
-        for s, sx in SX:
-            sd = 1 if lt.x > 0 else -1; side = sd * sx                 # 這一邊在世界的左右（+x／-x）
-            leg_to(s, hj[s], P(rest[f'shin.{s}'][1]), Vector((0, -0.3, 1.0)), P(rest[f'foot.{s}'][1]) - P(rest[f'foot.{s}'][0]))
-            fl_aimz(f'foot.{s}', P(rest[f'shin.{s}'][1]), P(rest[f'foot.{s}'][1]) - P(rest[f'foot.{s}'][0]), -up)   # 腳底朝腳的方向（腳跟著地、腳尖朝上），不照世界座標亂翻
-            wrist = Vector((0.30 * side, YG, ZG + 0.035))
-            arm_to(s, sh[s], wrist, Vector((0.6 * side, 0.0, -1.0)), Vector((0.0, 1.0, -0.3)))
-    for f in range(N):
-        sc.frame_set(f); pose(profile(f, N, 14, 4, 26)); keyall(f)
-    CAM = dict(loc=(3.6, -1.7, 1.0), tgt=(0, 0.1, 0.4), lens=52, stage=(0, 0.1, 1.3))
