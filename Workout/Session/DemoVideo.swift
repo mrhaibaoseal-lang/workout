@@ -1,11 +1,9 @@
 import SwiftUI
-import WebKit
 
 /// 動作示範影片（0.33.0）：使用者不會健身、看不出自己畫的骨架對不對，所以動作卡多一個「看影片」。
-/// - 精選的動作：嵌入官方 YouTube 播放器（youtube-nocookie，App 裡直接播）。
+/// - 精選的動作：開那支 YouTube 影片（0.46.0 起不再內嵌播放器，改成小按鈕交給 YouTube）。
 ///   挑片原則：中文教練頻道、標題明確是這個動作的教學；只靠標題、頻道、說明欄判斷，沒把握的不放。
 /// - 其他動作：「在 YouTube 搜尋示範」，用動作名＋「正確姿勢 教學」搜尋。
-/// - 影片失效、作者關閉嵌入或沒網路：播放器下面一直有「在 YouTube 開啟」，骨架動畫也還在動作卡上。
 struct DemoVideo: Equatable {
     let id: String
     /// 頻道或系列名（顯示用）
@@ -70,45 +68,14 @@ enum DemoVideos {
         return c.url!
     }
 
-    /// 只接受 YouTube 影片 ID 的字元，避免組 HTML 時出錯
+    /// 只接受 YouTube 影片 ID 的字元，避免組網址時出錯
     static func isValidId(_ id: String) -> Bool {
         // 只收 ASCII：`isLetter`／`isNumber` 會放過中文字和全形數字
         id.count == 11 && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
 }
 
-/// 官方 YouTube 嵌入播放器。用 HTML iframe 載入，並給一個 https 的 baseURL，YouTube 才會接受嵌入。
-struct YouTubePlayer: UIViewRepresentable {
-    let video: DemoVideo
-
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.allowsInlineMediaPlayback = true
-        config.mediaTypesRequiringUserActionForPlayback = []
-        let web = WKWebView(frame: .zero, configuration: config)
-        web.isOpaque = false
-        web.backgroundColor = .black
-        web.scrollView.isScrollEnabled = false
-        load(web)
-        return web
-    }
-
-    func updateUIView(_ web: WKWebView, context: Context) {}
-
-    private func load(_ web: WKWebView) {
-        guard DemoVideos.isValidId(video.id) else { return }
-        let src = "https://www.youtube-nocookie.com/embed/\(video.id)?playsinline=1&rel=0&modestbranding=1"
-        let html = """
-        <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>html,body{margin:0;background:#000;height:100%}iframe{position:absolute;inset:0;width:100%;height:100%;border:0}</style>
-        </head><body><iframe src="\(src)" referrerpolicy="strict-origin-when-cross-origin"
-        allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></body></html>
-        """
-        web.loadHTMLString(html, baseURL: URL(string: "https://com.mrhaibaoseal.workout"))
-    }
-}
-
-/// 動作卡「看影片」打開的畫面。
+/// 動作卡「動作說明」打開的畫面（0.46.0 起）：人物動畫為主，再來重點、肌群圖；YouTube 只剩動畫右下角一顆小按鈕。
 struct DemoVideoSheet: View {
     let exercise: Exercise
     @Environment(\.dismiss) private var dismiss
@@ -121,12 +88,72 @@ struct DemoVideoSheet: View {
         CharacterView(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
                       animated: !reduceMotion, showStats: false)
             .frame(maxWidth: .infinity)
-            .frame(height: 200)
+            .frame(height: 300)
             .background(
                 RadialGradient(
                     colors: [Color(gearHex: "#26303D"), Color(gearHex: "#141920"), Color(gearHex: "#0C0F14")],
-                    center: .top, startRadius: 10, endRadius: 300),
+                    center: .top, startRadius: 10, endRadius: 340),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .bottomTrailing) { videoButton.padding(8) }
+    }
+
+    /// YouTube 只留一顆小按鈕：有精選影片就開那支，沒有就開搜尋（交給 YouTube App／瀏覽器）
+    private var videoButton: some View {
+        let v = DemoVideos.video(for: exercise)
+        return Button {
+            openURL(v.map(DemoVideos.watchURL) ?? DemoVideos.searchURL(for: exercise))
+        } label: {
+            Label(v != nil ? "YouTube 影片" : "搜尋影片", systemImage: "play.rectangle.fill")
+                .font(.caption.weight(.bold))
+                .padding(.horizontal, 10)
+                .frame(minHeight: 32)
+                .background(.black.opacity(0.55), in: Capsule())
+                .foregroundStyle(Theme.fg)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(v != nil ? "在 YouTube 開啟示範影片" : "在 YouTube 搜尋這個動作的示範")
+    }
+
+    private var primary: [Muscle] { exercise.trainedMuscles.filter { $0.1 >= 1 }.map(\.0) }
+    private var secondary: [Muscle] { exercise.trainedMuscles.filter { $0.1 < 1 }.map(\.0) }
+
+    private func muscleFill(_ m: Muscle) -> Color {
+        if primary.contains(m) { return Theme.hot }
+        if secondary.contains(m) { return Theme.hot.opacity(0.42) }
+        return MuscleMapView.idle
+    }
+
+    /// 肌群圖：正面＋背面，主要肌群深橘、次要淡橘
+    private var muscleCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("練到的肌群").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
+            HStack(spacing: 8) {
+                VStack(spacing: 4) {
+                    MuscleMapView(side: .front, fill: muscleFill)
+                    Text("正面").font(.caption2).foregroundStyle(Theme.muted)
+                }
+                VStack(spacing: 4) {
+                    MuscleMapView(side: .back, fill: muscleFill)
+                    Text("背面").font(.caption2).foregroundStyle(Theme.muted)
+                }
+            }
+            .frame(height: 220)
+            .accessibilityHidden(true)
+            muscleLegend("主要", primary, Theme.hot)
+            if !secondary.isEmpty { muscleLegend("次要", secondary, Theme.hot.opacity(0.42)) }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func muscleLegend(_ title: String, _ list: [Muscle], _ color: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
+            Text(title).font(.caption.weight(.bold)).foregroundStyle(Theme.fg)
+            Text(list.map(\.name).joined(separator: "、")).font(.subheadline).foregroundStyle(Theme.fg)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     var body: some View {
@@ -134,38 +161,6 @@ struct DemoVideoSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     demoStage
-                    if let v = DemoVideos.video(for: exercise) {
-                        YouTubePlayer(video: v)
-                            .aspectRatio(16 / 9, contentMode: .fit)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        Text("來源：\(v.source)（YouTube）")
-                            .font(.caption)
-                            .foregroundStyle(Theme.muted)
-                        Button {
-                            openURL(DemoVideos.watchURL(v))
-                        } label: {
-                            Label("在 YouTube 開啟", systemImage: "arrow.up.right.square")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(GhostButtonStyle())
-                        Text("播不出來（沒網路、影片下架）時按上面的按鈕，或照動作卡上的動畫做。")
-                            .font(.caption)
-                            .foregroundStyle(Theme.muted)
-                    } else {
-                        Text("這個動作還沒有精選影片。")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.fg)
-                        Button {
-                            openURL(DemoVideos.searchURL(for: exercise))
-                        } label: {
-                            Label("在 YouTube 搜尋「\(exercise.name)」示範", systemImage: "magnifyingglass")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(HotButtonStyle())
-                        Text("挑有教練或物理治療師、側面拍得清楚、會講常見錯誤的影片。")
-                            .font(.caption)
-                            .foregroundStyle(Theme.muted)
-                    }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("重點").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
                         Text(exercise.tip).font(.subheadline).foregroundStyle(Theme.fg)
@@ -173,6 +168,7 @@ struct DemoVideoSheet: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    muscleCard
                 }
                 .padding(16)
             }
