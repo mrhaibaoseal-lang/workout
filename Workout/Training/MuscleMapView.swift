@@ -278,7 +278,7 @@ struct FatigueMapCard: View {
         let tired = Muscle.allCases
             .filter { (rec[$0] ?? 1) < 0.6 }
             .sorted { (rec[$0] ?? 1) < (rec[$1] ?? 1) }
-        let day = ProgramBuilder.nextDay(after: sessions)  // 和今天頁同一套（這週還沒練的天裡挑最恢復的），不會因為腿一直滿就一直推腿
+        let day: DayTemplate? = ProgramBuilder.nextDay(after: sessions)  // 和今天頁同一套（這週還沒練的天裡挑最恢復的），不會因為腿一直滿就一直推腿
         let fillFn: (Muscle) -> Color = { color(rec[$0] ?? 1) }
         return VStack(alignment: .leading, spacing: 12) {
             Text("疲勞地圖")
