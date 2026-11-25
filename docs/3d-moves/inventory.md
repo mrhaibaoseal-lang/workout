@@ -56,7 +56,7 @@
 | | hangingKnee | hanging_knee | 懸垂舉膝 |
 | | highChop | cable_high_chop | 跪姿高位繩索下劈（目前暫用 cableCrunch） |
 | | oneArmPulldown | cable_one_arm_pulldown | 跪姿單手 D 把手 |
-| 4 器械（`moves/machine.py`，新器材 `props_machine.py`） | legPress | leg_press | 通用腿推機 |
+| 4 器械（`moves/machine.py`，新器材 `props_machine.py`；**2026-11-26 完成，動作卡 `machine.md`，全部標「健身房動作」**） | legPress | leg_press | 通用腿推機 |
 | | legExtension | leg_extension | |
 | | machineLegCurl | machine_leg_curl | 坐姿腿後彎舉機 |
 | | assistedPullup | assisted_pullup | 輔助引體向上機（跪墊） |

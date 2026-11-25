@@ -2,17 +2,27 @@
 # 使用者沒有這些機器，動作庫有 → 只做示範，卡片標「健身房動作」。畫成簡化的機器：底座、座墊、靠背、配重塊、槓桿臂；不畫商標。
 # 人面向 -Y，髖關節在 H。移動的握把／踏板由動作檔照手腳位置每格擺（父物件叫 bar：clipcheck 不算手握東西的穿透）。
 
+def bar_root():
+    """clipcheck 只跳過『頂層父物件名字剛好是 bar』的道具（第二個空物件會叫 bar.001，不算）→ 全部跟手動的零件都掛在同一個 bar 底下（位置不動、單位矩陣）"""
+    o = bpy.data.objects.get('bar')
+    if o is None:
+        o = bpy.data.objects.new('bar', None); sc.collection.objects.link(o)
+    return o
+
+def bar_child(name='mv'):
+    """跟手／腳動的零件的父物件（空物件，掛在 bar 底下）"""
+    e = bpy.data.objects.new(name, None); sc.collection.objects.link(e); e.parent = bar_root(); return e
+
 def mach_seat(H, back_deg, seat_front=-0.30, back_gap=0.12, back_h=0.62, stack_y=0.62, stack_h=0.9):
     """座墊（髖下）＋靠背（離垂直往後倒 back_deg，貼在脊椎後面 back_gap）＋底座＋後方配重塊。回傳 (dv 靠背往上方向, nv 靠背朝前法線)"""
     a = D(back_deg or 0); dv = Vector((0, math.sin(a), math.cos(a))); nv = Vector((0, -math.cos(a), math.sin(a)))
     zs = H.z - 0.085                                                                   # 座墊上面
     pbox('pad', (0, (seat_front + 0.14) / 2 + H.y * 0.5, zs - 0.035), (0.20, (0.14 - seat_front) / 2, 0.035), 0.025)
     if back_deg is not None: pori('pad', Vector((0, H.y, H.z)) + dv * (back_h / 2 + 0.02) - nv * (back_gap + 0.04), (0.19, 0.04, back_h / 2), dv, 0.025)
-    pbox('frame', (0, H.y + 0.05, 0.03), (0.30, 0.50, 0.03), 0.01)                     # 底座（前後長）
-    pbox('frame', (0, H.y + 0.05, 0.03), (0.30, 0.04, 0.03), 0.01)
-    tube((0, H.y - 0.05, 0.05), (0, H.y - 0.05, zs - 0.07), 0.03)                      # 座墊支柱
+    pbox('frame', (0, H.y + 0.20, 0.03), (0.30, 0.35, 0.03), 0.01)                     # 底座（從髖後 0.05～髖後 0.55；腳在前面，不要蓋到）
+    tube((0, H.y + 0.12, 0.05), (0, H.y + 0.12, zs - 0.075), 0.03)                     # 座墊支柱（在臀部後面、不碰大腿）
     if back_deg is not None: tube((0, H.y + 0.30, 0.05), Vector((0, H.y, H.z)) + dv * 0.20 - nv * (back_gap + 0.09), 0.03)   # 靠背斜撐
-    for sx in (1, -1): pbox('rubber', (0.30 * sx, H.y + 0.05, 0.008), (0.04, 0.52, 0.008), 0.003)
+    for sx in (1, -1): pbox('rubber', (0.30 * sx, H.y + 0.20, 0.008), (0.04, 0.37, 0.008), 0.003)
     mach_stack(stack_y, stack_h)
     return dv, nv
 
@@ -26,9 +36,9 @@ def mach_stack(y, h):
 
 def mach_handle(rad=0.019, length=0.13):
     """握把（包膠，跟著手）＋兩條接到槓桿樞軸的細管（世界座標）：回傳 dict(root=握把父物件, tubes=[兩條 stretch])。兩個父物件都叫 bar。"""
-    root = bpy.data.objects.new('bar', None); sc.collection.objects.link(root)
+    root = bar_child('hnd')
     pcyl('rubber', (0, 0, 0), rad, length, (0, 0, 1), n=12).parent = root
-    st = bpy.data.objects.new('bar', None); sc.collection.objects.link(st)
+    st = bar_child('hnd_t')
     tubes = [stretch('frame', 0.016) for _ in (0, 1)]
     for t_ in tubes: t_.parent = st
     root.rotation_mode = 'QUATERNION'

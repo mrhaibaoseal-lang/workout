@@ -22,10 +22,11 @@ def feet_flat(H, ankle_y=-0.46, ankle_x=0.17):
         leg_to(s, Vector((HIPX[s], H.y, H.z)), Vector((ankle_x * sx, ankle_y, 0.11)), Vector((0.1 * sx, -1, 0.5)), Vector((0, -1, -0.15)))
 
 def side_grips(H, dy=-0.06):
-    """雙手握座墊兩側的握把（腿部機器用）"""
+    """雙手握座墊兩側的握把（腿部機器用）。握的那根掛在 bar 底下（clipcheck 不算）；支柱在手腕外側 x=0.37，不碰前臂"""
     for s, sx in SX:
-        pbox('frame', (0.27 * sx, H.y + dy, H.z + 0.07), (0.012, 0.07, 0.012), 0.004)
-        tube((0.27 * sx, H.y + dy + 0.07, H.z + 0.07), (0.27 * sx, H.y + dy + 0.07, 0.25), 0.014)
+        for o_ in (pbox('frame', (0.27 * sx, H.y + dy, H.z + 0.07), (0.012, 0.07, 0.012), 0.004),
+                   pbox('frame', (0.32 * sx, H.y + dy, H.z + 0.07), (0.05, 0.012, 0.012), 0.004)): o_.parent = bar_root()
+        tube((0.37 * sx, H.y + dy, 0.05), (0.37 * sx, H.y + dy, H.z + 0.07), 0.014)
 
 def side_hands(sh, H, dy=-0.06):
     for s, sx in SX:
@@ -37,7 +38,7 @@ if MOVE == 'legPress':
     N = 48
     H = Vector((0, 0.0, 0.50)); BACK = 25
     mach_seat(H, BACK, stack_y=0.80, stack_h=0.8)
-    pl = bpy.data.objects.new('bar', None); sc.collection.objects.link(pl)
+    pl = bar_child()
     for o_ in (pbox('plate', (0, 0, 0), (0.30, 0.02, 0.22), 0.01), pbox('rubber', (0, 0.021, 0), (0.28, 0.004, 0.2), 0.002),
                pbox('frame', (0, 0.06, -0.20), (0.04, 0.05, 0.14), 0.006)): o_.parent = pl
     pbox('frame', (0, -0.72, 0.09), (0.12, 0.50, 0.025), 0.008)                # 踏板滑軌
@@ -64,9 +65,9 @@ if MOVE == 'legExtension':
     H = Vector((0, 0.0, 0.50)); BACK = 10
     mach_seat(H, BACK, stack_y=0.70, stack_h=0.8)
     side_grips(H)
-    padc = pcyl('pad', (0, 0, 0), 0.045, 0.34, (1, 0, 0), n=16); proot = bpy.data.objects.new('bar', None); sc.collection.objects.link(proot); padc.parent = proot
+    padc = pcyl('pad', (0, 0, 0), 0.045, 0.34, (1, 0, 0), n=16); proot = bar_child(); padc.parent = proot
     lv = [stretch('frame', 0.016) for _ in (0, 1)]
-    st_ = bpy.data.objects.new('bar', None); sc.collection.objects.link(st_)
+    st_ = bar_child()
     for o_ in lv: o_.parent = st_
     def pose(t):
         cp, sh = sit_trunk(H, -D(BACK))
@@ -94,12 +95,13 @@ if MOVE == 'machineLegCurl':
     H = Vector((0, 0.0, 0.56)); BACK = 8
     mach_seat(H, BACK, stack_y=0.75, stack_h=0.8)
     side_grips(H)
-    for sx in (1, -1):
-        tube((0.19 * sx, -0.27, H.z + 0.09), (0.19 * sx, -0.46, 0.30), 0.016)
+    for sx in (1, -1):                                                                  # 壓墊兩側的支架：在大腿外側（x=0.30）落地，不穿過大腿／膝蓋
+        tube((0.30 * sx, -0.27, 0.05), (0.30 * sx, -0.27, H.z + 0.095), 0.016)
+        tube((0.22 * sx, -0.27, H.z + 0.095), (0.30 * sx, -0.27, H.z + 0.095), 0.016)
     pbox('pad', (0, -0.27, H.z + 0.095), (0.17, 0.10, 0.035), 0.02)                 # 大腿壓墊
-    padc = pcyl('pad', (0, 0, 0), 0.045, 0.34, (1, 0, 0), n=16); proot = bpy.data.objects.new('bar', None); sc.collection.objects.link(proot); padc.parent = proot
+    padc = pcyl('pad', (0, 0, 0), 0.045, 0.34, (1, 0, 0), n=16); proot = bar_child(); padc.parent = proot
     lv = [stretch('frame', 0.016) for _ in (0, 1)]
-    st_ = bpy.data.objects.new('bar', None); sc.collection.objects.link(st_)
+    st_ = bar_child()
     for o_ in lv: o_.parent = st_
     def pose(t):
         cp, sh = sit_trunk(H, -D(BACK))
@@ -126,8 +128,8 @@ if MOVE == 'assistedPullup':
     GX = 0.36; WZ = BZ - 0.065; ROLL = D(90)
     build_pullbar(BZ, 0.0, 0.60)
     mach_stack(0.95, 1.6)
-    pad = pbox('pad', (0, 0, 0), (0.20, 0.24, 0.035), 0.02); proot = bpy.data.objects.new('bar', None); sc.collection.objects.link(proot); pad.parent = proot
-    arm_ = stretch('frame', 0.02); st_ = bpy.data.objects.new('bar', None); sc.collection.objects.link(st_); arm_.parent = st_
+    pad = pbox('pad', (0, 0, 0), (0.20, 0.24, 0.035), 0.02); proot = bar_child(); pad.parent = proot
+    arm_ = stretch('frame', 0.02); st_ = bar_child(); arm_.parent = st_
     def pose(t):
         z_hang = WZ - math.sqrt(max((REACH_ * 0.998) ** 2 - (GX - 0.27) ** 2 - 0.04 ** 2, 0.01))
         sz = z_hang + (WZ - 0.115 - z_hang) * t
