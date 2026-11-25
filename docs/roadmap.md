@@ -137,9 +137,8 @@
     其他情況或被安全過濾擋下時，改顯示程式產生的固定文字。
   - 使用者是 iPhone 16 Plus，可以用。後來決定不做測試頁，直接接進練完的流程。
   - CI 是 `macos-15` 預設的 Xcode；要用 FoundationModels 得確認或指定 Xcode 26 以上。
-- **之後再說：相機數次數／看動作（Apple Vision 姿勢辨識）**。
+- **相機數次數（Apple Vision）：2026-11-25 開始做準度測試頁，規格與後續階段見 `docs/rep-counting.md`**。
   - 使用者不想拍身材，所以只能即時分析、不存影像；在家擺手機也不方便。
-  - 等使用者主動想要再做。
 - **不做**：
   - 雲端模型（Claude／Gemini API）：要 key、要錢、要網路。
   - MediaPipe／MoveNet：Vision 已經夠用，不用另外放模型。
