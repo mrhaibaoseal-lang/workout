@@ -85,6 +85,7 @@
   小豬 T 恤（奶油色圓肚皮、玫瑰色領口下襬袖口、胸前小金幣）、捲尾短褲（褲口粉紅＋屁股捲尾巴）、豬蹄短靴（前端兩瓣深色豬蹄）、
   豬蹄手套、撲滿背包（form `bank`，沿背脊躺著的小豬、外側投幣孔插金幣、肩上背帶）、小豬啞鈴（兩頭是豬臉、金握把）。
 - 配色取 3D 檔 `scripts/blender/gear_pig.py`：粉 #FFB3C6、玫瑰 #E8668F、奶油 #FFE6EC、豬蹄 #6E3B47、金幣 #FFC94A。
+- **2D 造型是暫時的**：使用者 2026-11-26 說 2D 之後會刪、全部改用 3D，小豬的 2D 圖不要再調整。
 - 2D 預覽：逐件（大圖、44px、灰階、同部位對照）`docs/art/pig-2d.png`；整套 3 個動作 `docs/art/pig-2d-set.png`。
 - 補給箱、碎片兌換、套裝都照 `GearCatalog.items` 自動帶入，沒有另外寫死的系列清單。
 - 預覽工具：`gear-preview.js` 需要 playwright；本機沒有 Chromium 時可用 Edge（`chromium.launch({channel:"msedge"})`）。
