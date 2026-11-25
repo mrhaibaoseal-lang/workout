@@ -195,7 +195,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         "db_leg_curl": .legCurl, "squat": .bwSquat,
         "cable_pulldown": .latPulldown, "cable_close_pulldown": .latPulldown, "cable_one_arm_pulldown": .latPulldown, "band_pulldown": .latPulldown,
         "cable_straight_arm": .straightArmPulldown, "cable_pushdown": .tricepsPushdown, "band_pushdown": .tricepsPushdown,
-        "cable_overhead_ext": .overheadCableExt, "cable_face_pull": .facePull, "cable_crunch": .cableCrunch,
+        "cable_overhead_ext": .overheadCableExt, "cable_face_pull": .facePull, "cable_crunch": .cableCrunch, "cable_high_chop": .cableCrunch,
         "cable_row": .seatedCableRow, "cable_curl": .cableCurl, "cable_lateral": .cableLateral,
     ]
 
