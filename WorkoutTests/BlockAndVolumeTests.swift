@@ -427,8 +427,8 @@ final class BlockAndVolumeTests: XCTestCase {
             XCTAssertTrue(SideBalance.sided(ExerciseLibrary.byId(id)!), id)
         }
         // 手提箱行走只拿一支啞鈴；傳統硬舉兩支
-        XCTAssertEqual(WeightKit.use(for: ExerciseLibrary.byId("suitcase_carry")!), .single)
-        XCTAssertEqual(WeightKit.use(for: ExerciseLibrary.byId("db_deadlift")!), .pair)
+        XCTAssertEqual(WeightKits.use(for: ExerciseLibrary.byId("suitcase_carry")!), .single)
+        XCTAssertEqual(WeightKits.use(for: ExerciseLibrary.byId("db_deadlift")!), .pair)
         // 起始重量比例：負重次數動作有值（計時的手提箱行走不推估）
         XCTAssertNotNil(StartWeight.strength["db_deadlift"])
         XCTAssertNotNil(StartWeight.strength["cable_one_arm_pushdown"])
