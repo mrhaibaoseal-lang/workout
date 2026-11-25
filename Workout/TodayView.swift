@@ -6,6 +6,8 @@ struct ActiveWorkout: Identifiable {
     let length: WorkoutLength
     /// 接著練上次沒按完成的訓練（`WorkoutResume`）
     var resume: WorkoutSnapshot? = nil
+    /// 從「開始訓練」按鈕進來的才用 zoom 轉場（其他入口沒有對應的起點）
+    var zoom: Bool = false
     var id: String { day.id + "-" + length.rawValue }
 }
 
@@ -31,6 +33,9 @@ struct TodayView: View {
     @AppStorage(Keys.tiredHours) private var tiredHours = 6
     @Environment(\.scenePhase) private var scenePhase
     @State private var refresh = 0
+    @State private var entrance = TodayEntrance()
+    @Namespace private var zoomNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var lengthChosen = false
 
     @State private var length: WorkoutLength = .preferred
@@ -146,7 +151,7 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    header
+                    header.todayEntrance(entrance)
                     // 0. 上次練到一半（App 被關掉）：接著練
                     if let r = resumable, active == nil {
                         ResumeCard(snap: r, canResume: resumeDay(r) != nil, onResume: {
@@ -157,12 +162,14 @@ struct TodayView: View {
                             WorkoutResume.clear()
                             withAnimation { resumable = nil }
                         })
+                        .todayEntrance(entrance)
                     }
                     // 1. 會改變今天要做什麼的：漏練、併成全身日
                     if missed && !trainedToday {
                         MissedCard(onStart: {
                             active = ActiveWorkout(day: day, length: .minimal)
                         }, onLeave: { goalSheet = .leave })
+                        .todayEntrance(entrance)
                     }
                     let plans = self.plans
                     if pickedDay == nil, onLeave == nil, let offer = mergeOffer(plans) {
@@ -171,48 +178,59 @@ struct TodayView: View {
                         }, onDismiss: {
                             withAnimation { WeekFit.dismiss() }
                         })
+                        .todayEntrance(entrance)
                     }
                     // 2. 今天的訓練：開始按鈕和動作清單放最上面
                     let plan = self.plan
-                    heroCard(today: plans.first, plan: plan)
+                    heroCard(today: plans.first, plan: plan).todayEntrance(entrance)
                     if !trainedToday, onLeave == nil, length != .minimal, !plan.isEmpty {
                         PlanCheckRow(findings: planFindings(plan)) { showPlanCheck = true }
+                            .todayEntrance(entrance)
                     }
-                    exerciseList(plan)
+                    exerciseList(plan).todayEntrance(entrance)
                     // 3. 教練的提醒（每週、每個區塊才出現一次）
-                    weeklySummaryCard
-                    coachCards
-                    SideDetectCard(sessions: sessions)
-                    specializationCard
+                    weeklySummaryCard.todayEntrance(entrance)
+                    coachCards.todayEntrance(entrance)
+                    SideDetectCard(sessions: sessions).todayEntrance(entrance)
+                    specializationCard.todayEntrance(entrance)
                     // 4. 本週進度、牌位、任務
                     let ctx = self.ctx
                     let dates = sessions.map(\.date)
                     let current = GoalEngine.current(dates: dates, goal: weeklyGoal, ctx: ctx)
-                    SectionHeader(title: "本週")
+                    SectionHeader(title: "本週").todayEntrance(entrance)
                     WeekRingCard(week: week, phase: phase,
                                  done: current.count, goal: current.goal,
                                  plans: plans)
+                        .todayEntrance(entrance)
                     QuestCard(quests: GoalEngine.quests(week: current.week, facts: GoalEngine.facts(sessions),
                                                         goal: current.goal, ctx: ctx),
                               shields: current.shields,
                               activeBet: ctx.bets.first(where: { $0.week == current.week }),
                               onSheet: { goalSheet = $0 })
+                        .todayEntrance(entrance)
                     let rank = RankEngine.rank(sessions: sessions, goal: weeklyGoal, ctx: ctx)
                     RankCard(rank: rank, intake: intake,
                              gate: RankEngine.nextGate(sessions: sessions, goal: weeklyGoal, rank: rank, ctx: ctx))
+                        .todayEntrance(entrance)
                     // 5. 其他
-                    SectionHeader(title: "更多")
-                    weekVolume
+                    SectionHeader(title: "更多").todayEntrance(entrance)
+                    weekVolume.todayEntrance(entrance)
                     HStack(spacing: 10) {
                         toolsTile
                         boxTile
                     }
+                    .todayEntrance(entrance)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
             .themeScreen()
             .toolbar(.hidden, for: .navigationBar)
+            // 進場動畫只排前 1.6 秒；之後才出現的卡直接顯示，不重播
+            .task {
+                try? await Task.sleep(for: .seconds(1.6))
+                entrance.playing = false
+            }
             .onAppear {
                 guard !lengthChosen, let today = plans.first, !today.done else { return }
                 length = today.length ?? .minimal
@@ -279,6 +297,7 @@ struct TodayView: View {
                     pickedDay = nil
                 }
                 .environmentObject(inventory)
+                .todayZoomDestination(enabled: a.zoom && !reduceMotion, id: "start", in: zoomNS)
             }
         }
     }
@@ -471,11 +490,12 @@ struct TodayView: View {
             }
 
             Button {
-                active = ActiveWorkout(day: day, length: length)
+                active = ActiveWorkout(day: day, length: length, zoom: true)
             } label: {
                 Label(length == .minimal ? "做 1 組就好" : "開始訓練", systemImage: "play.fill")
             }
-            .buttonStyle(HotButtonStyle())
+            .buttonStyle(StartButtonStyle(glow: !plan.isEmpty))
+            .todayZoomSource(id: "start", in: zoomNS)
             .disabled(plan.isEmpty)
             .opacity(plan.isEmpty ? 0.4 : 1)
         }
@@ -846,9 +866,13 @@ struct WeekRingCard: View {
     let done: Int
     let goal: Int
     let plans: [DayPlan]
+    /// 卡片露出在螢幕上之後，已完成的格子才依序點亮（在螢幕外時不播）
+    @State private var visible = false
+    @State private var reveal = false
 
     var body: some View {
-        HStack(spacing: 16) {
+        let doneIDs = plans.filter(\.done).map(\.id)
+        return HStack(spacing: 16) {
             ZStack {
                 Ring(progress: goal > 0 ? Double(done) / Double(goal) : 0,
                      color: done >= goal ? Theme.green : Theme.accent)
@@ -873,19 +897,45 @@ struct WeekRingCard: View {
                 }
                 HStack(spacing: 4) {
                     ForEach(plans) { p in
-                        DayDot(plan: p)
+                        DayDot(plan: p, reveal: reveal, visible: visible,
+                               order: doneIDs.firstIndex(of: p.id) ?? 0)
                     }
                 }
             }
         }
         .themeCard()
+        .trackVisibility($visible)
+        .onChange(of: visible) { _, v in if v { reveal = true } }
     }
 }
 
 struct DayDot: View {
     let plan: DayPlan
+    /// 這一週的卡片第一次露出來了：完成的格子開始依序點亮
+    var reveal = true
+    /// 卡片現在看得到（今天剛完成的爆光要等看得到才播）
+    var visible = true
+    /// 在本週已完成的格子裡排第幾個（決定點亮的先後）
+    var order = 0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lit: Bool
+    @State private var pop = false
+    @State private var bursting = false
+
+    init(plan: DayPlan, reveal: Bool = true, visible: Bool = true, order: Int = 0) {
+        self.plan = plan
+        self.reveal = reveal
+        self.visible = visible
+        self.order = order
+        // 卡片已經亮過了（例如資料更新後重建的格子）就直接是亮的
+        _lit = State(initialValue: reveal)
+    }
 
     private var isToday: Bool { Calendar.current.isDateInToday(plan.day) }
+
+    /// 完成的格子要等點亮才顯示成完成
+    private var showDone: Bool { plan.done && lit }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -894,6 +944,8 @@ struct DayDot: View {
                 .foregroundStyle(isToday ? Theme.hotText : Theme.muted)
             box
                 .frame(width: 26, height: 26)
+                .scaleEffect(pop ? 1.22 : 1)
+                .overlay { if bursting { DayBurstFX() } }
             Text(caption)
                 .font(.system(size: 9, weight: .semibold, design: .rounded).monospacedDigit())
                 .foregroundStyle(Theme.muted)
@@ -901,6 +953,47 @@ struct DayDot: View {
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
+        .onAppear { if reveal { lightUp() } }
+        .onChange(of: reveal) { _, r in if r { lightUp() } }
+        .onChange(of: visible) { _, v in if v { burstIfNeeded() } }
+        .onChange(of: plan.done) { _, done in
+            if done { lightUp() } else { lit = reveal }
+        }
+    }
+
+    /// 依順序點亮；減少動態效果時直接顯示結果
+    private func lightUp() {
+        if lit {
+            burstIfNeeded()
+            return
+        }
+        if reduceMotion {
+            withAnimation(.easeOut(duration: 0.2)) { lit = true }
+            burstIfNeeded(afterLight: true)
+            return
+        }
+        let delay = 0.15 + Double(order) * 0.12
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) { lit = true; pop = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { pop = false }
+            }
+            burstIfNeeded(afterLight: true)
+        }
+    }
+
+    /// 今天剛完成的那一格：小爆光（縮放加光暈），每天只播一次
+    private func burstIfNeeded(afterLight: Bool = false) {
+        guard isToday, plan.done, lit, visible || afterLight, !DayBurstMemo.played else { return }
+        DayBurstMemo.markPlayed()
+        guard !reduceMotion else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        bursting = true
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { pop = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { pop = false }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { bursting = false }
     }
 
     private var caption: String {
@@ -912,7 +1005,7 @@ struct DayDot: View {
     @ViewBuilder
     private var box: some View {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
-        if plan.done {
+        if showDone {
             shape.fill(Theme.accent)
                 .overlay(Image(systemName: "checkmark").font(.caption2.weight(.heavy)).foregroundStyle(Theme.bg))
         } else if plan.length != nil {
