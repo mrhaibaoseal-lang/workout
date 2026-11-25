@@ -67,7 +67,7 @@ final class MobilityTests: XCTestCase {
             .calfStretch, .hipFlexor, .cobra, .splitSquat, .reverseLunge, .stepUp, .hipThrust, .benchPress,
             .floorPress, .skullCrusher, .pullover, .kickback, .pikePushup, .reverseCrunch, .deadBug, .slRdl, .legCurl,
             .latPulldown, .straightArmPulldown, .tricepsPushdown, .overheadCableExt, .facePull, .cableCrunch,
-            .seatedCableRow, .cableCurl, .cableLateral,
+            .seatedCableRow, .cableLateral,
         ]
         for m in generated {
             XCTAssertNotNil(m.spec, "\(m) 沒有產生的資料")

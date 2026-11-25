@@ -180,7 +180,6 @@ enum ExerciseLibrary {
         Exercise(id: "db_curl", name: "啞鈴彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "手肘固定在身側，不要甩"),
         Exercise(id: "db_incline_curl", name: "上斜椅啞鈴彎舉", pattern: .biceps, requires: [.dumbbell, .bench], loaded: true, tip: "椅背調斜躺著，手臂自然垂在身體後方，手肘不往前跑"),
         Exercise(id: "db_concentration_curl", name: "集中彎舉", pattern: .biceps, requires: [.dumbbell], loaded: true, tip: "坐著，手肘靠在大腿內側，慢慢彎到頂、慢慢放（每邊做）"),
-        Exercise(id: "cable_curl", name: "低位滑輪彎舉", pattern: .biceps, requires: [.machine], loaded: true, tip: "手肘貼身，彎到頂停一秒"),
         Exercise(id: "band_curl", name: "彈力帶彎舉", pattern: .biceps, requires: [.band], loaded: false, tip: "腳踩彈力帶，手肘固定"),
 
         // 三頭

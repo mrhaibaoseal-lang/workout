@@ -342,14 +342,6 @@ const MOVES = {
       { torso: -94, neck: -88, arm: [150, 4], leg: [-14, 30], anchor: ['hip', 72, 154] },
     ],
   },
-  cableCurl: {
-    // 站著面向低位滑輪，手肘貼身，把手彎到肩前
-    title: '低位滑輪彎舉', gear: 'bare', period: 2.6, prop: 'cableLow', grip: 'bar',
-    frames: [
-      S({ arm: [94, 80], anchor: ['an', 100, 182] }),
-      S({ arm: [94, -60], anchor: ['an', 100, 182] }),
-    ],
-  },
   cableLateral: {
     // 低位滑輪在身體前側，一手扶架子，另一手微彎往側上方舉到肩膀高
     title: '單手滑輪側平舉', gear: 'bare', period: 2.8, prop: 'cableLow', grip: 'handle',

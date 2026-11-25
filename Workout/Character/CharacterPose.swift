@@ -150,7 +150,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
     case pikePushup, reverseCrunch, deadBug, slRdl, legCurl
     // 滑輪（下拉架）
     case latPulldown, straightArmPulldown, tricepsPushdown, overheadCableExt, facePull, cableCrunch
-    case seatedCableRow, cableCurl, cableLateral
+    case seatedCableRow, cableLateral
 
     var id: String { rawValue }
 
@@ -196,7 +196,7 @@ enum CharacterMove: String, CaseIterable, Identifiable {
         "cable_pulldown": .latPulldown, "cable_close_pulldown": .latPulldown, "cable_one_arm_pulldown": .latPulldown, "band_pulldown": .latPulldown,
         "cable_straight_arm": .straightArmPulldown, "cable_pushdown": .tricepsPushdown, "cable_one_arm_pushdown": .tricepsPushdown, "band_pushdown": .tricepsPushdown,
         "cable_overhead_ext": .overheadCableExt, "cable_face_pull": .facePull, "cable_crunch": .cableCrunch, "cable_high_chop": .cableCrunch,
-        "cable_row": .seatedCableRow, "cable_curl": .cableCurl, "cable_lateral": .cableLateral,
+        "cable_row": .seatedCableRow, "cable_lateral": .cableLateral,
     ]
 
     static func forExercise(_ e: Exercise) -> CharacterMove {

@@ -31,7 +31,7 @@ enum StartWeight {
         "machine_leg_curl": 0.45, "db_leg_curl": 0.15, "leg_extension": 0.55,
         "machine_calf": 1.0, "db_calf_raise": 0.3,
         // 手臂
-        "bb_curl": 0.4, "db_hammer_curl": 0.17, "db_curl": 0.15, "cable_curl": 0.35,
+        "bb_curl": 0.4, "db_hammer_curl": 0.17, "db_curl": 0.15,
         "cable_pushdown": 0.35, "cable_overhead_ext": 0.3, "db_overhead_ext": 0.25,
         // 肩
         "db_lateral": 0.07, "db_lean_lateral": 0.08, "cable_lateral": 0.07,
