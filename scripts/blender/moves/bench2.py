@@ -77,8 +77,10 @@ if MOVE == 'declineCrunch':
         cp, sh = trunk(h, lam_h, lam_c, lam_hd)
         for s, sx in SX:
             hj = h + RX(lam_h) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
-            an = Vector((0.13 * sx, -0.40, 0.25))          # 腳踝勾在滾筒後面，腳尖朝上頂住滾筒
-            leg_to(s, hj, an, Vector((0.3 * sx, -0.5, 1.0)), Vector((0, -0.6, 1.0)))
+            an = Vector((0.13 * sx, -0.41, 0.16))          # 腳背勾在滾筒下面：腳尖往前下方伸、滾筒壓在腳背上（腳踝在滾筒後方約 12 cm）
+            tdir = Vector((0, -0.75, -0.66))
+            leg_to(s, hj, an, Vector((0.3 * sx, -0.5, 1.0)), tdir)
+            fl_aimz(f'foot.{s}', an, tdir, Vector((0, 0.66, -0.75)))     # 腳背朝前上方（滾筒壓在腳背）、腳底朝後下方
         c0 = rest['chest'][0]
         for s, sx in SX:                                    # 雙手交叉：手腕放在對側胸前，手肘朝外
             dep = 0.17 if s == "L" else 0.33                # 兩隻前臂前後疊開（右手在上），不互穿

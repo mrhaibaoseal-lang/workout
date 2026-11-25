@@ -115,7 +115,9 @@ if MOVE == 'sidePlank':
         sh, hj, ctop = bf_trunk(P(rest['hips'][0]), fm, fm, fm)
         anR = P(rest['shin.R'][1]); anL = anR + lt * 0.22 + Vector((0, 0.01, 0))   # 兩腳疊在一起（上面的高 22 cm＝兩條腿平行相貼）
         for s, sx in SX:
-            leg_to(s, hj[s], anR if s == 'R' else anL, Vector((0, 0.0, 1.0)), fr)
+            an_ = anR if s == 'R' else anL
+            leg_to(s, hj[s], an_, Vector((0, 0.0, 1.0)), fr)
+            fl_aimz(f'foot.{s}', an_, fr, -up)             # 腳尖朝前（胸口方向）、腳底朝腳的方向（像站著的腳轉成側躺）→ 腳外側著地、兩腳疊齊
         shR = sh['R']                                      # 下面的手臂：手肘在肩正下方、前臂朝前貼地
         eb = Vector((shR.x, shR.y, EZ)); wr = eb + Vector((FL * 0.99, 0, 0))
         aim('upper_arm.R', shR, eb - shR); aim('forearm.R', eb, wr - eb); aim('hand.R', wr, Vector((1, 0, -0.1)))
@@ -352,6 +354,7 @@ if MOVE == 'tableRow':
         for s, sx in SX:
             sd = 1 if lt.x > 0 else -1; side = sd * sx                 # 這一邊在世界的左右（+x／-x）
             leg_to(s, hj[s], P(rest[f'shin.{s}'][1]), Vector((0, -0.3, 1.0)), P(rest[f'foot.{s}'][1]) - P(rest[f'foot.{s}'][0]))
+            fl_aimz(f'foot.{s}', P(rest[f'shin.{s}'][1]), P(rest[f'foot.{s}'][1]) - P(rest[f'foot.{s}'][0]), -up)   # 腳底朝腳的方向（腳跟著地、腳尖朝上），不照世界座標亂翻
             wrist = Vector((0.30 * side, YG, ZG + 0.035))
             arm_to(s, sh[s], wrist, Vector((0.6 * side, 0.0, -1.0)), Vector((0.0, 1.0, -0.3)))
     for f in range(N):
