@@ -23,6 +23,13 @@ def kill_bell(side):
     bmesh.ops.delete(_bm, geom=_kill, context='FACES'); _bm.to_mesh(_hero.data); _bm.free()
     print('[kill_bell]', side, '面數', len(_kill))
 
+def leg_side(s, hj, an, pole, back, foot_dir):
+    """側躺用的腿：像 leg_to，但大腿、小腿的「後面」（骨頭 z 軸）朝 back（身體背面），不照世界座標決定滾轉；
+    這樣側躺時兩條大腿的剖面和骨盆同方向，褲子在胯下不會互穿。腳底朝小腿方向。"""
+    k = ik2(hj, an, blen[f'thigh.{s}'], blen[f'shin.{s}'], pole)
+    fl_aimz(f'thigh.{s}', hj, k - hj, back); fl_aimz(f'shin.{s}', k, an - k, back)
+    fl_aimz(f'foot.{s}', an, foot_dir, an - k)
+
 def trunk_over(target_mid, lam_h, lam_c, lam_hd):
     """先擺一次 trunk 量出肩膀中點，再平移髖讓肩膀中點落在 target_mid。回傳 (髖位置 hh, chest_pt, 肩 {L,R})"""
     h0 = Vector((0, 0, 0.9)); cp, sh = trunk(h0, lam_h, lam_c, lam_hd)
@@ -70,11 +77,12 @@ if MOVE == 'declineCrunch':
         cp, sh = trunk(h, lam_h, lam_c, lam_hd)
         for s, sx in SX:
             hj = h + RX(lam_h) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
-            an = Vector((0.13 * sx, -0.42, 0.20))          # 腳踝勾在滾筒後面
-            leg_to(s, hj, an, Vector((0.3 * sx, -0.5, 1.0)), Vector((0, -1, -0.35)))
+            an = Vector((0.13 * sx, -0.40, 0.25))          # 腳踝勾在滾筒後面，腳尖朝上頂住滾筒
+            leg_to(s, hj, an, Vector((0.3 * sx, -0.5, 1.0)), Vector((0, -0.6, 1.0)))
         c0 = rest['chest'][0]
         for s, sx in SX:                                    # 雙手交叉：手腕放在對側胸前，手肘朝外
-            tgt = cp(Vector((-0.06 * sx, c0.y - 0.115, c0.z + 0.17)))
+            dep = 0.17 if s == "L" else 0.33                # 兩隻前臂前後疊開（右手在上），不互穿
+            tgt = cp(Vector((0.0, c0.y - dep, c0.z + 0.17)))
             arm_to(s, sh[s], tgt, Vector((0.9 * sx, -0.2, 0.7)), Vector((-1 * sx, -0.2, 0.2)))
     for f in range(N):
         sc.frame_set(f); pose(profile(f, N, 18, 6, 18)); keyall(f)     # 捲起 18 格、頂端停 6、放回 18、底部停 6
@@ -93,16 +101,17 @@ if MOVE == 'sideLyingLateral':
         dv, nv, hg = padframe(BACK)
         fm = bf_frame(dv, Vector((1, 0, 0)))               # 胸口朝 +x、身體長軸沿靠背；左邊朝椅墊
         lt, fr, up = fm
-        h = hg + nv * 0.18 + dv * 0.04
+        h = hg + nv * 0.28 + dv * 0.18
         sh, hj, ctop = bf_trunk(h, fm, fm, bf_frame(dv - nv * 0.1, Vector((1, 0, 0))))
-        for s, sx in SX:                                    # 雙腿微彎疊在一起，膝蓋朝胸口那側
-            an = hj[s] - up * 0.50 + (-lt) * (0.06 if s == 'R' else -0.04) + fr * 0.02
-            leg_to(s, hj[s], an, fr * 1.0 + Vector((0, -0.2, 0)), (-up).normalized())
+        for s, sx in SX:                                    # 雙腿彎起來疊在一起（側睡的姿勢），膝蓋朝胸口那側
+            top = (s == 'R')                                # 右腿在上：再抬高一點，兩腿不互碰
+            an = hj[s] - up * (0.36 if top else 0.28) + fr * (0.34 if top else 0.20) + ((-lt) * 0.16 if top else Vector((0, 0, 0)))
+            leg_side(s, hj[s], an, fr * 1.0 + ((-lt) * 1.0 if top else Vector((0, 0, 0))), -fr, (-up).normalized())
         # 左手（下面）：手臂往頭的方向伸直、手在頭下
-        wl = sh['L'] + up * (UL + FL) * 0.55 + lt * 0.02 + fr * 0.06
-        arm_to('L', sh['L'], wl, fr * 1.0 + lt * 0.3, up)
+        wl = sh['L'] + up * 0.20 + (-lt) * 0.10 + fr * 0.05   # 手肘彎著，手放在頭下當枕頭（不碰頭枕把手）
+        arm_to('L', sh['L'], wl, fr * 1.0 + lt * 0.3, fr)
         # 右手（上面）：手臂從貼著大腿的位置（離身體往腳 0°）畫弧舉到和身體垂直（90°）
-        phi = D(6) + D(84) * t
+        phi = D(12) + D(78) * t
         a = (-up) * math.cos(phi) + (-lt) * math.sin(phi)
         close = (-up) * math.sin(phi) - (-lt) * math.cos(phi)
         e = sh['R'] + a * UL
@@ -121,7 +130,7 @@ if MOVE == 'sideLyingLateral':
 if MOVE == 'concentrationCurl':
     N = 48
     kill_bell('L')
-    build_bench(15)
+    place_bench2(90, -90, (0.085, 0.0, 0.0))                # 平躺的椅子轉 90°：人橫坐在座墊上，立柱在右邊遠處（頭不會撞到）
     HIP_Z, HIP_Y = SEAT_Z + 0.10, 0.0
     def legs_geom():
         K = {}; hjs = {}; AN = {}
@@ -135,7 +144,7 @@ if MOVE == 'concentrationCurl':
         hjs, K, AN = legs_geom()
         # 右手肘（R，x 為負）頂在右大腿內側：離髖約 70% 處、貼大腿內側往上 5 cm
         hj, kn = hjs['R'], K['R']
-        E = hj + (kn - hj) * 0.72 + Vector((0.065, 0, 0.055))
+        E = hj + (kn - hj) * 0.85 + Vector((0.17, 0, 0.08))
         lo, hi = D(10), D(80)
         for _ in range(40):                                  # 上身前傾角：讓右肩到手肘的距離＝上臂長
             mid = (lo + hi) / 2; _, shm = lean_for(mid)
@@ -171,8 +180,8 @@ if MOVE in ('benchDip', 'elevatedBenchDip'):
     place_bench2(90, -90, (-0.55, Y_E + 0.15, 0.0))        # 轉 -90°：長邊沿 X、立柱在左邊遠處；人坐在靠背墊那一段前面
     if ELEV:
         pbox('pad', (0, Y_E - 0.95, 0.225), (0.24, 0.17, 0.225), 0.02)    # 腳的墊子（高 45 cm）
-    HX = 0.19                                               # 手撐的 x
-    DY = 0.15                                               # 肩膀在手腕前面（-y）多少：上身貼近椅子垂直下降
+    HX = 0.25                                               # 手撐的 x（比肩略寬，大腿才不會碰到手）
+    DY = 0.19                                               # 肩膀在手腕前面（-y）多少：上身貼近椅子垂直下降
     def pose(t):
         W = {s: Vector((HX * sx, Y_E + 0.035, Z_P + 0.012)) for s, sx in SX}
         dtop = (UL + FL) * 0.985; dbot = math.sqrt(UL * UL + FL * FL)       # 手肘 170° → 90°
@@ -182,7 +191,7 @@ if MOVE in ('benchDip', 'elevatedBenchDip'):
         hh, cp, sh = trunk_over(target, D(5), D(5), D(-4))
         for s, sx in SX:
             hj = hh + RX(D(5)) @ (rest[f'thigh.{s}'][0] - rest['hips'][0])
-            if ELEV: an = Vector((0.12 * sx, Y_E - 0.90, 0.45 + 0.11))
+            if ELEV: an = Vector((0.12 * sx, Y_E - 0.93, 0.45 + 0.11))
             else: an = Vector((0.12 * sx, Y_E - 0.80, 0.11))
             leg_to(s, hj, an, Vector((0.2 * sx, -0.5, 1.0)), Vector((0, -1, -0.2)) if not ELEV else Vector((0, -0.3, 1.0)))
         for s, sx in SX:

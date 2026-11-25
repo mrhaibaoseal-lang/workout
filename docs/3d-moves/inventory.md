@@ -35,7 +35,7 @@
 ## B. 要新做的專屬 3D（共 34 個，分 5 批；每批獨立 commit）
 | 批次（檔案） | 3D 動作名 | 動作庫 id | 備註 |
 |---|---|---|---|
-| 1 地板徒手（`moves/floor2.py`） | sidePlank | side_plank | 前臂側撐 |
+| 1 地板徒手（`moves/floor2.py`；**完成 2026-11-25**） | sidePlank | side_plank | 前臂側撐 |
 | | birdDog | bird_dog | 四足、對側手腳伸直 |
 | | proneYTW | prone_ytw | 趴地，Y→T→W 三個姿勢循環 |
 | | sissySquat | sissy_squat | 扶椅子（用使用者的椅子或柱子），膝蓋前推、腳跟離地 |
@@ -45,7 +45,7 @@
 | | declinePushup | decline_pushup | 腳放椅子上 |
 | | elevatedPike | elevated_pike | 腳放椅子上的屈體伏地挺身 |
 | | tableRow | table_row（暫停版共用） | 躺在桌下抓桌緣拉起 |
-| 2 椅子（`moves/bench2.py`） | dbFly | db_fly | 平躺飛鳥 |
+| 2 椅子（`moves/bench2.py`；**完成 2026-11-26**，動作卡 `bench2.md`） | dbFly | db_fly | 平躺飛鳥 |
 | | declineCrunch | decline_crunch | 下斜捲腹（椅子靠背放下斜） |
 | | sideLyingLateral | db_side_lying_lateral | 側躺在斜背椅 |
 | | concentrationCurl | db_concentration_curl | 坐椅邊、手肘頂大腿內側 |
