@@ -159,9 +159,9 @@ if MOVE == 'machineChestPress':
     mach_seat(H, BACK, stack_y=0.70, stack_h=1.2)
     hnd = {s: mach_handle() for s, _ in SX}
     for sx in (1, -1): tube((0.42 * sx, -0.95, 0.05), (0.42 * sx, -0.95, 1.20), 0.03)
-    feet_flat(H)
     def pose(t):
         cp, sh = sit_trunk(H, -D(BACK))
+        feet_flat(H)
         poles = {s_: Vector((0.7 * sx_, 0.5, -0.2)) for s_, sx_ in SX}
         def wf(cur):
             return {s_: Vector((0.25 * sx_, cur[s_].y - (0.34 + (REACH_ * 0.985 - 0.34) * t), cur[s_].z - 0.04)) for s_, sx_ in SX}
@@ -181,9 +181,9 @@ if MOVE == 'machineShoulderPress':
     H = Vector((0, 0.0, 0.52)); BACK = 8
     mach_seat(H, BACK, back_h=0.95, stack_y=0.80, stack_h=1.5)
     hnd = {s: mach_handle() for s, _ in SX}
-    feet_flat(H)
     def pose(t):
         cp, sh = sit_trunk(H, -D(BACK))
+        feet_flat(H)
         poles = {s_: Vector((0.4 * sx_, 0.2, -1)) for s_, sx_ in SX}
         def wf(cur):
             out = {}
@@ -213,9 +213,9 @@ if MOVE == 'machineRearDelt':
     pori('pad', Vector((0, my - 0.16, sh0['L'].z - 0.12 - 0.26)), (0.17, 0.04, 0.26), Vector((0, 0, 1)), 0.025)     # 胸墊
     tube((0, my - 0.20, sh0['L'].z - 0.5), (0, my - 0.55, sh0['L'].z - 0.5), 0.03)
     pbox('frame', (0, my - 0.58, (sh0['L'].z - 0.1) / 2), (0.05, 0.05, (sh0['L'].z - 0.1) / 2), 0.01)
-    feet_flat(H, -0.40)
     def pose(t):
         cp, sh = sit_trunk(H, D(6))
+        feet_flat(H, -0.40)
         phi = D(6) + D(76) * t
         B_ = D(12)
         for s, sx in SX:
