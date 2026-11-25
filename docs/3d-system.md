@@ -16,7 +16,7 @@
   2D 版的角度資料在 `scripts/art/moves.js`，可當作 3D 的參考（側面角度 → 3D 要補左右寬度、手腳釘點）。
 - 裝備：12 系列 × 8 部位 ＝ 96 件（`GearCatalog.swift`）。CLAUDE.md 的美術規定照樣適用（灰階認得出、同部位不撞形、越稀有越華麗）。
   目前做了 3D 測試版的系列：鈦甲（titan）、冰霜（frost，預覽 `docs/art/blender/frost.png`）、小豬（pig，預覽 `docs/art/blender/pig.png`；2026-11-24 使用者臨時提的新系列，還沒加進 `GearCatalog`／App）、英雄類四套夜巡者（night）、曙光（dawn）、符文戰神（rune）、星界魔導（astral）（2026-11-25 使用者定案，預覽 `docs/art/blender/heroes.png`）、
-  街頭（street，6 部位：目錄沒有背部和特效）、霓虹（neon）、熔岩（lava）、黃金（gold）、暗影（shadow）（2026-11-25 做好，待使用者看；
+  街頭（street，6 部位：目錄沒有背部和特效）、霓虹（neon）、熔岩（lava）、黃金（gold）、暗影（shadow）（2026-11-25 做好，2026-11-26 使用者定案；
   每套一張 `docs/art/blender/<系列>.png`，5 套並排＋換裝混搭 `docs/art/blender/gear5.png`），可逐部位混搭（`GEAR="head=titan,hands=titan"`）。
   **12 系列的 3D 造型都有了**（GearCatalog 11 套＋小豬）。
   - 這 5 套的頂點數（`hero_proto` 該系列全部零件，不含共用身體、衣服網格）：街頭 9,004、霓虹 6,741、熔岩 7,494、黃金 10,647、暗影 10,458。
