@@ -32,11 +32,13 @@ struct ChoiceChips<T: Hashable>: View {
                         .background(on ? Theme.accent : Theme.raised,
                                     in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .foregroundStyle(on ? Theme.bg : Theme.fg)
+                        .animation(.easeOut(duration: 0.15), value: on)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressScaleButtonStyle())
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+        .sensoryFeedback(.selection, trigger: selection)
         .opacity(enabled ? 1 : 0.5)
         .allowsHitTesting(enabled)
     }
@@ -87,6 +89,11 @@ struct OnboardingView: View {
     /// 這次問卷開始的時間：只有在這之後做的程度評估，才拿來蓋掉自己填的弱邊
     @State private var startedAt = Date().timeIntervalSince1970
     @State private var summary: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// 換頁方向：true = 往前（新頁從右邊推進），false = 往回（從左邊推進）
+    @State private var forward = true
+    /// 要換去的頁。先讓 `forward` 畫進一次，再真的換頁，離場的那一頁才會用到正確方向。
+    @State private var pendingStep: Step?
 
     private var steps: [Step] {
         Step.allCases.filter { $0 != .cloud || CloudConfig.isConfigured }
@@ -103,11 +110,26 @@ struct OnboardingView: View {
 
     var body: some View {
         NavigationStack {
-            page
+            ZStack {
+                page
+                    .id(step)
+                    .transition(pageTransition)
+            }
                 .themeForm()
                 .navigationTitle(step.title)
                 .navigationBarTitleDisplayMode(.inline)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    StepProgressBar(fraction: Double(index + 1) / Double(steps.count))
+                        .background(Theme.bg)
+                }
                 .safeAreaInset(edge: .bottom) { bottomBar }
+                .onChange(of: pendingStep) { _, target in
+                    guard let target else { return }
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.35)) {
+                        step = target
+                    }
+                    pendingStep = nil
+                }
                 .toolbar {
                     if mode == .redo {
                         ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
@@ -419,8 +441,10 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(on ? Theme.accent : Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .foregroundStyle(on ? Theme.bg : Theme.fg)
+                .animation(.easeOut(duration: 0.15), value: on)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScaleButtonStyle())
+        .sensoryFeedback(.selection, trigger: on)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -478,13 +502,28 @@ struct OnboardingView: View {
         }
     }
 
+    /// 往前從右邊推進、往回從左邊推進；減少動態效果時改成淡入淡出。
+    private var pageTransition: AnyTransition {
+        if reduceMotion { return .opacity }
+        let edge: Edge = forward ? .trailing : .leading
+        let out: Edge = forward ? .leading : .trailing
+        return .asymmetric(insertion: .move(edge: edge).combined(with: .opacity),
+                           removal: .move(edge: out).combined(with: .opacity))
+    }
+
+    private func go(to target: Step, forward isForward: Bool) {
+        guard pendingStep == nil else { return }
+        forward = isForward
+        pendingStep = target
+    }
+
     private func back() {
         guard index > 0 else { return }
-        step = steps[index - 1]
+        go(to: steps[index - 1], forward: false)
     }
 
     private func next() {
-        if isLast { finish() } else { step = steps[index + 1] }
+        if isLast { finish() } else { go(to: steps[index + 1], forward: true) }
     }
 
     /// 略過這一頁：這一頁填的都不算。
