@@ -456,7 +456,14 @@ final class Hero3DModel: ObservableObject {
 
     private func tick(_ dt: TimeInterval) {
         holder.orientation = simd_quatf(angle: yaw, axis: [0, 1, 0])
-        guard !useUSDAnimation, let clip = clips[move] else { return }
+        if useUSDAnimation {
+            // USD 動畫只帶動本體；描邊複本是後加的，動畫碰不到，每格照抄本體的骨頭（最多晚一格）
+            for b in bodies {
+                if let ol = outlines[ObjectIdentifier(b.entity)], ol.isEnabled { Self.copyJoints(from: b.entity, to: ol) }
+            }
+            return
+        }
+        guard let clip = clips[move] else { return }
         let reduce = UIAccessibility.isReduceMotionEnabled
         if !paused && !reduce { time += dt }
         // 減少動態效果：停在動作最深的那一格
@@ -493,6 +500,16 @@ final class Hero3DModel: ObservableObject {
             for (i, k) in map.enumerated() where k != nil && i < n { p.jointTransforms[i] = pose[k!] }
             c.poses.default = p
             e.components.set(c)
+        }
+    }
+
+    private static func copyJoints(from src: Entity, to dst: Entity) {
+        if let s = src as? ModelEntity, let d = dst as? ModelEntity, !s.jointNames.isEmpty {
+            d.jointTransforms = s.jointTransforms
+            return
+        }
+        if #available(iOS 18.0, *), let c = src.components[SkeletalPosesComponent.self] {
+            dst.components.set(c)
         }
     }
 
