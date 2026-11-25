@@ -77,11 +77,12 @@ enum Graduation {
         UserDefaults.standard.set(Date.now.timeIntervalSince1970, forKey: Keys.graduationSnooze)
     }
 
-    /// 這天的主要動作練重還是輕。4 天上下肢：A 重、B 輕；3 天全身：A 重、B 輕、C 中。
+    /// 這天的主要動作練重還是輕。4 天上下肢：A 重、B 輕；3 天全身：A 重、B 輕、C 中；
+    /// 上半身為主：A 重、C 輕（胸、背一週兩次），B、腿日一週一次，用中。
     static func intensity(dayId: String) -> Intensity {
         switch dayId {
-        case "upperA", "lowerA", "fullA": .heavy
-        case "upperB", "lowerB", "fullB": .light
+        case "upperA", "lowerA", "fullA", "u4A": .heavy
+        case "upperB", "lowerB", "fullB", "u4C": .light
         default: .medium
         }
     }

@@ -148,6 +148,12 @@ enum Specialization {
         case "fullA": [Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false)]
         case "fullB": [Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false)]
         case "fullC": [Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false)]
+        // 上半身為主：側肩、二頭、三頭本來就 2～3 次，補到後肩 3 次、其他 4 次
+        case "u4A": [Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false)]
+        case "u4L": [Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
+                     Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false)]
+        case "u4C": [Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
+                     Slot(pattern: .triceps, sets: 2, low: 10, high: 15, essential: false)]
         default: []
         }
     }

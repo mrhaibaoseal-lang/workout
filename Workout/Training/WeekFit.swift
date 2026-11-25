@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension Keys {
-    /// 內建課表選哪一份：split4（4 天上下分化，預設）／fullBody3（3 天全身）
+    /// 內建課表選哪一份：split4（4 天上下分化，預設）／fullBody3（3 天全身）／upper4（上半身為主 4 天）
     static let builtInProgram = "builtInProgram"
     /// 這週答應併成全身日的天，JSON WeekFit.Accepted
     static let weekMerge = "weekMerge"
@@ -9,9 +9,9 @@ extension Keys {
     static let weekMergeDismissed = "weekMergeDismissed"
 }
 
-/// 內建課表的兩種版本（0.25.0）。換的時候順便改每週目標，排程和提醒跟著改。
+/// 內建課表的版本（0.25.0；上半身為主 4 天 0.55.0）。換的時候順便改每週目標，排程和提醒跟著改。
 enum BuiltInProgram: String, CaseIterable, Identifiable {
-    case split4, fullBody3
+    case split4, fullBody3, upper4
 
     var id: String { rawValue }
 
@@ -23,6 +23,7 @@ enum BuiltInProgram: String, CaseIterable, Identifiable {
         switch self {
         case .split4: "內建：上下半身分化"
         case .fullBody3: "內建：3 天全身"
+        case .upper4: "內建：上半身為主 4 天"
         }
     }
 
@@ -30,11 +31,24 @@ enum BuiltInProgram: String, CaseIterable, Identifiable {
         switch self {
         case .split4: "每週 4 天 · 每個部位一週 2 次"
         case .fullBody3: "每週 3 天 · 每個部位一週 3 次，每次少練幾組"
+        case .upper4: "每週 4 天 · 3 天上半身＋1 天腿日，腿只求維持"
         }
     }
 
+    /// 這份課表的四（三）天（還沒加專項期的動作）
+    var days: [DayTemplate] {
+        switch self {
+        case .split4: ProgramBuilder.splitDays
+        case .fullBody3: ProgramBuilder.fullBodyDays
+        case .upper4: ProgramBuilder.upperDays
+        }
+    }
+
+    /// 只求維持、不補到每週下限的部位（`VolumePlan.balance` 的 maintain）
+    var maintained: Set<Muscle> { self == .upper4 ? VolumePlan.legMuscles : [] }
+
     /// 每週目標
-    var goal: Int { self == .split4 ? 4 : 3 }
+    var goal: Int { self == .fullBody3 ? 3 : 4 }
 
     /// 選這份內建課表：用內建（不用自訂）、每週目標改成這份的天數。
     func activate() {

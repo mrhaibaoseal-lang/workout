@@ -113,10 +113,14 @@ enum PersonalVolume {
         return out
     }
 
-    /// 這個部位的個人目標範圍（一般建議 + 個人調整）。
+    /// 這個部位的個人目標範圍（一般建議 + 個人調整；內建課表用）。
+    /// 上半身為主 4 天的腿只求維持，下限照 `VolumePlan.range(for:maintain:)`。
     static func range(for m: Muscle) -> ClosedRange<Double>? {
-        guard let r = VolumePlan.range(for: m) else { return nil }
-        let o = Double(Focus.displayOffset(m))
+        let maintain = BuiltInProgram.current.maintained
+        guard let r = VolumePlan.range(for: m, maintain: maintain) else { return nil }
+        // 只求維持的部位不加組（`VolumePlan.balance` 第 4 步），目標也不往上加
+        let raw = Focus.displayOffset(m)
+        let o = Double(maintain.contains(m) ? min(0, raw) : raw)
         let low = max(2, r.lowerBound + o)
         return low...max(low, r.upperBound + o)
     }

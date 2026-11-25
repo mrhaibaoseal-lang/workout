@@ -143,15 +143,60 @@ enum ProgramBuilder {
     /// 舊紀錄的 dayKey 找回那一天（內建兩份、任何一份自訂課表、併成的全身日）。
     static func template(id: String) -> DayTemplate? {
         if id.hasPrefix(WeekFit.prefix) { return WeekFit.template(id: id) }
-        return (builtInDays + splitDays + fullBodyDays).first { $0.id == id } ?? CustomPrograms.day(templateId: id)
+        return (builtInDays + splitDays + fullBodyDays + upperDays).first { $0.id == id }
+            ?? CustomPrograms.day(templateId: id)
     }
 
-    /// 內建課表：選了「3 天全身」就用全身，不然用 4 天上下分化。
+    /// 內建課表：照設定選的那一份（4 天上下分化／3 天全身／上半身為主 4 天）。
     /// 手臂／肩膀專項期的進步週，各天多排手臂、肩膀的動作（`Specialization`）。
     static var builtInDays: [DayTemplate] {
-        Specialization.augment(BuiltInProgram.current == .fullBody3 ? fullBodyDays : splitDays,
-                               week: Plateau.currentWeek)
+        Specialization.augment(BuiltInProgram.current.days, week: Plateau.currentWeek)
     }
+
+    /// 上半身為主 4 天的 day id 前綴（`variant(of:)`、`siblingDays` 靠它認）。
+    static let upperPrefix = "u4"
+
+    /// 內建「上半身為主 4 天」（0.55.0）：3 天上半身＋1 天全身（腿日）。
+    /// - 胸每週 2 次（A、C）、背 3 次（A／C 划船、B 下拉）、側三角 3 次、二頭 3 次、三頭 2 次（推的動作再帶到）、腿 1 次、腹 2 次。
+    /// - B 不排胸：一週 3 天上半身一定有兩天相鄰，胸恢復要 60 小時。
+    /// - 每天同一部位正式組（次要出力算半組）≤ 約 10 組；上半身日約 20～22 組。
+    /// - 腿只求維持（每週 1 次、接近力竭、重量不降），`VolumePlan` 不把腿補到 10 組。
+    /// 同一個動作類型出現在兩天時，後面那天用下一順位的動作（`variant(of:)`）。建議順序 A → B → 全身 → C。
+    static let upperDays: [DayTemplate] = [
+        DayTemplate(id: "u4A", name: "上半身 A", focus: "胸、背", slots: [
+            Slot(pattern: .hPush, sets: 3, low: 6, high: 10, essential: true),
+            Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .incline, sets: 3, low: 8, high: 12, essential: false),
+            Slot(pattern: .lateral, sets: 4, low: 12, high: 20, essential: false),
+            Slot(pattern: .biceps, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .triceps, sets: 3, low: 10, high: 15, essential: false),
+        ]),
+        DayTemplate(id: "u4B", name: "上半身 B", focus: "肩、背、手臂（不練胸）", slots: [
+            Slot(pattern: .vPush, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .vPull, sets: 4, low: 8, high: 12, essential: true),
+            Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .biceps, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .triceps, sets: 3, low: 10, high: 15, essential: false),
+        ]),
+        DayTemplate(id: "u4L", name: "全身（腿日）", focus: "腿、臀，帶一點手臂", slots: [
+            Slot(pattern: .squat, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .glute, sets: 3, low: 8, high: 12, essential: true, keepBarbell: true),
+            Slot(pattern: .hinge, sets: 2, low: 8, high: 12, essential: false),
+            Slot(pattern: .calf, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .biceps, sets: 2, low: 10, high: 15, essential: false),
+            Slot(pattern: .core, sets: 3, low: 10, high: 15, essential: false),
+        ]),
+        DayTemplate(id: "u4C", name: "上半身 C", focus: "胸、背、腹", slots: [
+            Slot(pattern: .hPush, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .hPull, sets: 3, low: 8, high: 12, essential: true),
+            Slot(pattern: .incline, sets: 3, low: 10, high: 15, essential: false),
+            Slot(pattern: .vPull, sets: 3, low: 10, high: 12, essential: false),
+            Slot(pattern: .lateral, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .rear, sets: 3, low: 12, high: 20, essential: false),
+            Slot(pattern: .core, sets: 3, low: 10, high: 15, essential: false),
+        ]),
+    ]
 
     /// 內建 3 天全身（0.25.0）：每個部位一週練 3 次、每次組數少一點，每週總組數和分化差不多（再由 `VolumePlan` 平衡）。
     /// 同一個動作類型出現在兩天時，後面那天用第二順位的動作（`variant(of:)`）。
@@ -277,8 +322,8 @@ enum ProgramBuilder {
     /// 同一類動作在另一天（同為上半身或下半身）也有，B 日才換第二個；一週只練一次的用首選。
     /// 自訂課表：前面幾天也有同類型（自動挑）的，就往後換一個，各天才不會都一樣。
     private static func variant(of slot: Slot, in day: DayTemplate, siblings: [DayTemplate]) -> Int {
-        // 自訂課表、內建全身：前面幾天也有這個動作類型的，就往後換一個
-        if day.custom || day.id.hasPrefix("full") {
+        // 自訂課表、內建全身、上半身為主：前面幾天也有這個動作類型的，就往後換一個
+        if day.custom || day.id.hasPrefix("full") || day.id.hasPrefix(upperPrefix) {
             return siblings.prefix(while: { $0.id != day.id })
                 .filter { d in d.slots.contains { $0.pattern == slot.pattern && $0.exerciseId == nil } }.count
         }
@@ -298,6 +343,7 @@ enum ProgramBuilder {
 
     private static func siblingDays(for day: DayTemplate) -> [DayTemplate] {
         if day.custom { return days }
+        if day.id.hasPrefix(upperPrefix) { return upperDays }
         return day.id.hasPrefix("full") ? fullBodyDays : splitDays
     }
 
@@ -366,7 +412,8 @@ enum ProgramBuilder {
                 })
         }
         // 個人組數＋中階的區塊加組＋重點部位＋專項期（`Focus.offsets`）
-        let result = VolumePlan.balance(days: inputs, phase: phase, personal: Focus.offsets(week: week))
+        let result = VolumePlan.balance(days: inputs, phase: phase, personal: Focus.offsets(week: week),
+                                        maintain: BuiltInProgram.current.maintained)
         return zip(raws, result).map { raw, counts in
             var items = raw.items
             for i in items.indices where i < counts.count { items[i].sets = counts[i] }

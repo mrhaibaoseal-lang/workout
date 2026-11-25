@@ -21,6 +21,17 @@ enum VolumePlan {
         return nil
     }
 
+    /// 腿（上半身為主 4 天只求維持的部位）
+    static let legMuscles: Set<Muscle> = [.quads, .hamstrings, .glutes, .calves]
+    /// 只求維持的部位每週下限：每週練 1 次、重量不降就能維持（Spiering 2021），約一般量的 1/3。
+    static let maintainLow: Double = 3
+
+    /// 內建課表的目標：只求維持的部位（`BuiltInProgram.maintained`）下限降到 `maintainLow`，上限不變。
+    static func range(for m: Muscle, maintain: Set<Muscle>) -> ClosedRange<Double>? {
+        guard let r = range(for: m) else { return nil }
+        return maintain.contains(m) ? min(maintainLow, r.lowerBound)...r.upperBound : r
+    }
+
     /// 有目標的部位，依畫面分組排好。
     static var targeted: [Muscle] { Muscle.ordered.filter { range(for: $0) != nil } }
 
@@ -83,7 +94,9 @@ enum VolumePlan {
     ///    適應期／減量週本來就刻意少練，不補。
     /// 3. 某天比平衡前多超過 3 組，從「最超過上限的部位」的動作扣（不扣到低於 2 組）。
     /// 4. 進步期：個人組數（`PersonalVolume`，區塊檢討的結果），每週對這個部位加減幾組。
-    static func balance(days: [DayInput], phase: Phase, personal: [Muscle: Int] = [:]) -> [[Int]] {
+    /// maintain：只求維持的部位（上半身為主 4 天的腿），第 2 步只補到 `maintainLow`，第 4 步不加組（減組照做）。
+    static func balance(days: [DayInput], phase: Phase, personal: [Muscle: Int] = [:],
+                        maintain: Set<Muscle> = []) -> [[Int]] {
         let patterns = days.map(\.patterns)
         var sets = days.map(\.sets)
         let before = sets.map { $0.reduce(0, +) }
@@ -107,7 +120,7 @@ enum VolumePlan {
         // 2. 補不足的部位
         if phase == .normal {
             var added = Array(repeating: 0, count: days.count)
-            while let (d, i) = nextAddition(patterns: patterns, sets: sets, added: added) {
+            while let (d, i) = nextAddition(patterns: patterns, sets: sets, added: added, maintain: maintain) {
                 sets[d][i] += 1
                 added[d] += 1
             }
@@ -133,7 +146,7 @@ enum VolumePlan {
         // 4. 個人組數
         if phase == .normal {
             for m in targeted {
-                guard let delta = personal[m], delta != 0 else { continue }
+                guard let delta = personal[m], delta != 0, !(delta > 0 && maintain.contains(m)) else { continue }
                 applyPersonal(m, delta: delta, patterns: patterns, sets: &sets)
             }
         }
@@ -170,11 +183,12 @@ enum VolumePlan {
     }
 
     /// 下一個要加 1 組的位置：缺最多的部位，在它主要出力的單關節動作裡挑目前組數最少的。
-    private static func nextAddition(patterns: [[MovementPattern]], sets: [[Int]], added: [Int]) -> (Int, Int)? {
+    private static func nextAddition(patterns: [[MovementPattern]], sets: [[Int]], added: [Int],
+                                     maintain: Set<Muscle>) -> (Int, Int)? {
         let total = weekly(patterns: patterns, sets: sets)
         let lacking = targeted
             .compactMap { m -> (Muscle, Double)? in
-                guard let r = range(for: m), (total[m] ?? 0) < r.lowerBound else { return nil }
+                guard let r = range(for: m, maintain: maintain), (total[m] ?? 0) < r.lowerBound else { return nil }
                 return (m, r.lowerBound - (total[m] ?? 0))
             }
             .sorted { $0.1 > $1.1 }
