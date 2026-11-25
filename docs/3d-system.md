@@ -94,6 +94,7 @@
      - 泛光：`ARView.renderCallbacks.postProcess`（`Hero3DBloom.swift`＋`Bloom.metal`），1/4 解析度挑亮→MPS 模糊→疊回。
        靠亮度挑發光：開泛光時一般材質亮度上限 0.88（`specular_scale`），發光材質（flat、強度 ≥ 2）把最亮的通道拉到 1。
        診斷列出來源貼圖格式，用來判斷上限／門檻要不要改。
+       **2026-11-26 決定不用泛光**（效果看不出來、吃效能，原因見 `docs/roadmap.md`）；測試頁程式留著，正式畫面不接。
        0.38.0 閃退：init 裡連設兩次 `renderCallbacks`（RealityKit setter 斷言）。改成只在第一次開泛光時設一次 postProcess、之後只切 enabled；泛光預設關。
      - 0.39.0：`export_app.py` 不再烘 `__ol` 外殼（直接刪 solidify），USDZ 9.9 → 5.0 MB、頂點 ~10 萬 → 52,119；測試頁描邊固定用著色器。
    **上衣／下身換裝（設計定案 2026-11-25，0.44.0 做好；做法與數字見本段最後「0.44.0 實作」）**：
