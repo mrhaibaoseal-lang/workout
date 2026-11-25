@@ -4,7 +4,7 @@ import Security
 /// Worker 網址（部署後填在這裡，例如 "https://workout-sync.你的帳號.workers.dev"）。
 /// 空字串 = 雲端功能整個隱藏（問卷最後一頁、設定 → 資料都不會出現）。
 enum CloudConfig {
-    static let workerURLString = ""
+    static let workerURLString = "https://workout-sync.mr-haibaoseal.workers.dev"
 
     /// 單筆備份上限（和 Worker 一致）
     static let maxBlobBytes = 5 * 1024 * 1024

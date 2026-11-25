@@ -6,7 +6,9 @@ import Metal
 // 3D 技術驗證頁（設定 → 3D 測試）。確認 Blender 匯出的 USDZ 能在 RealityKit 即時播放：
 // 卡通著色（Toon.metal）、描邊外殼、逐件開關裝備、切換動作、效能和檔案大小。
 // 0.38 試做：著色器描邊（同一份網格畫兩次、沿平均法線外撐；0.39.0 起 USDZ 不再烘外殼）、泛光後處理（Hero3DBloom）。
-// 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架＋全部零件）、hero3d.json（材質表）、hero3d_clip_<動作>.json。
+// 0.44.0 上衣／下身換裝：身體只有一份網格（base__body），換裝＝換貼圖（hero3d_top_<系列>.png、hero3d_bottom_<系列>.png，Toon.metal 的 outfitSurface）；
+// 長褲、短褲、鈦甲緊身衣是另外的網格（bottom_long／bottom_short／top_suit），各系列一張貼圖；胸章、腿甲這類小零件是 top_<系列>／bottom_<系列>。
+// 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架＋全部零件）、hero3d.json（材質表、換裝表）、hero3d_clip_<動作>.json、換裝貼圖。
 
 struct Hero3DInfo: Decodable {
     struct Mat: Decodable {
@@ -18,9 +20,17 @@ struct Hero3DInfo: Decodable {
         let alt: [Float]?
         let altShade: Float?
     }
+    /// 換裝：outfits["top"|"bottom"][系列]
+    struct Outfit: Decodable {
+        let body: String          // 身體貼圖（不含副檔名）
+        let mesh: String?         // 衣服網格：suit／long／short
+        let cloth: String?        // 衣服網格的貼圖
+        let part: String?         // 剛性小零件（top_frost…）
+    }
     let parts: [String]
     let meshes: [String]
     let materials: [String: Mat]
+    let outfits: [String: [String: Outfit]]?
 }
 
 struct Hero3DClip: Decodable {
@@ -56,9 +66,13 @@ final class Hero3DModel: ObservableObject {
     struct Slot: Identifiable { let id: String; let name: String }
     static let slots = [Slot(id: "head", name: "頭"), Slot(id: "hands", name: "手"), Slot(id: "feet", name: "腳"),
                         Slot(id: "back", name: "背"), Slot(id: "bell", name: "啞鈴")]
-    static let seriesName = ["basic": "基本", "frost": "冰霜", "titan": "鈦甲", "none": "無"]
+    static let seriesName = ["basic": "基本", "frost": "冰霜", "titan": "鈦甲", "pig": "小豬", "night": "暗夜", "dawn": "曙光",
+                             "rune": "符文", "astral": "星界", "none": "無"]
+    static let seriesOrder = ["basic", "frost", "titan", "pig", "night", "dawn", "rune", "astral"]
+    static let clothPart = ["suit": "top_suit", "long": "bottom_long", "short": "bottom_short"]
 
     @Published var choice: [String: String] = ["head": "basic", "hands": "basic", "feet": "basic", "back": "none", "bell": "basic"]
+    @Published var outfit: [String: String] = ["top": "basic", "bottom": "basic"]   // 上衣、下身（可混搭）
     @Published var move = "squat"
     @Published var useUSDAnimation = false
     @Published var paused = false
@@ -86,6 +100,7 @@ final class Hero3DModel: ObservableObject {
     private var mats: [any RealityKit.Material] = []
     private var matIndex: [String: Int] = [:]
     private var fallbackMat = 0
+    private var texCache: [String: TextureResource] = [:]
     private var olShaderMat: CustomMaterial?
     private var outlines: [ObjectIdentifier: Entity] = [:]       // 本體 → 著色器描邊用的複本
     private var smoothCache: [String: MeshResource.Part] = [:]   // 描邊用的 part（法線已平均）
@@ -139,8 +154,51 @@ final class Hero3DModel: ObservableObject {
 
     func options(for slot: String) -> [String] {
         let have = (info?.parts ?? []).filter { $0.hasPrefix(slot + "_") }.map { String($0.dropFirst(slot.count + 1)) }
-        let order = ["basic", "frost", "titan"]
-        return (slot == "back" ? ["none"] : []) + order.filter(have.contains)
+        return (slot == "back" ? ["none"] : []) + Self.seriesOrder.filter(have.contains)
+    }
+
+    func outfitOptions(_ slot: String) -> [String] {
+        let have = Set(info?.outfits?[slot]?.keys.map { $0 } ?? [])
+        return Self.seriesOrder.filter(have.contains) + have.subtracting(Self.seriesOrder).sorted()
+    }
+
+    private func texture(_ name: String) -> TextureResource? {
+        if let t = texCache[name] { return t }
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png") else {
+            report.append("❌ 找不到 \(name).png"); return nil
+        }
+        do {
+            // raw：不做 sRGB 轉換（右半是遮罩），顏色由著色器自己轉；不要 mipmap（左右兩半會在小圖混在一起）
+            let t = try TextureResource.load(contentsOf: url, withName: name,
+                                             options: TextureResource.CreateOptions(semantic: .raw, mipmapsMode: .none))
+            texCache[name] = t
+            return t
+        } catch {
+            report.append("❌ 貼圖 \(name)：\(error.localizedDescription)"); return nil
+        }
+    }
+
+    /// 換上衣／下身：身體材質的兩個貼圖欄（上衣＝custom、下身＝base color），衣服網格換成該系列的貼圖
+    func applyOutfit() {
+        guard let o = info?.outfits else { return }
+        let top = o["top"]?[outfit["top"] ?? "basic"], bottom = o["bottom"]?[outfit["bottom"] ?? "basic"]
+        if let i = matIndex["body"], var m = mats[i] as? CustomMaterial {
+            if let n = top?.body, let t = texture(n) { m.custom.texture = .init(t) }
+            if let n = bottom?.body, let t = texture(n) { m.baseColor.texture = .init(t) }
+            mats[i] = m
+        }
+        for e in [top, bottom].compactMap({ $0 }) {
+            guard let kind = e.mesh, let n = e.cloth, let i = matIndex["cloth_" + kind],
+                  var m = mats[i] as? CustomMaterial, let t = texture(n) else { continue }
+            m.custom.texture = .init(t)
+            m.baseColor.texture = .init(t)
+            mats[i] = m
+        }
+        for b in bodies {
+            guard var mc = b.entity.components[ModelComponent.self] else { continue }
+            mc.materials = mats
+            b.entity.components.set(mc)
+        }
     }
 
     private func load() {
@@ -185,6 +243,7 @@ final class Hero3DModel: ObservableObject {
             log.append("❌ \(error.localizedDescription)")
         }
         report = log
+        applyOutfit()
         applyChoice()
         sub = arView.scene.subscribe(to: SceneEvents.Update.self) { [weak self] ev in
             MainActor.assumeIsolated { self?.tick(ev.deltaTime) }
@@ -243,10 +302,16 @@ final class Hero3DModel: ObservableObject {
         }
         let toon = CustomMaterial.SurfaceShader(named: "toonSurface", in: lib)
         let flat = CustomMaterial.SurfaceShader(named: "flatSurface", in: lib)
+        let outfitShader = CustomMaterial.SurfaceShader(named: "outfitSurface", in: lib)
         let used = Set((info?.meshes ?? []).compactMap { $0.components(separatedBy: "__").dropFirst().first })
         for name in used.sorted() {
             var m: CustomMaterial
-            if let mi = info?.materials[name], mi.kind == "toon" {
+            if let mi = info?.materials[name], mi.kind == "outfit" {
+                // 身體、衣服網格：貼圖在 applyOutfit 放；沒蓋住的地方是皮膚（tint）
+                m = try CustomMaterial(surfaceShader: outfitShader, lightingModel: .unlit)
+                m.baseColor = .init(tint: srgb(mi.color))
+                m.custom.value = SIMD4(0, 0, 0, mi.shade ?? 0.55)
+            } else if let mi = info?.materials[name], mi.kind == "toon" {
                 m = try CustomMaterial(surfaceShader: toon, lightingModel: .unlit)
                 m.baseColor = .init(tint: srgb(mi.color))
                 let alt = mi.alt ?? [0, 0, 0]
@@ -381,6 +446,11 @@ final class Hero3DModel: ObservableObject {
         for slot in Self.slots.map(\.id) {
             if let c = choice[slot], c != "none", slot != "bell" || move != "pushup" { s.insert("\(slot)_\(c)") }
         }
+        for slot in ["top", "bottom"] {
+            guard let e = info?.outfits?[slot]?[outfit[slot] ?? "basic"] else { continue }
+            if let p = e.part { s.insert(p) }
+            if let k = e.mesh, let p = Self.clothPart[k] { s.insert(p) }
+        }
         return s
     }
 
@@ -456,6 +526,14 @@ struct Hero3DLabView: View {
                     Toggle("暫停", isOn: $m.paused)
                     Toggle("改用 USD 內建動畫（只有深蹲）", isOn: $m.useUSDAnimation)
                 }
+                Section("上衣／下身（可混搭）") {
+                    ForEach(["top", "bottom"], id: \.self) { slot in
+                        Picker(slot == "top" ? "上衣" : "下身", selection: Binding(get: { m.outfit[slot] ?? "basic" },
+                                                         set: { m.outfit[slot] = $0 })) {
+                            ForEach(m.outfitOptions(slot), id: \.self) { Text(Hero3DModel.seriesName[$0] ?? $0).tag($0) }
+                        }
+                    }
+                }
                 Section("裝備") {
                     ForEach(Hero3DModel.slots) { slot in
                         Picker(slot.name, selection: Binding(get: { m.choice[slot.id] ?? "basic" },
@@ -493,6 +571,7 @@ struct Hero3DLabView: View {
         .navigationTitle("3D 測試")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: m.choice) { _, _ in m.applyChoice() }
+        .onChange(of: m.outfit) { _, _ in m.applyOutfit(); m.applyChoice() }
         .onChange(of: m.move) { _, _ in m.applyChoice() }
         .onChange(of: m.useUSDAnimation) { _, _ in m.applyChoice() }
         .onChange(of: m.outlineWidth) { _, _ in m.applyOutlineWidth() }

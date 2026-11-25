@@ -265,6 +265,13 @@ for f_ in skinbody.data.polygons:
         f_.material_index = 1
     elif c.z <= (1.0 if TOP else 1.03) and c.z > (0.12 if BOT else 0.72):
         f_.material_index = 2
+# App 換裝（export_app.py 烘貼圖）用：每個面在哪些區域裡，跟這次穿什麼無關（位元 1＝緊身衣、2＝短褲、4＝長褲）。
+# 下身一律算到 1.03：上衣是緊身衣時這次只塗到 1.0，換別的上衣時腰部才不會露一圈皮膚。
+# 下身只算 |x| < 0.25（腿最外 0.22）：上面 material_index 沒限制 x，下垂的前臂手腕那段（z 0.9～1.03）會被塗成褲子色。
+_rg = skinbody.data.attributes.new('rgn', 'INT', 'FACE')
+for f_ in skinbody.data.polygons:
+    c = f_.center; leg = abs(c.x) < 0.25
+    _rg.data[f_.index].value = (1 if 1.0 < c.z < 1.50 else 0) | (2 if leg and 0.72 < c.z <= 1.03 else 0) | (4 if leg and 0.12 < c.z <= 1.03 else 0)
 if not TOP:
     # 基本款背心：每個頂點存「在背心裡面多深」（公尺，>0＝背心）。著色器在面中間內插再判斷 >0，
     # 邊界是平滑的線，不會像整面塗色那樣鋸齒。之後 App 的即時著色器也用同一個屬性。
@@ -298,6 +305,13 @@ for sx in (1, -1):
         HP += [((0.12 * sx, -0.01, 0.52), (0.066, 0.066)), ((0.12 * sx, 0.005, 0.38), (0.071, 0.069)), ((0.12 * sx, 0.01, 0.14), (0.048, 0.048))]
         HE += [(len(HP) - 4, len(HP) - 3), (len(HP) - 3, len(HP) - 2), (len(HP) - 2, len(HP) - 1)]
 shorts = skinmesh('shorts', 'shorts', HP, HE, 1.08 if BOT else 1.15)
+def tag_part(ob, name):
+    """衣服網格的零件名（面屬性 part）：App 換裝時依它開關。緊身衣 top_suit、長褲 bottom_long、短褲 bottom_short"""
+    if name not in PART_NAMES: PART_NAMES.append(name)
+    pa = ob.data.attributes.new('part', 'INT', 'FACE')
+    for i in range(len(ob.data.polygons)): pa.data[i].value = PART_NAMES.index(name)
+if TOP: tag_part(shirt, 'top_suit')
+tag_part(shorts, 'bottom_long' if BOT else 'bottom_short')
 def skin_weights():
     """身體自動權重（熱擴散）→ 關節漸變區加寬、平滑 → 衣服網格沿用身體權重。建模姿勢先算一次（轉 A 字用），A 字之後再重算。
     §6-1：不再截斷權重（以前 |x|<0.235 的手臂權重全給胸部，漸變區只有 5 cm、跨在肩關節上，舉手就凹陷鼓包）；背心是塗色，不怕戳穿。"""
@@ -471,8 +485,12 @@ for _o in parts:   # 暫時標記哪些面是身體（1）、衣服網格（2）
     _a = _o.data.attributes.new('dfm', 'INT', 'FACE')
     _k = 1 if _o is skinbody else 2 if _o.name.startswith(('shirt', 'shorts')) else 0
     for _i in range(len(_o.data.polygons)): _a.data[_i].value = _k
+_body_mats = [m.name for m in skinbody.data.materials]
 bpy.ops.object.join(); body = bpy.context.object; body.name = 'hero'
 body['part_names'] = PART_NAMES
+# 換裝烘貼圖用（export_app.py outfit 模式）：身體三個材質欄（0 皮膚＋上衣塗色、1 緊身衣底下、2 褲子底下）和這次穿的上衣／下身
+body['body_mats'] = _body_mats
+body['outfit'] = {'top': G['top'], 'bottom': G['bottom'], 'suit': TOP, 'long': BOT}
 _dv = [d.value for d in body.data.attributes['dfm'].data]; body.data.attributes.remove(body.data.attributes['dfm'])
 _rng = {'1': [], '2': []}
 for _i, _v in enumerate(_dv):
