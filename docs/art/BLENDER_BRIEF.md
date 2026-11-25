@@ -300,6 +300,7 @@ AI 審查抓得到明顯的錯，但「專業、符合標準」最後要有證�
 |---|---|---|
 | 滑輪 B | `cableCurl` | **使用者 2026-11-25 決定不做 3D**（只有高位滑輪做不了彎舉）；App 端處理待主對話決定 |
 | 地板 | `legCurl` | 趴椅：一體機轉 180°、兩腳夾快鎖啞鈴道具（使用者 2026-11-25 定案），地板 session 製作中 |
+| 補剩下的動作（2026-11-25 使用者：「把剩下所有的動畫全部做完」） | 動作庫 111 個動作對照 3D：**新做專屬 34 個、其餘共用已有的**，完整對照見 `docs/3d-moves/inventory.md`。批次：①地板徒手 `moves/floor2.py`（sidePlank、birdDog、proneYTW、sissySquat、reverseNordic、towelLegCurl、slTowelLegCurl、declinePushup、elevatedPike、tableRow）②椅子 `moves/bench2.py`（dbFly、declineCrunch、sideLyingLateral、concentrationCurl、benchDip、elevatedBenchDip）③單槓／滑輪 `moves/bar_cable.py`（pullup、chinup、hangingKnee、highChop、oneArmPulldown）④器械 `moves/machine.py`＋`props_machine.py`（legPress、legExtension、machineLegCurl、assistedPullup、machineChestPress、machineShoulderPress、machineRearDelt）⑤站姿 `moves/standing_c.py`（farmerWalk、suitcaseCarry、kbSwing、arnoldPress、calfSingle、leanLateral）。`floor.py` 的 `legCurl` 是別的 session 在做，所以新地板動作另開 `floor2.py` | 清單已定，開工中（批次 ① 先做） |
 
 ### 動作：Gemini（已停止；2026-11-24 起改由 Claude 做）
 
