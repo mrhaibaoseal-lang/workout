@@ -149,7 +149,8 @@ enum GearCatalog {
         Series(id: "night", name: "夜巡者", rarity: .epic, c1: "#1C2230", c2: "#FF8A1F", c3: "#3B4558", glow: "#FF8A1F", hero: "黑夜義警"),
         Series(id: "dawn", name: "曙光", rarity: .legendary, c1: "#EEF3FA", c2: "#E0A21B", c3: "#2E6BFF", glow: "#FFD45C", hero: "披風英雄"),
         Series(id: "rune", name: "符文戰神", rarity: .legendary, c1: "#2C2F3A", c2: "#3DF5A0", c3: "#C9A86A", glow: "#3DF5A0", hero: "奇幻戰士"),
-        Series(id: "astral", name: "星界魔導", rarity: .legendary, c1: "#22184A", c2: "#FF6BD6", c3: "#8FE3FF", glow: "#FF6BD6", hero: "奇幻法師")
+        Series(id: "astral", name: "星界魔導", rarity: .legendary, c1: "#22184A", c2: "#FF6BD6", c3: "#8FE3FF", glow: "#FF6BD6", hero: "奇幻法師"),
+        Series(id: "pig", name: "小豬", rarity: .rare, c1: "#FFB3C6", c2: "#E8668F", c3: "#FFE6EC", glow: "#FF8FB1", hero: nil)
     ]
 
     private struct Spec {
@@ -233,6 +234,11 @@ enum GearCatalog {
                    .bottom: s("jogger", "星界長褲", "c1", "c3"), .feet: s("shoe", "星光鞋", "c3"),
                    .hands: s("glove", "星界護手", "c2"), .back: s("wings", "能量羽翼", "c2", "c3"),
                    .bell: s("bell", "星核啞鈴", "c3"), .fx: s("stars", "星塵", "c2")]
+        // 小豬（撲滿主題）：沒有特效部位
+        d["pig"] = [.head: s("pighat", "豬耳豬鼻帽", "c1", "c2"), .top: s("tee", "小豬 T 恤", "c1"),
+                .bottom: s("shorts", "捲尾短褲", "c2"), .feet: s("shoe", "豬蹄短靴", "c1"),
+                .hands: s("glove", "豬蹄手套", "c1"), .back: s("bank", "撲滿背包", "c1", "c2"),
+                .bell: s("bell", "小豬啞鈴", "c1")]
         return d
     }()
 

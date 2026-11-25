@@ -285,7 +285,8 @@ const SERIES=[
   {id:"night", name:"夜巡者",r:3,c1:"#1C2230",c2:"#FF8A1F",c3:"#3B4558",glow:"#FF8A1F",hero:"黑夜義警"},
   {id:"dawn",  name:"曙光",  r:4,c1:"#EEF3FA",c2:"#E0A21B",c3:"#2E6BFF",glow:"#FFD45C",hero:"披風英雄"},
   {id:"rune",  name:"符文戰神",r:4,c1:"#2C2F3A",c2:"#3DF5A0",c3:"#C9A86A",glow:"#3DF5A0",hero:"奇幻戰士"},
-  {id:"astral",name:"星界魔導",r:4,c1:"#22184A",c2:"#FF6BD6",c3:"#8FE3FF",glow:"#FF6BD6",hero:"奇幻法師"}
+  {id:"astral",name:"星界魔導",r:4,c1:"#22184A",c2:"#FF6BD6",c3:"#8FE3FF",glow:"#FF6BD6",hero:"奇幻法師"},
+  {id:"pig",   name:"小豬",  r:2,c1:"#FFB3C6",c2:"#E8668F",c3:"#FFE6EC",glow:"#FF8FB1"}
 ];
 const SLOTS=[["head","頭部"],["top","上衣"],["bottom","下身"],["feet","鞋子"],["hands","手部"],["back","背部"],["bell","啞鈴造型"],["fx","特效"]];
 const COVER={armor:["torso","upper","fore"],greaves:["thigh","shin"],tank:["torso"],tee:["torso","upper"],comp:["torso","upper","fore"],shorts:["thigh"],jogger:["thigh","shin"]};
@@ -302,7 +303,8 @@ const FORM={
   night: {head:["hood","義警兜帽","c1","c3"],top:{f:"armor",n:"戰術背心",c:"c3",c2:"c2",em:"chevron"},bottom:["jogger","戰術長褲","c1","c2"],feet:["shoe","戰術靴","c1"],hands:["glove","戰術手套","c1"],back:["cape","夜行斗篷","c1","c2"],bell:["bell","消光啞鈴","#2A303A"],fx:["rain","夜雨"]},
   dawn:  {head:["circlet","曙光頭環","c2","c3"],top:{f:"comp",n:"曙光戰衣",c:"c1",c2:"c2",em:"star"},bottom:["jogger","曙光長褲","c3","c2"],feet:["shoe","曙光長靴","c3"],hands:["glove","曙光護手","c2"],back:["cape","曙光披風","c3","c2"],bell:["bell","聖光啞鈴","c2"],fx:["rays","聖光"]},
   rune:  {head:["horns","戰神角盔","c3","c1"],top:{f:"armor",n:"符文戰甲",c:"c1",c2:"c2",pa:1,em:"rune",gl:1},bottom:{f:"greaves",n:"符文腿甲",c:"c1",c2:"c2",gl:1},feet:["shoe","青銅戰靴","c3"],hands:["glove","符文拳套","c3"],back:["sword","背負巨劍","c3","c2"],bell:["bell","符文啞鈴","c2"],fx:["magic","符文法陣"]},
-  astral:{head:["tiara","星晶冠","c2","c3"],top:{f:"comp",n:"星界法袍",c:"c1",c2:"c2",em:"diamond",gl:1},bottom:["jogger","星界長褲","c1","c3"],feet:["shoe","星光鞋","c3"],hands:["glove","星界護手","c2"],back:["wings","能量羽翼","c2","c3"],bell:["bell","星核啞鈴","c3"],fx:["stars","星塵"]}
+  astral:{head:["tiara","星晶冠","c2","c3"],top:{f:"comp",n:"星界法袍",c:"c1",c2:"c2",em:"diamond",gl:1},bottom:["jogger","星界長褲","c1","c3"],feet:["shoe","星光鞋","c3"],hands:["glove","星界護手","c2"],back:["wings","能量羽翼","c2","c3"],bell:["bell","星核啞鈴","c3"],fx:["stars","星塵"]},
+  pig:   {head:["pighat","豬耳豬鼻帽","c1","c2"],top:["tee","小豬 T 恤","c1"],bottom:["shorts","捲尾短褲","c2"],feet:["shoe","豬蹄短靴","c1"],hands:["glove","豬蹄手套","c1"],back:["bank","撲滿背包","c1","c2"],bell:["bell","小豬啞鈴","c1"]}
 };
 const ITEMS={};
 for(const [k] of SLOTS){ITEMS[k]=[{id:"none",name:k==="feet"?"赤腳":k==="bell"?"預設":"無",r:0}];
@@ -427,6 +429,12 @@ function drawGear(ex,P,g,muscle,tt){
   if(hd.form==="beanie"){ey=hy+2;
     s+=`<path d="M${hx-14.5} ${hy-1} A14.5 16 0 0 1 ${hx+14.5} ${hy-1} Z" fill="${hd.c}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`;
     s+=`<rect x="${hx-15}" y="${hy-5}" width="30" height="6" rx="2" fill="${hd.c2}" stroke="${K}" stroke-width="2.5"/>`+C([hx-2,hy-17],4.5,hd.c2,`stroke="${K}" stroke-width="2.5"`);}
+  if(hd.form==="pighat"){ey=hy+2;
+    s+=`<path d="M${hx-10} ${hy-11} Q${hx-17} ${hy-22} ${hx-11} ${hy-25} Q${hx-5} ${hy-22} ${hx-1} ${hy-14} Z" fill="${hd.c}" stroke="${K}" stroke-width="2.5" stroke-linejoin="round"/><path d="M${hx-9} ${hy-14} Q${hx-12} ${hy-20} ${hx-10} ${hy-21} Q${hx-6} ${hy-19} ${hx-4} ${hy-15} Z" fill="${hd.c2}"/>`;
+    s+=`<path d="M${hx+2} ${hy-14} Q${hx+5} ${hy-26} ${hx+12} ${hy-26} Q${hx+16} ${hy-20} ${hx+12} ${hy-10} Z" fill="${hd.c}" stroke="${K}" stroke-width="2.5" stroke-linejoin="round"/><path d="M${hx+5} ${hy-15} Q${hx+7} ${hy-22} ${hx+11} ${hy-22} Q${hx+13} ${hy-18} ${hx+10} ${hy-13} Z" fill="${hd.c2}"/>`;
+    s+=`<path d="M${hx-14.5} ${hy-2} A14.5 14.5 0 0 1 ${hx+14.5} ${hy-2} Z" fill="${hd.c}" stroke="${K}" stroke-width="3" stroke-linejoin="round"/>`;
+    s+=`<rect x="${hx-15}" y="${hy-5}" width="30" height="5" rx="2" fill="${hd.c2}" stroke="${K}" stroke-width="2.2"/>`;
+    s+=`<ellipse cx="${hx+14}" cy="${hy-10}" rx="4" ry="5.5" fill="${hd.c2}" stroke="${K}" stroke-width="2.2"/>`+C([hx+15.2,hy-12],1.1,"#6E3B47")+C([hx+15.2,hy-8],1.1,"#6E3B47");}
   if(hd.form==="crown"){
     s+=`<path d="M${hx-11} ${hy-10} L${hx-12} ${hy-23} L${hx-5} ${hy-16} L${hx} ${hy-27} L${hx+5} ${hy-16} L${hx+12} ${hy-23} L${hx+11} ${hy-10} Z" fill="${hd.c}" stroke="${K}" stroke-width="2.5" stroke-linejoin="round"/>`+C([hx,hy-14],2.6,"#C8302C",`stroke="${K}" stroke-width="1.2"`);}
   if(hd.form==="visor"){eyes=false;

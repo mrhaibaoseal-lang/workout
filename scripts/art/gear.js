@@ -71,8 +71,11 @@ const SERIES = {
   dawn: { c1: '#EEF3FA', c2: '#E0A21B', c3: '#2E6BFF' },
   rune: { c1: '#2C2F3A', c2: '#3DF5A0', c3: '#C9A86A' },
   astral: { c1: '#22184A', c2: '#FF6BD6', c3: '#8FE3FF' },
+  pig: { c1: '#FFB3C6', c2: '#E8668F', c3: '#FFE6EC' },
 };
 const GOLD = ['#FFF1B8', '#F2B630', '#8A5A00'];
+// 小豬（撲滿）：豬蹄深色、鼻孔、金幣、撲滿陶瓷色
+const PIG = { hoof: '#6E3B47', nose: '#9C3358', coin: '#FFC94A', coinDk: '#D9952B', bank: '#FFD3DE' };
 
 // ===================== 啞鈴（grip） =====================
 // 橫放的啞鈴，握把在手上。x -15..15
@@ -105,6 +108,13 @@ function bellArt(id) {
       return [bar('#6B5A3A'), ...pair((sg) => [L(rrect(sg > 0 ? 7.5 : -17.5, -8, 10, 16, 2), lin('#5A5E6A', '#2C2F3A'), K, 2), ...glowLine(line([[sg * 12.5, -5], [sg * 12.5, 5], [sg * 12.5, -1], [sg * 15, -4]]), s.c2, 1.2)])];
     case 'astral': // 星形頭
       return [bar('#8FE3FF'), ...pair((sg) => [L(star(sg * 12.5, 0, 5, 9, 4), solid(s.c2, 0.8), null, 0, 2.5), L(star(sg * 12.5, 0, 5, 8.5, 3.8), lin(W, sg > 0 ? s.c2 : s.c3), K, 1.6)])];
+    case 'pig': // 兩頭是豬臉（正面）：耳朵、豬鼻、眼睛；金色握把
+      return [bar(PIG.coin), ...pair((sg) => {
+        const cx = sg * 12.5;
+        return [...[-1, 1].map((e) => L(P([[cx + e * 3, 6], [cx + e * 8, 11.5], [cx + e * 7.5, 3]]), solid(s.c2), K, 1.5)),
+          L(circle(cx, 0, 8), lin(PIG.bank, s.c1), K, 2), L(circle(cx - 3, 2.6, 1.1), solid(K)), L(circle(cx + 3, 2.6, 1.1), solid(K)),
+          L(ellipse(cx, -2.2, 3.8, 2.8), solid(s.c2), K, 1.4), L(ellipse(cx - 1.3, -2.2, 0.7, 1.1), solid(PIG.nose)), L(ellipse(cx + 1.3, -2.2, 0.7, 1.1), solid(PIG.nose))];
+      })];
   }
   return defaultBell();
 }
@@ -168,6 +178,11 @@ function feetArt(id) {
       break;
     case 'astral': // 尖頭捲曲巫師鞋
       parts.push(L('M-6 -3 Q-8 8 -3 10 L4 10 Q10 6 16 4 Q24 2 27 8 Q30 4 26 0 Q22 -3 18 -3 Z', lin(s.c3, '#5A45B0'), K, 2.2), L(circle(27.5, 8, 2), solid(s.c2), K, 1.2), L(star(5, 5, 4, 3, 1), solid(W)));
+      break;
+    case 'pig': // 豬蹄短靴：圓胖靴身、玫瑰色毛邊、前端兩瓣深色豬蹄
+      parts.push(L('M-7 -3 Q-9 12 -5 13 L6 13 Q8 8 11 7 Q17 6 19 3 L19 -3 Z', lin(s.c1, '#F49AB2'), K, 2.2),
+        L('M11 -3 L11 7 Q17 8 20 6 Q24 3 23 -3 Z', solid(PIG.hoof), K, 2), L(line([[17.5, -3], [17, 6.5]]), none, '#B9798A', 1.4),
+        L(rrect(-8, 10, 16, 5, 2.5), solid(s.c2), K, 1.6), L(circle(1, 5, 1.8), solid(PIG.coin), K, 1));
       break;
   }
   const out = [part('foot', 'limb', parts, true)];
@@ -234,6 +249,11 @@ function handsArt(id) {
       p = [cuff(s.c1, -10, 0), ...fist(s.c1, 6.2), L(circle(13, 8, 6), solid(s.c2, 0.85), null, 0, 3), L(circle(13, 8, 4.6), lin(W, s.c3), K, 1.4),
         L(ellipse(13, 8, 8, 2), none, s.c2, 1.2)];
       break;
+    case 'pig': // 豬蹄圓手套：粉紅圓拳、前端深色兩瓣蹄
+      p = [cuff(s.c2, -10, -1, 7), L(ellipse(1, 0, 7.5, 7.2), lin(s.c1, '#F49AB2'), K, 2.2),
+        L('M4.5 -6.2 Q10 -6 9.5 -2.5 Q8.8 0 9.5 2.5 Q10 6 4.5 6.2 Q6.5 0 4.5 -6.2 Z', solid(PIG.hoof), K, 1.6),
+        L(line([[6, 0], [9.2, 0]]), none, '#B9798A', 1.2)];
+      break;
   }
   return [part('fist', 'limb', p, true)];
 }
@@ -294,6 +314,11 @@ function topArt(id) {
         L(star(-16, 0, 5, 3.5, 1.4), solid(s.c3)), L(star(-26, 9, 4, 2.5, 0.8), solid(s.c2)), L(star(-24, -10, 4, 2.2, 0.8), solid(s.c3)),
         L('M44 -13 Q54 -18 58 -12 L54 -2 Z', solid(s.c2), K, 1.8)]));
       break;
+    case 'pig': // 粉紅 T 恤：奶油色圓肚皮、玫瑰色領口／下襬／袖口、胸前小金幣
+      out.push(part('torso', 'limb', [L(ellipse(19, 5.5, 14, 7), solid(s.c3), s.c2, 1.2), L(`M43 ${f(hw(43))} Q38 5 45 0`, none, s.c2, 2.4),
+        L(rrect(0, -11, 3.5, 22, 1.2), solid(s.c2)), L(circle(36, 7, 2.8), solid(PIG.coin), K, 1.1), L(line([[34.8, 7], [37.2, 7]]), none, PIG.coinDk, 0.9)]));
+      out.push(part('upper', 'limb', [L(rrect(13, -7.5, 4, 15, 1.5), solid(s.c2), K, 1.2)], true));
+      break;
   }
   return out;
 }
@@ -345,6 +370,12 @@ function bottomArt(id) {
     case 'astral': // 星點＋尖褲腳
       out.push(part('shin', 'limb', [L(star(14, 2, 4, 3, 1), solid(s.c3)), L(star(24, -3, 4, 2.4, 0.8), solid(s.c2)), L(P([[30, -8], [37, -12], [36, -4], [38, 0], [36, 4], [37, 12], [30, 8]]), solid(s.c1), s.c2, 1.4)], true));
       break;
+    case 'pig': { // 玫瑰色短褲＋粉紅褲口＋屁股捲尾巴
+      out.push(part('thigh', 'limb', [L(rrect(17, -11.5, 4.5, 23, 1.5), solid(s.c1), K, 1.4)], true));
+      const tail = 'M4 -9 Q8 -18 3.5 -20.5 Q-1 -21.5 -0.5 -17 Q0.5 -14 3.5 -16 Q6.5 -18.5 4.5 -24';
+      out.push(part('torso', 'back', [L(tail, none, K, 5), L(tail, none, s.c1, 2.6)]));
+      break;
+    }
   }
   return out;
 }
@@ -409,6 +440,19 @@ function backArt(id) {
     case 'astral': { // 能量羽翼（左右兩層）
       const wing = (dx, op) => L(`M2 -6 Q30 -30 ${34 + dx} -60 Q16 -52 12 -44 Q20 -64 ${10 + dx} -76 Q-2 -58 0 -46 Q-6 -66 ${-16 - dx} -70 Q-14 -50 -10 -36 Q-20 -48 ${-34 - dx} -50 Q-24 -30 -14 -16 Z`, lin(W, s.c2, s.c3), s.c2, 1.4);
       return [part('nape', 'back', [{ ...wing(8, 0.5), fill: solid(s.c2, 0.5), blur: 3 }, { ...wing(8, 0.5), fill: lin(s.c3, s.c2) }, wing(0, 1)])];
+    }
+    case 'pig': { // 撲滿背包：沿背脊躺著的小豬，頭朝上，外側投幣孔插金幣
+      const cx = -22, cy = -28;
+      return [part('nape', 'back', [
+        L(P([[cx + 11, cy - 3], [cx + 18, cy - 9], [cx + 8, cy - 9]]), solid(s.c2), K, 1.6), // 耳
+        ...[-6, 4].map((dx) => L(rrect(cx + dx, cy + 5, 4, 6, 1.5), solid(s.c2), K, 1.4)), // 貼背的短腿
+        L(ellipse(cx, cy, 15, 9.5), lin(PIG.bank, s.c1), K, 2.2),
+        L(ellipse(cx + 15, cy - 1, 2.6, 4.2), solid(s.c2), K, 1.5), L(circle(cx + 15.5, cy - 2.5, 0.8), solid(PIG.nose)), L(circle(cx + 15.5, cy + 0.6, 0.8), solid(PIG.nose)),
+        L(circle(cx + 9, cy - 4, 1.1), solid(K)),
+        L(`M${cx - 15} ${cy} Q${cx - 20} ${cy - 3} ${cx - 18} ${cy - 6} Q${cx - 15.5} ${cy - 7} ${cx - 16.5} ${cy - 3.5}`, none, s.c2, 1.8), // 小尾巴
+        L(circle(cx - 1, cy - 12.5, 4), lin('#FFF1B8', PIG.coin, PIG.coinDk), K, 1.4), L(rrect(cx - 6, cy - 10, 10, 2.4, 1.2), solid(PIG.hoof), K, 1), // 金幣＋投幣孔
+        L(ellipse(cx - 3, cy - 4, 6, 2.2), solid(W, 0.55)),
+        L(line([[2, -6], [6, 5]]), none, K, 4.5), L(line([[2, -6], [6, 5]]), none, s.c2, 2.6)])];
     }
   }
   return [];
