@@ -85,7 +85,7 @@ final class PlanCheckTests: XCTestCase {
                                   recovery: Recovery.sore.rawValue, joint: false)
         let f = finding(run([item("db_bench")], feedback: [sore]), .recovery)
         XCTAssertEqual(f?.level, .warn)
-        // 超過 48 小時的回報不算
+        // 超過胸的恢復時間（60 小時）的回報不算
         let old = MuscleFeedback(muscle: Muscle.chest.rawValue, date: now.addingTimeInterval(-72 * 3600).timeIntervalSince1970,
                                  recovery: Recovery.sore.rawValue, joint: false)
         XCTAssertNil(finding(run([item("db_bench")], feedback: [old]), .recovery))

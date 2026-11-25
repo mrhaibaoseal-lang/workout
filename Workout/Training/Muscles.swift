@@ -48,12 +48,13 @@ enum Muscle: String, CaseIterable, Identifiable {
     }
 
     /// 練完一次（約 6 個有效組、離力竭還差 1～3 下）大約幾小時恢復（0.51.0，依研究整理，見 `docs/training-system.md`「各部位恢復時間」）。
-    /// 小肌群、單關節為主的快；臀腿、下背這種大重量多關節動作練的慢。
+    /// 小肌群、單關節為主的快；臀腿、下背這種大重量多關節動作練的慢。0.54.0 依使用者目標調整（胸背 60 小時，一週 4 練自然錯開成各 2 次）。
     var recoveryHours: Double {
         switch self {
-        case .calves, .abs, .obliques, .forearms, .sideDelt, .rearDelt: return 36
-        case .chest, .lats, .traps, .frontDelt, .biceps, .triceps: return 48
-        case .quads, .hamstrings, .glutes, .lowerBack: return 72
+        case .biceps, .triceps, .sideDelt, .rearDelt, .abs, .obliques, .forearms: return 36
+        case .frontDelt, .traps, .calves: return 48
+        case .chest, .lats, .glutes: return 60
+        case .quads, .hamstrings, .lowerBack: return 72
         }
     }
 
@@ -78,7 +79,7 @@ extension MovementPattern {
         case .hPush, .incline: return [(.chest, 1), (.frontDelt, 0.5), (.triceps, 0.5)]
         case .vPush: return [(.frontDelt, 1), (.sideDelt, 0.5), (.triceps, 0.5)]
         case .hPull: return [(.lats, 1), (.traps, 0.5), (.rearDelt, 0.5), (.biceps, 0.5)]
-        case .vPull: return [(.lats, 1), (.biceps, 0.5), (.traps, 0.5)]
+        case .vPull: return [(.lats, 1), (.biceps, 0.5), (.traps, 0.5), (.rearDelt, 0.5)]
         case .squat: return [(.quads, 1), (.glutes, 0.5)]
         case .hinge: return [(.hamstrings, 1), (.glutes, 1), (.lowerBack, 0.5)]
         case .lunge: return [(.quads, 1), (.glutes, 0.5)]
@@ -195,17 +196,4 @@ enum MuscleStats {
         return primary.reduce(0.0) { $0 + (recovery[$1] ?? 1) } / Double(primary.count)
     }
 
-    /// 今天適合練哪一天：該天主要肌肉（權重 1）平均恢復度最高的。
-    static func suggestedDay(recovery: [Muscle: Double]) -> DayTemplate? {
-        var best: DayTemplate?
-        var bestScore = -1.0
-        for day in ProgramBuilder.days {
-            guard let score = readiness(day, recovery: recovery) else { continue }
-            if score > bestScore {
-                bestScore = score
-                best = day
-            }
-        }
-        return best
-    }
 }

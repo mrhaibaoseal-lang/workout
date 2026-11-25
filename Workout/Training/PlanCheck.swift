@@ -43,8 +43,8 @@ enum PlanCheck {
     static let timeLimitFactor = 1.25
     /// 單日同一部位的正式組上限
     static let maxDailySets = 10
-    /// 恢復衝突看幾小時內練過
-    static let recoveryHours = 48.0
+    /// 恢復衝突：各部位看自己的 `Muscle.recoveryHours` 內有沒有練過（0.54.0 起，原本固定 48 小時）。
+    static var longestRecovery: Double { Muscle.allCases.map(\.recoveryHours).max() ?? 72 }
     static let maxPerCategory = 2
     static let maxTotal = 5
 
@@ -133,19 +133,20 @@ enum PlanCheck {
 
     private static func recoveryFindings(plan: [PlannedExercise], sessions: [WorkoutSession],
                                          feedback: [MuscleFeedback], now: Date) -> [PlanFinding] {
-        let since = now.addingTimeInterval(-recoveryHours * 3600)
+        let since = now.addingTimeInterval(-longestRecovery * 3600)
+        func within(_ m: Muscle, _ date: Date) -> Bool { now.timeIntervalSince(date) <= m.recoveryHours * 3600 }
         var missed = Set<Muscle>()
         for s in sessions where s.date >= since && s.date < now {
             for e in s.entries where e.isWork {
                 guard let ex = ExerciseLibrary.byId(e.exerciseId),
                       let low = lowTarget(ex, dayKey: s.dayKey), e.reps < low else { continue }
-                missed.formUnion(VolumePlan.primaryMuscles(ex.pattern))
+                missed.formUnion(VolumePlan.primaryMuscles(ex.pattern).filter { within($0, s.date) })
             }
         }
         var sore = Set<Muscle>()
         for f in feedback where f.recovery == Recovery.sore.rawValue && f.date >= since.timeIntervalSince1970
             && f.date <= now.timeIntervalSince1970 {
-            if let m = Muscle(rawValue: f.muscle) { sore.insert(m) }
+            if let m = Muscle(rawValue: f.muscle), within(m, Date(timeIntervalSince1970: f.date)) { sore.insert(m) }
         }
         let tired = missed.union(sore)
         guard !tired.isEmpty else { return [] }
@@ -157,7 +158,7 @@ enum PlanCheck {
             guard !names.isEmpty else { continue }
             let why = missed.contains(m) ? "有沒做到次數的組" : "回報還在痠"
             out.append(PlanFinding(level: .warn, category: .recovery, title: "\(m.name)還沒恢復",
-                                   detail: "\(Int(recoveryHours)) 小時內練過\(m.name)，\(why)，今天又排了\(names.prefix(2).joined(separator: "、"))。"))
+                                   detail: "\(Int(m.recoveryHours)) 小時內練過\(m.name)，\(why)，今天又排了\(names.prefix(2).joined(separator: "、"))。"))
         }
         return out
     }

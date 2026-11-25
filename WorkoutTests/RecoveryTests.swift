@@ -17,7 +17,7 @@ final class RecoveryTests: XCTestCase {
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let ctx = ModelContext(container)
         let now = Date.now
-        let then = now.addingTimeInterval(-50 * 3600)
+        let then = now.addingTimeInterval(-62 * 3600)  // 胸 60 小時已恢復、股四頭 72 小時還沒
         let s = WorkoutSession(date: then, dayKey: "upperA", length: .full, durationSeconds: 3600)
         ctx.insert(s)
         for (i, id) in (Array(repeating: "db_bench", count: 6) + Array(repeating: "bb_squat", count: 6)).enumerated() {
