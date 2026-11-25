@@ -126,7 +126,7 @@ enum MuscleStats {
         for s in sessions {
             for e in s.entries where e.isWork && e.date >= start && e.date < end {
                 guard let ex = ExerciseLibrary.byId(e.exerciseId) else { continue }
-                for (m, w) in ex.pattern.muscles { out[m, default: 0] += w }
+                for (m, w) in ex.trainedMuscles { out[m, default: 0] += w }
             }
         }
         return out
@@ -141,7 +141,7 @@ enum MuscleStats {
                 if hours < 0 || hours > 96 { continue }
                 guard let ex = ExerciseLibrary.byId(e.exerciseId) else { continue }
                 let decay = exp(-hours / 30)
-                for (m, w) in ex.pattern.muscles { fatigue[m, default: 0] += w * decay }
+                for (m, w) in ex.trainedMuscles { fatigue[m, default: 0] += w * decay }
             }
         }
         var out: [Muscle: Double] = [:]

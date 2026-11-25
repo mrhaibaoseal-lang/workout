@@ -64,6 +64,7 @@ enum SideBalance {
         "sl_glute_bridge", "db_calf_raise", "calf_raise",
         "pause_split_squat", "sl_hip_thrust", "sl_towel_leg_curl", "pause_calf_raise",
         "db_step_up", "db_concentration_curl",
+        "cable_one_arm_pulldown", "cable_high_chop", "side_plank",
     ]
 
     /// 設了弱的那隻手，才改成單手做的雙手啞鈴動作（單手用同一個重量）。
