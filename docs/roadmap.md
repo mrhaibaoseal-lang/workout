@@ -1,6 +1,6 @@
 # 待辦清單（健身系統）
 
-最後更新：2026-11-26，版本 0.51.0。做完一項就從這裡刪掉或移到「已完成」，並升版號。
+最後更新：2026-11-26，版本 0.52.0。做完一項就從這裡刪掉或移到「已完成」，並升版號。
 已經做好的設計細節見 `docs/training-system.md`。
 
 ## 使用者的情況（排功能時要記得）
@@ -29,7 +29,7 @@
   測試頁的開關先留著不刪。發光感之後如果要做，改用發光零件後面疊半透明光暈面片這類便宜做法（還沒排進待辦）。
 - [x] **上衣／下身換裝**（0.44.0）：身體換貼圖、衣服網格另外換，測試頁可混搭；7 套（符文先不帶，太大）。USDZ 6.9 MB、頂點 71,957、貼圖 22 張 525 KB。
   上機要看：衣服顏色和 Blender 總覽圖一致（貼圖沒上下顛倒、沒變暗）、混搭腰部不露縫、換裝不卡。
-- [x] **裝備造型補齊**（2026-11-25）：街頭、霓虹、熔岩、黃金、暗影 5 套 Blender 造型做好（總覽 `docs/art/blender/gear5.png`），12 系列都有 3D 版了。
+- [x] **裝備造型補齊**（2026-11-25）：街頭、霓虹、熔岩、黃金、暗影 5 套 Blender 造型做好（總覽 `docs/art/blender/gear5.png`），12 系列都有 3D 版了。**使用者 2026-11-26 定案（5 套都好）。**
   ✅ 0.52.0：App 改成每系列分開載入（主檔 6.9 → 2.2 MB），12 套（含符文）都帶進 3D 測試頁。上機要看：切到新系列時卡多久（報告會列每個檔的載入毫秒）、USD 動畫模式各檔有沒有同步。
 - [x] **披風 × 伸展動作穿模**：眼鏡蛇式、股四頭伸展、擴胸、交叉伸展、髖鉸鏈會大量穿模（所有披風系列都會），使用者 2026-11-25 看過畫面決定可接受，不修。
 - [x] **舊系列頭部減量**（0.52.0）：`face()`／`hair()` 是高面數橢球＋細分，每套頭部光臉就約 7,500 頂點；新 5 套改用 `face_lite`／`hair_lite`（約 1,500），舊系列可照改（外觀幾乎一樣，要重跑總覽確認）。
@@ -156,9 +156,10 @@
   - Fitbod 那類自動排課：遞增遞減、停滯偵測、減量週已經做了。
 
 ## 之後再說
-- 恢復時間（0.51.0 的 36／48／72 小時）的兩個改進點子，使用者還沒決定要不要做：
-  ① 練到力竭（RIR 0）那幾組，恢復時間多算 24 小時（證據最強的一條）；
-  ② 依練完問恢復的回答＋下次同動作做不做得回來，自動調整每個人各部位的恢復時間。
+- 恢復時間（0.51.0 的 36／48／72 小時）的兩個改進點子（2026-11-26 使用者決定）：
+  ① 練到力竭（RIR 0）多算 24 小時：**不做**。
+  ② 依練完問恢復的回答＋下次同動作做不做得回來，自動調整每個人各部位的恢復時間：**要做，先和使用者細談規格**（討論中，定案後寫進 `docs/training-system.md`）。
+- **滑輪彎舉 `cableCurl`**：使用者 2026-11-26 決定不要（只有高位滑輪做不了），3D 不做。
 
 - **動作示範的美術外包**（2026-11-22 使用者決定）：先用 2D 版（0.31.1 修了頭和腳掌方向）。
   試過程式組的 3D 素描人偶（SceneKit 方向），使用者覺得比 2D 差，不做。之後會找人外包示範圖，
@@ -242,30 +243,10 @@
 - 人體圖的畫法：四肢沿骨頭方向用 (u, v) 座標畫，肌肉裁切在身體裡；比例由 `fixY`／`fix` 統一校正
   （頭 1/8、胯下在一半、身體寬度 ×0.86、腿 ×0.9）。使用者已確認這版比例，改之前先截預覽給他看。
 
-## 使用者要做的 Cloudflare 設定（0.43.0 加密雲端備份）
+## 加密雲端備份（0.43.0）的 Cloudflare 設定
 
-Claude 不碰你的 Cloudflare 帳號和 GitHub secrets，下面是你要自己做的事。全部做完以前，App 裡的雲端選項是隱藏的，不影響其他功能。
-
-1. **查 Account ID**：登入 <https://dash.cloudflare.com> → 左邊選 Workers & Pages → 右側「Account ID」複製起來。
-2. **建 D1 資料庫**：左邊 Storage & Databases → D1 SQL database → Create database，名稱填 `workout-sync`（要一模一樣，workflow 用這個名字套資料表）。建好後複製 **Database ID**。
-3. **把 Database ID 填進 repo**：`cloud/worker/wrangler.toml` 的 `database_id = "REPLACE_WITH_D1_DATABASE_ID"` 換成剛剛的 ID（不是祕密，可以進 repo；也可以請 Claude 幫你填，貼 ID 給它就好）。
-4. **建 API Token**：右上角頭像 → My Profile → API Tokens → Create Token → Create Custom Token。
-   - 名稱隨意，例如 `workout-sync-deploy`。
-   - Permissions 加三條：`Account` → `Workers Scripts` → `Edit`；`Account` → `D1` → `Edit`；`Account` → `Account Settings` → `Read`。
-   - Account Resources：Include → 你的帳號。其他不用設。建好後**只會顯示一次**，複製起來。
-5. **填 GitHub secrets**：GitHub repo → Settings → Secrets and variables → Actions → New repository secret，建兩個：
-   `CLOUDFLARE_API_TOKEN`（上一步的 token）、`CLOUDFLARE_ACCOUNT_ID`（第 1 步的 ID）。
-6. **第一次部署**：把第 3 步的改動推上 main（或到 Actions → Deploy cloud worker → Run workflow，在 main 上跑）。
-   workflow 會先套 `migrations/0001_init.sql`，再部署 Worker。第一次部署如果提示還沒有 workers.dev 子網域，到 dashboard → Workers & Pages → 右側 Account details 註冊一個。
-7. **記下 Worker 網址**：部署成功後長得像 `https://workout-sync.<你的子網域>.workers.dev`（Worker 頁面或 Actions log 都看得到）。
-   用瀏覽器開 `網址/v1/blob`，看到 `{"error":"unauthorized"}` 就代表活著。
-8. **把網址填回 App**：`Workout/Cloud/CloudClient.swift` 的 `CloudConfig.workerURLString = ""` 填成上面的網址（也可以請 Claude 填），推上去、裝新版。
-9. **在 App 裡開啟**：設定 → 資料 → 加密雲端備份，打開開關，**用紙筆抄下恢復碼**，輸入第 1 組和最後一組確認。換手機時：開 App 第一頁選「我換手機了，用恢復碼還原」。
-
-注意：
-- Workers 免費方案每次請求的 CPU 時間只有 10 ms；一般備份（幾百 KB）夠用，備份長到幾 MB 才可能超過，那時改付費方案（每月 5 美元）即可，程式不用改。
-- 任何人只要有隨機的 token 都能在這個 Worker 上存資料（沒有帳號系統）；只有頻率限制和 5 MB 上限擋濫用。如果之後被亂用，再加一道固定的上傳密碼。
-- 恢復碼弄丟，雲端的資料就永遠解不開（伺服器沒有金鑰）。到時只能重新開啟（會產生新的恢復碼，舊的雲端資料作廢）。
+✅ 已完成：D1 `workout-sync` 的 ID 填在 `cloud/worker/wrangler.toml`，Worker 網址填在 `Workout/Cloud/CloudClient.swift`（0.45.0 開通）。
+注意：Workers 免費方案每次請求 CPU 只有 10 ms，備份長到幾 MB 才可能超過，那時改付費方案即可；恢復碼弄丟雲端資料就解不開。
 
 ## 要先確認才能做
 
