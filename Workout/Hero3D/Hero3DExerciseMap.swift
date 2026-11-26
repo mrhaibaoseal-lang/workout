@@ -3,7 +3,7 @@ import Foundation
 /// 動作庫動作 → 3D 示範動作（0.56.0）。3D 動作名＝Blender `MOVE_META` 的鍵（scripts/blender/moves/*.py），
 /// 動作檔是 `hero3d_clip_<名稱>.json`，有器材的另有 `hero3d_prop_<名稱>.json／.bin`。
 /// 對照以 `docs/3d-moves/inventory.md` 為準；沒列在這裡、或動作檔不存在的動作，示範畫面退回原本的 2D（`CharacterMove`）。
-enum Hero3DMoves {
+enum Hero3DExerciseMap {
     static let byExercise: [String: String] = [
         // 水平推
         "bb_bench": "benchPress", "db_bench": "benchPress", "db_neutral_press": "benchPress",

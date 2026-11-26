@@ -85,7 +85,7 @@ struct DemoVideoSheet: View {
 
     /// 3D 示範（0.56.0）：有 3D 動作就播 3D（穿目前裝備、帶器材），沒有就退回 2D；右下角可以切回 2D
     @AppStorage("demo.use3D") private var use3D = true
-    private var move3D: String? { Hero3DMoves.move(for: exercise.id) }
+    private var move3D: String? { Hero3DExerciseMap.move(for: exercise.id) }
 
     /// 示範動畫：穿使用者目前裝備的角色（減少動態效果時停在定格）
     private var demoStage: some View {

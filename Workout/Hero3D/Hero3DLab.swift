@@ -782,7 +782,7 @@ struct Hero3DLabView: View {
 }
 
 /// 動作示範用的 3D 畫面（0.56.0）：穿使用者目前的裝備播一個動作，手指左右拖曳轉視角。
-/// 只在有 `hero3d_clip_<動作>.json` 時使用（`Hero3DMoves`）。
+/// 只在有 `hero3d_clip_<動作>.json` 時使用（`Hero3DExerciseMap`）。
 struct Hero3DDemoView: View {
     let move: String
     let loadout: Loadout

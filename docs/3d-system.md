@@ -164,8 +164,8 @@
 ## 動作示範接進 App（0.56.0，2026-11-26）
 使用者決定「3D 動作接進 App，器材一起做」。動作庫的「動作說明」（`DemoVideoSheet`）對有 3D 的動作播 3D，沒有的退回 2D；右下角有 3D／2D 切換（`demo.use3D`）。
 - **範圍**：只有「動作說明」畫面（單一 3D 畫面）。訓練中每張動作卡的小示範（`ExerciseCard`，列表裡會同時有很多張）維持 2D，避免同時開多個 ARView；熱身、伸展、休息頁（`CharacterMove`）也還是 2D。
-- **對照**：`Workout/Hero3D/Hero3DMoves.swift` 的 `byExercise`（動作庫 id → 3D 動作名，以 `docs/3d-moves/inventory.md` 為準；`cable_close_pulldown` 用 `closePulldown` 而不是共用 `pulldown`，因為它有專屬動作卡）。
-  測試（`Hero3DMovesTests`）檢查：動作庫每個內建動作都有對照、對照的動作檔／器材檔在 App 裡、檔案內容自洽。**新增動作庫動作時要在這裡加對照。**
+- **對照**：`Workout/Hero3D/Hero3DExerciseMap.swift` 的 `byExercise`（動作庫 id → 3D 動作名，以 `docs/3d-moves/inventory.md` 為準；`cable_close_pulldown` 用 `closePulldown` 而不是共用 `pulldown`，因為它有專屬動作卡）。
+  測試（`Hero3DExerciseMapTests`）檢查：動作庫每個內建動作都有對照、對照的動作檔／器材檔在 App 裡、檔案內容自洽。**新增動作庫動作時要在這裡加對照。**
 - **匯出**：`sh scripts/blender/build_moves.sh`（`MOVES=a,b` 只重跑幾個；`JOBS` 並行數；換裝零件重用 `out/outfit_*`，`FORCE=1` 重建）。每個動作約 5 分鐘（要帶 12 系列的剛性零件算接地），全部約 1 小時以上。
   產出 `Workout/Hero3D/hero3d_clip_<動作>.json`（骨頭每格變換、每個零件每格最低點、`bell`＝拿不拿啞鈴、`leanBack`＝藏背部裝備）和有器材的動作多一份 `hero3d_prop_<動作>.json`＋`.bin`。
   骨架、身體、系列檔（`hero3d*.usdz`、貼圖、`hero3d.json`）不動（由 `build_app.sh` 產生）。**改了骨架／權重／身體就要重跑 `build_app.sh` 再重跑 `build_moves.sh`**（動作檔是相對靜止姿勢的局部變換）。
@@ -177,3 +177,7 @@
 - **載入**：動作檔、器材檔都在選到那個動作才讀；系列檔（`hero3d_<系列>.usdz`）選到才載（0.52.0 起）。打開一次「動作說明」要載主檔 2.2 MB＋穿著系列的檔，可能要零點幾秒。
 - **鏡頭**：斜前方（跟 Blender 審查圖同方向）、FOV 34°，可左右拖曳轉視角。**還沒上機看過**，器材位置、鏡頭構圖、器材座標轉換是否跟角色對齊都要上機確認；不對先用右下角切回 2D。
 
+
+> **注意（0.57.0）**：動作示範頁用的 `Hero3DDemoView`（Hero3DLab.swift）和另一個 session 做的共用元件 `CharacterStage`（Hero3DStage.swift）功能重疊。
+> 示範頁多了「器材（床、滑輪架、槓、機器）」的載入，`CharacterStage` 目前沒有。之後要統一時，把器材載入搬進 `Hero3DAssets`／`Hero3DStageModel`，再刪 `Hero3DDemoView`。
+> 動作庫對照表因為撞名，改名為 `Hero3DExerciseMap`（`Hero3DMoves` 是 Hero3DStage.swift 裡的 bell／leanBack 表）。
