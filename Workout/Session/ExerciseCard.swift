@@ -43,7 +43,7 @@ struct ExerciseCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var demoStage: some View {
-        CharacterView(move: CharacterMove.forExercise(ex), loadout: inventory.state.loadout,
+        CharacterStage(move: CharacterMove.forExercise(ex), loadout: inventory.state.loadout,
                       animated: true, showStats: false)
             .frame(maxWidth: .infinity)
             .frame(height: 160)

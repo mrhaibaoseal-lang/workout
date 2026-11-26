@@ -85,7 +85,7 @@ struct DemoVideoSheet: View {
 
     /// 示範動畫：穿使用者目前裝備的角色（減少動態效果時停在定格）
     private var demoStage: some View {
-        CharacterView(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
+        CharacterStage(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
                       animated: !reduceMotion, showStats: false)
             .frame(maxWidth: .infinity)
             .frame(height: 300)

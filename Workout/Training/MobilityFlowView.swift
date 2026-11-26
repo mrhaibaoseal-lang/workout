@@ -137,7 +137,7 @@ struct MobilityFlowView: View {
     }
 
     private var stage: some View {
-        CharacterView(move: run.step.move, loadout: inventory.state.loadout,
+        CharacterStage(move: run.step.move, loadout: inventory.state.loadout,
                       animated: !reduceMotion && !run.isPaused, showStats: false)
             .id(run.step.move)
             .frame(maxWidth: .infinity)
