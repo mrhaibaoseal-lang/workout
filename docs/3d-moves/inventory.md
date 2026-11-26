@@ -76,3 +76,7 @@ cable_one_arm_pushdown → tricepsPushdown；elevated_pike 以外的 pause_* →
 
 ## 分批規則
 照 §0-1：同一個批次檔一次只給一個 session 改；`floor.py` 的 `legCurl` 是別的 session 在做，所以這次新增的地板動作另開 `floor2.py`。
+
+## App 對照（0.56.0）
+實際對照表在 `Workout/Hero3D/Hero3DMoves.swift`（動作庫 111 → 3D 動作名，108 個內建動作全有）。與上表不同的一處：`cable_close_pulldown` 用專屬的 `closePulldown`（動作卡 `cable.md` §6）。
+

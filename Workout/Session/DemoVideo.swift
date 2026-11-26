@@ -83,18 +83,44 @@ struct DemoVideoSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var inventory: InventoryStore
 
+    /// 3D 示範（0.56.0）：有 3D 動作就播 3D（穿目前裝備、帶器材），沒有就退回 2D；右下角可以切回 2D
+    @AppStorage("demo.use3D") private var use3D = true
+    private var move3D: String? { Hero3DMoves.move(for: exercise.id) }
+
     /// 示範動畫：穿使用者目前裝備的角色（減少動態效果時停在定格）
     private var demoStage: some View {
-        CharacterView(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
-                      animated: !reduceMotion, showStats: false)
-            .frame(maxWidth: .infinity)
-            .frame(height: 300)
-            .background(
-                RadialGradient(
-                    colors: [Color(gearHex: "#26303D"), Color(gearHex: "#141920"), Color(gearHex: "#0C0F14")],
-                    center: .top, startRadius: 10, endRadius: 340),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(alignment: .bottomTrailing) { videoButton.padding(8) }
+        Group {
+            if use3D, let mv = move3D {
+                Hero3DDemoView(move: mv, loadout: inventory.state.loadout)
+            } else {
+                CharacterView(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
+                              animated: !reduceMotion, showStats: false)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 300)
+        .background(
+            RadialGradient(
+                colors: [Color(gearHex: "#26303D"), Color(gearHex: "#141920"), Color(gearHex: "#0C0F14")],
+                center: .top, startRadius: 10, endRadius: 340),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(alignment: .bottomTrailing) { videoButton.padding(8) }
+        .overlay(alignment: .bottomLeading) { if move3D != nil { modeButton.padding(8) } }
+    }
+
+    /// 3D／2D 切換（記在 `demo.use3D`）：3D 看起來不對時可以先切回 2D
+    private var modeButton: some View {
+        Button { use3D.toggle() } label: {
+            Label(use3D ? "3D" : "2D", systemImage: use3D ? "cube.fill" : "figure.arms.open")
+                .font(.caption.weight(.bold))
+                .padding(.horizontal, 10)
+                .frame(minHeight: 32)
+                .background(.black.opacity(0.55), in: Capsule())
+                .foregroundStyle(Theme.fg)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(use3D ? "目前是 3D 示範，切換成 2D" : "目前是 2D 示範，切換成 3D")
     }
 
     /// YouTube 只留一顆小按鈕：有精選影片就開那支，沒有就開搜尋（交給 YouTube App／瀏覽器）

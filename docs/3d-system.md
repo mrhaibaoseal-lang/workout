@@ -151,3 +151,20 @@
   所以換裝、材質都在 part 層做：換裝＝篩 part 後用 `MeshResource.generate(from:)` 重組。0.36.2 起零件 67/67、骨頭 15/15 都對上。
 - **著色**：CustomMaterial 用 `.unlit` 時只吃 **emissive**，寫 base color 會全黑（0.36.3 手機驗證）。
   `Toon.metal` 的 toonSurface／flatSurface 一律 `set_emissive_color`，base color 設 0。
+
+## 動作示範接進 App（0.56.0，2026-11-26）
+使用者決定「3D 動作接進 App，器材一起做」。動作庫的「動作說明」（`DemoVideoSheet`）對有 3D 的動作播 3D，沒有的退回 2D；右下角有 3D／2D 切換（`demo.use3D`）。
+- **範圍**：只有「動作說明」畫面（單一 3D 畫面）。訓練中每張動作卡的小示範（`ExerciseCard`，列表裡會同時有很多張）維持 2D，避免同時開多個 ARView；熱身、伸展、休息頁（`CharacterMove`）也還是 2D。
+- **對照**：`Workout/Hero3D/Hero3DMoves.swift` 的 `byExercise`（動作庫 id → 3D 動作名，以 `docs/3d-moves/inventory.md` 為準；`cable_close_pulldown` 用 `closePulldown` 而不是共用 `pulldown`，因為它有專屬動作卡）。
+  測試（`Hero3DMovesTests`）檢查：動作庫每個內建動作都有對照、對照的動作檔／器材檔在 App 裡、檔案內容自洽。**新增動作庫動作時要在這裡加對照。**
+- **匯出**：`sh scripts/blender/build_moves.sh`（`MOVES=a,b` 只重跑幾個；`JOBS` 並行數；換裝零件重用 `out/outfit_*`，`FORCE=1` 重建）。每個動作約 5 分鐘（要帶 12 系列的剛性零件算接地），全部約 1 小時以上。
+  產出 `Workout/Hero3D/hero3d_clip_<動作>.json`（骨頭每格變換、每個零件每格最低點、`bell`＝拿不拿啞鈴、`leanBack`＝藏背部裝備）和有器材的動作多一份 `hero3d_prop_<動作>.json`＋`.bin`。
+  骨架、身體、系列檔（`hero3d*.usdz`、貼圖、`hero3d.json`）不動（由 `build_app.sh` 產生）。**改了骨架／權重／身體就要重跑 `build_app.sh` 再重跑 `build_moves.sh`**（動作檔是相對靜止姿勢的局部變換）。
+- **器材（不走 USD）**：`export_app.py` 把「人以外的網格」（舞台圓台、光圈除外）用修改器算完（倒角；描邊外殼不要），三角化，同位置同法線的角合併，座標轉成 RealityKit（Blender (x,y,z) → (x,z,−y)）。
+  靜態的依「材質 × 有無描邊」各一組、烘進世界座標；會動的（配重、鋼索、槓子、繩）依「每格世界矩陣」分組，網格留在物件座標，另存每格 `[t, q, s]`（`C·M·C⁻¹` 分解）。
+  `.bin`＝每組 頂點 Float32×3、法線 Float32×3、索引 UInt32（依 json 的 `pos` 位置），json 有每組的材質、是否描邊、動畫；材質表同 `hero3d.json` 格式。
+  App（`Hero3DModel.loadProps`）用 `MeshDescriptor` 組網格，材質用同一套 `CustomMaterial`（卡通／純色），描邊＝同網格法線取平均再用著色器外撐（跟角色一樣）。
+  大小：每個有器材的動作約 100～200 KB（`.bin`）。
+- **載入**：動作檔、器材檔都在選到那個動作才讀；系列檔（`hero3d_<系列>.usdz`）選到才載（0.52.0 起）。打開一次「動作說明」要載主檔 2.2 MB＋穿著系列的檔，可能要零點幾秒。
+- **鏡頭**：斜前方（跟 Blender 審查圖同方向）、FOV 34°，可左右拖曳轉視角。**還沒上機看過**，器材位置、鏡頭構圖、器材座標轉換是否跟角色對齊都要上機確認；不對先用右下角切回 2D。
+

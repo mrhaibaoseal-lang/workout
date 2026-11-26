@@ -8,10 +8,12 @@
 #   把各系列的上衣／下身零件、衣服網格接進來（骨架改指向這次的 rig），full 再烘換裝貼圖 hero3d_<上衣|下身|衣服>_….png。
 # 拆法：hero 網格依「零件(part 面屬性) × 材質」拆成獨立網格，名稱 <部位>_<系列>__<材質>。
 #   身體只拆成一個 base__body（材質 body，App 讀上衣圖＋下身圖），衣服網格是 top_suit__cloth_suit、bottom_long__cloth_long、bottom_short__cloth_short。
+# 器材（0.56.0 起）：椅子、單槓、滑輪、機器等「人以外的網格」不走 USD，存成 hero3d_prop_<動作>.json（群組、材質、每格位移）＋ .bin
+#   （頂點、法線、索引，座標已轉成 RealityKit 的 Y 朝上）。靜態的合併成一份、會動的（配重、鋼索、槓子）依動作各自一份並記每格變換。
 # 描邊不烘外殼（0.39.0 起）：App 用著色器把同一份網格沿平均法線外撐再畫一次，USDZ 省一半頂點。
 # 卡通著色不靠 USD 材質（RealityKit 不認 Blender 節點），App 依名稱查 materials.json 用自己的 Metal 著色器。
 import bpy, bmesh, json, os, re, sys
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 argv = sys.argv[sys.argv.index('--') + 1:]
 DST, MOVE = argv[0], argv[1]
@@ -24,6 +26,25 @@ PART_NAMES = list(hero.get('part_names', ['base']))
 OUTFITS = [x for x in os.environ.get('OUTFITS', '').split(',') if x]
 OUTFIT_DIR = os.environ.get('OUTFIT_DIR', '')
 SKIN = [0.5, 0.53, 0.58]
+
+# ---------- 這個動作的設定（MOVE_META）：拿不拿啞鈴、要不要藏背部裝備 ----------
+import ast, glob
+META = {}
+for _f in sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'moves', '*.py'))):
+    for _n in ast.parse(open(_f, encoding='utf-8').read()).body:
+        if isinstance(_n, ast.Assign) and any(getattr(t_, 'id', '') == 'MOVE_META' for t_ in _n.targets):
+            META.update(ast.literal_eval(_n.value))
+MMETA = META.get(MOVE, {})
+
+# ---------- 器材：人以外的網格（舞台圓台、光圈不算） ----------
+PROPS = []
+for _o in list(sc.objects):
+    if _o.type != 'MESH' or _o == hero or _o.find_armature():
+        continue
+    if {m.name for m in _o.data.materials if m} <= {'stage', 'ring', 'outline'}:
+        continue
+    PROPS.append(_o)
+PROP_M = {o.name: [] for o in PROPS}   # 每格的世界矩陣（Blender 座標）
 
 # ---------- 動作 JSON：每格每根骨頭的局部變換（相對父骨頭；根骨頭相對骨架）＋ 接地高度 ----------
 # 跟 USD SkelAnimation 同一套定義，App 直接寫進 ModelEntity.jointTransforms（名稱用 USD 的骨頭路徑）。
@@ -42,12 +63,85 @@ for f in range(sc.frame_start, sc.frame_end + 1):
         t, q, s = m.decompose()
         row.append([round(t.x, 5), round(t.y, 5), round(t.z, 5), round(q.x, 5), round(q.y, 5), round(q.z, 5), round(q.w, 5)])
     frames.append(row)
+    for o in PROPS: PROP_M[o.name].append(o.matrix_world.copy())
 clip = {'move': MOVE, 'fps': sc.render.fps, 'joints': [bone_path(b) for b in bones],
-        'frames': frames,
+        'frames': frames, 'bell': bool(MMETA.get('bell')), 'leanBack': bool(MMETA.get('lean_back')),
         'note': 'Blender 座標（Z 朝上、角色面向 -Y）；每格 [tx,ty,tz,qx,qy,qz,qw]。low＝每個零件每格的最低點（公尺），App 依穿著的零件算接地抬高'}
 def write_clip():
+    clip['props'] = export_props()
     json.dump(clip, open(os.path.join(DST, f'hero3d_clip_{MOVE}.json'), 'w'), separators=(',', ':'))
-    print('clip', MOVE, len(frames), 'frames', len(bones), 'joints')
+    print('clip', MOVE, len(frames), 'frames', len(bones), 'joints', 'props', clip['props'])
+
+# ---------- 器材輸出 ----------
+# Blender（x,y,z）→ RealityKit（x,z,-y）：跟 USD 匯出的 Y 朝上、-Z 朝前一致（角色面向 -Y → 面向 +Z，朝鏡頭）。
+CONV = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, -1, 0, 0), (0, 0, 0, 1)))
+def export_props():
+    """回傳要寫進 clip 的摘要；沒有器材就不寫檔。檔案：hero3d_prop_<動作>.json／.bin"""
+    for fn in (f'hero3d_prop_{MOVE}.json', f'hero3d_prop_{MOVE}.bin'):
+        p_ = os.path.join(DST, fn)
+        if os.path.exists(p_): os.remove(p_)
+    if not PROPS: return None
+    import numpy as np
+    f0 = sc.frame_start
+    sc.frame_set(f0)
+    outline = {}
+    for o in PROPS:   # 描邊在 App 用著色器畫；有「描邊外殼」修改器的才描
+        outline[o.name] = any(m.type == 'SOLIDIFY' for m in o.modifiers)
+        for m in [m for m in o.modifiers if m.type == 'SOLIDIFY']: o.modifiers.remove(m)
+    bpy.context.view_layer.update()
+    # 會動的依「每格世界矩陣」分組（動作完全一樣的合併），靜態的一組
+    def seq_key(o):
+        ms = PROP_M[o.name]
+        a = np.array([[round(x, 4) for r in m for x in r] for m in ms])
+        return None if float(np.abs(a - a[0]).max()) < 1e-4 else hash(a.tobytes())
+    keyed = {}
+    for o in PROPS: keyed.setdefault(seq_key(o), []).append(o)
+    dg = bpy.context.evaluated_depsgraph_get()
+    groups, blobs, off = [], [], 0
+    def tobytes(arr): return arr.tobytes()
+    gi = 0
+    for key, obs in sorted(keyed.items(), key=lambda kv: (kv[0] is not None, str(kv[0]))):
+        per = {}   # (材質, 有無描邊) → ([頂點], [法線], [索引])
+        for o in obs:
+            ev = o.evaluated_get(dg); me = bpy.data.meshes.new_from_object(ev)
+            me.calc_loop_triangles()
+            mats = [m.name if m else '' for m in me.materials]
+            M0 = PROP_M[o.name][0]
+            nrm = np.empty(len(me.corner_normals) * 3, dtype=np.float32); me.corner_normals.foreach_get('vector', nrm); nrm = nrm.reshape(-1, 3)
+            co = np.empty(len(me.vertices) * 3, dtype=np.float32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+            for t in me.loop_triangles:
+                mname = mats[me.polygons[t.polygon_index].material_index] if mats else 'frame'
+                if mname == 'outline': continue
+                P, N, I = per.setdefault((mname, outline[o.name]), ([], [], []))
+                for lp, vi in zip(t.loops, t.vertices):
+                    v = Vector(co[vi]); n = Vector(nrm[lp])
+                    if key is None: v = M0 @ v; n = (M0.to_3x3() @ n).normalized()   # 靜態：烘進世界座標
+                    P.append(CONV @ v); N.append(CONV.to_3x3() @ n); I.append(len(P) - 1)
+            bpy.data.meshes.remove(me)
+        for (mname, ol), (P, N, I) in sorted(per.items()):
+            Pa = np.array([[v.x, v.y, v.z] for v in P], dtype=np.float32); Na = np.array([[v.x, v.y, v.z] for v in N], dtype=np.float32)
+            # 同位置同法線的角合併
+            comb = np.hstack([np.round(Pa * 1e4), np.round(Na * 100)])
+            _, first, inv = np.unique(comb, axis=0, return_index=True, return_inverse=True)
+            Pu, Nu = Pa[first], Na[first]; idx = inv.reshape(-1).astype(np.uint32)
+            g = {'name': f'prop_{gi:02d}', 'mat': mname, 'outline': bool(ol), 'nv': int(len(Pu)), 'ni': int(len(idx)),
+                 'pos': off}
+            gi += 1
+            b = tobytes(Pu) + tobytes(Nu) + tobytes(idx); blobs.append(b); off += len(b)
+            if key is not None:
+                fr = []
+                for m in PROP_M[obs[0].name]:
+                    t, q, sc_ = (CONV @ m @ CONV.inverted()).decompose()
+                    fr.append([round(t.x, 5), round(t.y, 5), round(t.z, 5), round(q.x, 5), round(q.y, 5), round(q.z, 5), round(q.w, 5),
+                               round(sc_.x, 5), round(sc_.y, 5), round(sc_.z, 5)])
+                g['anim'] = fr
+            groups.append(g)
+    mats_used = {g['mat'] for g in groups}
+    info = {'move': MOVE, 'groups': groups,
+            'materials': {m.name: mat_info(m) for m in bpy.data.materials if m.name in mats_used}}
+    open(os.path.join(DST, f'hero3d_prop_{MOVE}.bin'), 'wb').write(b''.join(blobs))
+    json.dump(info, open(os.path.join(DST, f'hero3d_prop_{MOVE}.json'), 'w'), separators=(',', ':'))
+    return {'groups': len(groups), 'anim': sum(1 for g in groups if 'anim' in g), 'verts': sum(g['nv'] for g in groups), 'bytes': off}
 
 # ---------- 材質表：從卡通節點讀出亮面色、暗面倍率、有無高光；發光材質讀顏色和強度 ----------
 def mat_info(m):
@@ -57,6 +151,7 @@ def mat_info(m):
     ramps = [n for n in nt.nodes if n.type == 'VALTORGB' and n.color_ramp.elements[0].position == 0.0 and len(n.color_ramp.elements) == 3]
     em = [n for n in nt.nodes if n.type == 'EMISSION']
     if not ramps:   # flat：發光、眼睛、描邊
+        if not em: return {'kind': 'flat', 'color': [0.5, 0.5, 0.5], 'strength': 1.0}
         c = em[0].inputs['Color'].default_value
         return {'kind': 'flat', 'color': [round(c[0], 4), round(c[1], 4), round(c[2], 4)], 'strength': em[0].inputs['Strength'].default_value}
     r = ramps[0].color_ramp.elements
