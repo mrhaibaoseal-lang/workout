@@ -217,7 +217,7 @@ if MOVE == 'kneeHug':
 # ======================= 推牆小腿伸展（面對牆、雙手推牆、右腳在後伸直腳跟踩地、左膝彎） =======================
 if MOVE == 'calfStretch':
     WALL_Y = -0.865
-    build_wall(WALL_Y)
+    build_stretch_wall(WALL_Y)
     YB = 0.16                                       # 後腳踝 y
     def pose(f):
         s = depth(f)

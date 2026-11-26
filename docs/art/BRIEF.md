@@ -99,7 +99,6 @@ no text, no letters, square full-bleed, no rounded corners, no border
 | db_chest_row | 啞鈴俯臥划船 | chest-supported dumbbell row, lying face down on an inclined bench |
 | bb_row | 槓鈴俯身划船 | bent-over barbell row, torso about 45 degrees, bar pulled to the navel |
 | band_row | 彈力帶划船 | seated resistance band row, elbows pulled back close to the body |
-| table_row | 桌下反向划船 | inverted row under a sturdy table, body straight, chest pulled to the table edge |
 | cable_pulldown | 高位下拉 | wide-grip cable lat pulldown, bar pulled to the upper chest |
 | cable_close_pulldown | 窄握下拉 | close-grip cable pulldown with two handles, elbows down to the sides |
 | pullup | 引體向上 | overhand pull-up on a doorway pull-up bar, chin over the bar |

@@ -115,7 +115,6 @@ enum ExerciseLibrary {
         Exercise(id: "db_chest_row", name: "啞鈴俯臥划船", pattern: .hPull, requires: [.dumbbell, .bench], loaded: true, tip: "胸口趴椅上，雙手同時拉、夾背"),
         Exercise(id: "bb_row", name: "槓鈴俯身划船", pattern: .hPull, requires: [.barbell], loaded: true, tip: "上身前傾約 45 度，背打直，槓拉向肚臍"),
         Exercise(id: "band_row", name: "彈力帶划船", pattern: .hPull, requires: [.band], loaded: false, tip: "手肘貼身往後拉，停一秒夾背"),
-        Exercise(id: "table_row", name: "桌下反向划船", pattern: .hPull, requires: [], loaded: false, tip: "先確認桌子夠穩！身體一直線，胸口拉向桌緣"),
 
         // 垂直拉
         Exercise(id: "assisted_pullup", name: "輔助引體向上機", pattern: .vPull, requires: [.machine], loaded: true, tip: "重量是「幫你減輕」的重量，越輕越難"),
@@ -223,7 +222,6 @@ enum ExerciseLibrary {
         Exercise(id: "pause_pushup", name: "暫停伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "胸口離地一個拳頭時停 2 秒，再推起來"),
         Exercise(id: "archer_pushup", name: "弓箭手伏地挺身", pattern: .hPush, requires: [], loaded: false, tip: "雙手撐很寬，身體往一邊下、另一手伸直只是扶著，左右輪流"),
         Exercise(id: "elevated_pike", name: "腳抬高屈體伏地挺身", pattern: .vPush, requires: [.bench], loaded: false, tip: "腳放椅子上、臀部抬高，頭往雙手中間的地板方向下"),
-        Exercise(id: "pause_table_row", name: "暫停桌下划船", pattern: .hPull, requires: [], loaded: false, tip: "先確認桌子夠穩！胸口拉到桌緣停 2 秒，再慢慢放下"),
         Exercise(id: "slow_squat", name: "慢速深蹲", pattern: .squat, requires: [], loaded: false, tip: "3 秒蹲下、最低點停 2 秒，再站起來"),
         Exercise(id: "pause_split_squat", name: "暫停保加利亞分腿蹲", pattern: .lunge, requires: [], loaded: false, muscles: [(.quads, 1), (.glutes, 1)], tip: "後腳放椅子上，3 秒下、最低點停 2 秒（每邊做）"),
         Exercise(id: "sl_hip_thrust", name: "單腳臀推", pattern: .glute, requires: [.bench], loaded: false, tip: "上背靠在椅子邊緣，單腳踩地把髖頂到最高，停 1 秒（每邊做）"),

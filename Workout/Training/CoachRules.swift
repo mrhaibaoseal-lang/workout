@@ -101,7 +101,6 @@ enum Upgrade {
         "pushup": "pause_pushup",
         "pause_pushup": "archer_pushup",
         "pike_pushup": "elevated_pike",
-        "table_row": "pause_table_row",
         "squat": "slow_squat",
         "reverse_lunge": "split_squat",
         "split_squat": "pause_split_squat",
