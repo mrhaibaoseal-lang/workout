@@ -141,6 +141,15 @@
    滑輪（下拉、三頭下壓、面拉、划船…）→ 地板徒手（伏地挺身、棒式、臀橋…）→ 熱身 → 伸展。
 3. **裝備全部做完**：一次 2～3 個系列，每系列一張 8 部位總覽＋混搭圖。
 4. **角色頁改成 3D**：舞台、換裝、開箱、套裝效果、特效。2D Canvas 版（`CharacterCanvas`、`GearArt`）確定不用後再移除。
+   **2026-11-26 共用元件**（`Workout/Hero3D/Hero3DStage.swift`）：
+   - `CharacterStage(move:key3D:loadout:animated:showStats:)`：有 `hero3d_clip_<動作>.json` 就畫 3D，沒有（或材質做不出來、要顯示戰力數字）就退回 2D `CharacterView`。
+     3D 片段名＝`CharacterMove.rawValue`，例外放 `Hero3DMoves.alias`（latPulldown → pulldown）。
+   - `Hero3DAssets.shared`：材質表、模型範本（每個 USDZ 只讀一次，各畫面 clone）、片段、貼圖、描邊法線全部共用。
+   - `Hero3DLook(loadout:info:)`：背包每個部位 → 系列；沒穿或該系列沒有 3D 零件就用基本款（眼睛在 head_*、手掌在 hands_*，空著會沒有），背部用「無」。
+     赤膊／赤腳／內褲、特效（fx）還沒有 3D 版。
+   - 拿啞鈴（bell）、靠背藏背部裝備（lean_back）照 `moves/*.py` 的 `MOVE_META` 抄成 `Hero3DMoves.bell`／`leanBack`，新增動作要一起補。
+   - 鏡頭固定斜側面（yaw −0.5）、背景透明、沒有舞台圓台；不播放或減少動態效果時停在片段中間那格。
+   - 測試頁 `Hero3DLab.swift` 沒動（匯出的 session 會改它）；之後可以改成用這份共用程式。
 
 ## 省用量的做法
 - 一次做多個（動作一批 5～8 個、裝備一次 2～3 系列），每批只出一張低解析度總覽圖。
