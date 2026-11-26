@@ -80,6 +80,9 @@ struct SettingsView: View {
                     row("3D 測試", icon: "cube.fill", tint: Theme.accent, status: "3D 角色技術驗證") {
                         Hero3DLabView()
                     }
+                    row("3D 角色預覽", icon: "figure.strengthtraining.traditional", tint: Theme.accent, status: "正式元件・穿目前背包") {
+                        Hero3DStagePreview()
+                    }
                 }
                 .listRowBackground(Theme.surface)
             }
