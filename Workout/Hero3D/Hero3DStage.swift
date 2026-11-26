@@ -521,7 +521,7 @@ struct Hero3DCharacterView: UIViewRepresentable {
 }
 
 /// 角色畫面的統一入口：有 3D 片段就畫 3D，沒有就退回 2D。
-/// showStats（角色頁的戰力數字）目前只有 2D 版會畫，所以要顯示數字時先用 2D。
+/// showStats：右上角的稀有度／套裝名稱和戰力，位置、字級、顏色照 2D（CharacterRenderer 的「文字」段落），3D 版用疊字。
 struct CharacterStage: View {
     let move: CharacterMove
     /// 指定 3D 片段（Blender 新做、2D 沒有的動作，例如 sidePlank）；nil＝照 move
@@ -535,13 +535,40 @@ struct CharacterStage: View {
     var body: some View {
         let assets = Hero3DAssets.shared
         let key = key3D ?? Hero3DMoves.key(for: move)
-        if !showStats, assets.hasClip(key) {
+        if assets.hasClip(key) {
             Hero3DCharacterView(move: key, look: Hero3DLook(loadout: loadout, info: assets.info),
                                 animated: animated && !reduceMotion)
                 .aspectRatio(180.0 / 204.0, contentMode: .fit)
+                .overlay {
+                    if showStats { stats }
+                }
                 .accessibilityHidden(true)
         } else {
             CharacterView(move: move, loadout: loadout, animated: animated, showStats: showStats, bonusPower: bonusPower)
+        }
+    }
+
+    /// 2D 的座標系是 180×204，字的右下角在 (156, 16)、(156, 28)；k＝畫面對 2D 座標的縮放
+    private var stats: some View {
+        GeometryReader { geo in
+            let k = min(geo.size.width / 180, geo.size.height / 204)
+            let bonus = loadout.setBonus
+            let rarity = Rarity(rawValue: loadout.topRarity)
+            let rc: Color = bonus.map { Color(gearHex: $0.series.glow) } ?? rarity?.color ?? Color(gearHex: "#2C3440")
+            VStack(alignment: .trailing, spacing: 0) {
+                if loadout.topRarity > 0 {
+                    Text(bonus.map { $0.series.name + "套裝" } ?? rarity?.name ?? "")
+                        .font(.system(size: 9 * k, weight: .bold))
+                        .tracking(1.5 * k)
+                        .foregroundColor(rc)
+                }
+                Text("戰力 \(loadout.power + bonusPower)")
+                    .font(.system(size: 11 * k, weight: .bold))
+                    .foregroundColor(Color(gearHex: "#E7EBF0"))
+            }
+            .padding(.top, 4 * k)
+            .padding(.trailing, 24 * k)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
     }
 }

@@ -80,7 +80,7 @@ struct CharacterScreen: View {
         let loadout = store.state.loadout
         let glow = loadout.setBonus.map { Color(gearHex: $0.series.glow) } ?? Theme.accent
         return VStack(spacing: 8) {
-            CharacterView(move: move, loadout: loadout, bonusPower: fighter.power)
+            CharacterStage(move: move, loadout: loadout, bonusPower: fighter.power)
                 .frame(height: 320)
                 // 狀態越差，舞台越暗
                 .saturation(0.4 + 0.6 * Double(condition ?? 100) / 100)

@@ -41,7 +41,9 @@
   - [ ] 匯出全部動作片段（別的 session 在做）；椅子、滑輪架這些道具還沒帶進 App，躺椅子的動作會浮在空中。
   - [ ] 換掉 8 個用 2D `CharacterView` 的畫面：動作卡、動作介紹頁、休息頁、伸展流程、角色頁（舞台＋2 個換裝預覽）、開箱、分享卡（要畫面外繪製再截圖）。
     動作庫對 3D 新動作（sidePlank 等 34 個）的對照用 `CharacterStage(key3D:)`，對照表見 `docs/3d-moves/inventory.md`。
-  - [ ] 特效（fx）部位的 3D 做法要先跟使用者討論；角色頁的戰力數字（showStats）3D 版還沒做。
+  - [ ] 特效（fx）部位的 3D 做法要先跟使用者討論。
+  - [x] 角色頁舞台的戰力數字：3D 版用疊字（位置、字級照 2D）；舞台已改用 `CharacterStage`（深蹲有片段 → 3D，推舉、硬舉等匯出）。
+    「狀態越差舞台越暗」的 `.saturation` 可能套不到 3D 畫面（ARView 是 UIKit），上機確認。
   - [ ] 全部換完、使用者確認後，刪 2D（`CharacterCanvas`、`GearArt`、`MoveFrames`、`scripts/art/moves.js`）。
 
 ## 動作庫擴充與部位歸屬修正（2026-11-25 使用者定案）

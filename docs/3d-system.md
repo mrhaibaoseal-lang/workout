@@ -142,7 +142,7 @@
 3. **裝備全部做完**：一次 2～3 個系列，每系列一張 8 部位總覽＋混搭圖。
 4. **角色頁改成 3D**：舞台、換裝、開箱、套裝效果、特效。2D Canvas 版（`CharacterCanvas`、`GearArt`）確定不用後再移除。
    **2026-11-26 共用元件**（`Workout/Hero3D/Hero3DStage.swift`）：
-   - `CharacterStage(move:key3D:loadout:animated:showStats:)`：有 `hero3d_clip_<動作>.json` 就畫 3D，沒有（或材質做不出來、要顯示戰力數字）就退回 2D `CharacterView`。
+   - `CharacterStage(move:key3D:loadout:animated:showStats:)`：有 `hero3d_clip_<動作>.json` 就畫 3D，沒有（或材質做不出來）就退回 2D `CharacterView`。`showStats` 的稀有度／套裝名稱和戰力在 3D 版用 SwiftUI 疊字。
      3D 片段名＝`CharacterMove.rawValue`，例外放 `Hero3DMoves.alias`（latPulldown → pulldown）。
    - `Hero3DAssets.shared`：材質表、模型範本（每個 USDZ 只讀一次，各畫面 clone）、片段、貼圖、描邊法線全部共用。
    - `Hero3DLook(loadout:info:)`：背包每個部位 → 系列；沒穿或該系列沒有 3D 零件就用基本款（眼睛在 head_*、手掌在 hands_*，空著會沒有），背部用「無」。
