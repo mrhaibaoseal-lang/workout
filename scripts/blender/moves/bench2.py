@@ -3,7 +3,7 @@
 # MOVE_META 只能寫字面值（hero_proto.py 用 ast 讀）。
 MOVE_META = {
     'dbFly': {'bell': True, 'lean_back': True, 'angles': {'elbow': (156, 170), 'uarm_vert': {'min': (80, 100), 'max': (165, 178)}}},
-    'declineCrunch': {'lean_back': True, 'angles': {'trunk_lean': {'min': (55, 72), 'max': (95, 110)}, 'knee': (85, 125)}},
+    'declineCrunch': {'bell': True, 'lean_back': True, 'angles': {'trunk_lean': {'min': (55, 72), 'max': (95, 110)}, 'knee': (85, 125)}},
     'sideLyingLateral': {'bell': True, 'lean_back': True, 'angles': {'elbow.R': (155, 175)}},
     'concentrationCurl': {'bell': True, 'angles': {'elbow.R': {'min': (35, 55), 'max': (160, 180)}, 'knee': (85, 125), 'trunk_lean': (40, 72)}},
     'benchDip': {'angles': {'elbow': {'min': (75, 100), 'max': (150, 175)}, 'knee': (100, 175)}},
@@ -62,12 +62,14 @@ if MOVE == 'dbFly':
     CAM = dict(loc=(3.3, -1.2, 1.6), tgt=(0, 0.15, 0.8), lens=50, stage=(0, 0.15, 1.2))
 
 # ======================= 下斜捲腹（App：decline_crunch；腳勾椅子前端滾筒） =======================
-# 躺在稍微下斜（靠背 100°）的椅子上，膝蓋彎約 100°、腳踝勾在前端的滾筒後面；雙手交叉放胸前。
+# 躺在稍微下斜（靠背 100°）的椅子上，膝蓋彎約 100°、腳踝勾在前端的滾筒後面；雙手抱一顆啞鈴貼在胸口（啞鈴立在胸前，兩手托住上端；使用者 2026-11-26 要求）。
 # 用腹部把上背捲離椅面（約 36°）、下背留在椅面上，停一下，慢慢放回（背不用完全碰到底）。
 if MOVE == 'declineCrunch':
     N = 48
+    kill_bell('L')                                         # 只留一顆啞鈴（右手那顆），雙手一起抱著
     build_bench(100)
     BACK = 100
+    HOLD_H = 0.17                                         # 啞鈴握把離胸口的高度
     def pose(t):
         dv, nv, hg = padframe(BACK)
         lam_h = -D(BACK)
@@ -82,10 +84,16 @@ if MOVE == 'declineCrunch':
             leg_to(s, hj, an, Vector((0.3 * sx, -0.5, 1.0)), tdir)
             fl_aimz(f'foot.{s}', an, tdir, Vector((0, 0.66, -0.75)))     # 腳背朝前上方（滾筒壓在腳背）、腳底朝後下方
         c0 = rest['chest'][0]
-        for s, sx in SX:                                    # 雙手交叉：手腕放在對側胸前，手肘朝外
-            dep = 0.17 if s == "L" else 0.33                # 兩隻前臂前後疊開（右手在上），不互穿
-            tgt = cp(Vector((0.0, c0.y - dep, c0.z + 0.17)))
-            arm_to(s, sh[s], tgt, Vector((0.9 * sx, -0.2, 0.7)), Vector((-1 * sx, -0.2, 0.2)))
+        p0 = Vector((0.0, c0.y, c0.z + 0.17))
+        hold0 = cp(p0)
+        a = (cp(p0 + Vector((0, -1, 0))) - hold0).normalized()        # 胸口往外（朝上）的方向：啞鈴立在胸前，軸沿著它
+        hold = hold0 + a * HOLD_H
+        for s, sx in SX:                                    # 雙手托著啞鈴上端（做法同 bench.py 的 pullover 雙手捧一顆）
+            wrist = hold + X_ * (0.10 * sx) - a * 0.03
+            pole = (X_ * sx + (-a) * 0.4).normalized()
+            e = elbow_ik(s, sh[s], wrist, pole)
+            hd = (-X_ * sx + a * 0.25).normalized()
+            grip(s, sh[s], e, wrist, hd, a)
     for f in range(N):
         sc.frame_set(f); pose(profile(f, N, 18, 6, 18)); keyall(f)     # 捲起 18 格、頂端停 6、放回 18、底部停 6
     CAM = dict(loc=(3.3, -1.5, 1.4), tgt=(0, 0.1, 0.65), lens=50, stage=(0, 0.1, 1.15))
