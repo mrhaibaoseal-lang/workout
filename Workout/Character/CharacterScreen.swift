@@ -457,7 +457,7 @@ struct GearPickerView: View {
             VStack(spacing: 4) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(Theme.sunken)
-                    CharacterView(move: .squat, loadout: preview(nil), animated: false, showStats: false)
+                    CharacterStage(move: .squat, loadout: preview(nil), animated: false, showStats: false)
                         .padding(4)
                 }
                 .frame(height: 130)
@@ -483,7 +483,7 @@ struct GearPickerView: View {
             VStack(spacing: 4) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12).fill(Theme.sunken)
-                    CharacterView(move: .squat, loadout: preview(item), animated: false, showStats: false)
+                    CharacterStage(move: .squat, loadout: preview(item), animated: false, showStats: false)
                         .padding(4)
                         .opacity(owned ? 1 : 0.35)
                     if !owned {

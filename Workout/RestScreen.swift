@@ -385,7 +385,7 @@ struct RestScreen: View {
             let cycle = (total - left).truncatingRemainder(dividingBy: 18)
             move = cycle >= 10 && cycle < 15.2 ? .drink : .breathe
         }
-        return CharacterView(move: move, loadout: inventory.state.loadout, animated: !reduceMotion, showStats: false)
+        return CharacterStage(move: move, loadout: inventory.state.loadout, animated: !reduceMotion, showStats: false)
             .id(move)
             .transition(.opacity)
             .animation(.easeInOut(duration: 0.3), value: move)
