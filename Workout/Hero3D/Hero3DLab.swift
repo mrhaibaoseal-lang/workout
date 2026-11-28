@@ -10,8 +10,9 @@ import Metal
 // 長褲、短褲、鈦甲緊身衣是另外的網格（bottom_long／bottom_short／top_suit），各系列一張貼圖；胸章、腿甲這類小零件是 top_<系列>／bottom_<系列>。
 // 檔案由 scripts/blender/build_app.sh 產生：hero3d.usdz（骨架、身體、衣服網格、基本款）、hero3d_<系列>.usdz（該系列的零件，選到才載入，0.52.0）、
 // hero3d.json（材質表、換裝表、系列檔對照）、hero3d_clip_<動作>.json、換裝貼圖。
-// 0.56.0 動作示範：Hero3DDemoView 讓動作庫／動作說明播 3D（穿使用者目前的裝備）。動作檔 scripts/blender/build_moves.sh 一次匯出全部（約 95 個）；
-// 椅子、單槓、滑輪、機器這些器材存成 hero3d_prop_<動作>.json＋.bin（頂點、法線、索引＋會動的零件每格變換），App 自己組網格（不走 USD）。
+// 動作檔 scripts/blender/build_moves.sh 一次匯出全部（約 95 個）；椅子、單槓、滑輪、機器這些器材存成
+// hero3d_prop_<動作>.json＋.bin，App 自己組網格（不走 USD）。0.59.0 起正式畫面（含動作介紹頁）一律用 Hero3DStage.swift 的
+// CharacterStage（器材載入也在那邊），這頁只剩測試用。
 
 struct Hero3DInfo: Decodable {
     struct Mat: Decodable {
@@ -68,21 +69,6 @@ struct Hero3DClip: Decodable {
     }
 }
 
-/// 器材檔（hero3d_prop_<動作>.json；頂點資料在同名 .bin）
-struct Hero3DPropInfo: Decodable {
-    struct Group: Decodable {
-        let name: String
-        let mat: String
-        let outline: Bool
-        let nv: Int
-        let ni: Int
-        let pos: Int                 // .bin 裡的位元組位置：頂點 Float32×3×nv、法線 Float32×3×nv、索引 UInt32×ni
-        let anim: [[Float]]?         // 會動的零件：每格 [tx,ty,tz,qx,qy,qz,qw,sx,sy,sz]；沒有＝靜止
-    }
-    let groups: [Group]
-    let materials: [String: Hero3DInfo.Mat]
-}
-
 @MainActor
 final class Hero3DModel: ObservableObject {
     struct Slot: Identifiable { let id: String; let name: String }
@@ -110,12 +96,7 @@ final class Hero3DModel: ObservableObject {
     let arView: ARView
     private var holder = Entity()            // 轉向用
     private var model = Entity()             // 抬高用
-    private var propRoot = Entity()          // 器材（跟著轉向，不跟著抬高）
-    private var propEntities: [(entity: Entity, outline: Entity?, anim: [[Float]])] = []
-    private var propMats: [String: CustomMaterial] = [:]
     private var shownMove = ""
-    private var metalLib: MTLLibrary?
-    private let demo: Bool
     private var info: Hero3DInfo?
     private var roots: [Entity] = []          // 主檔＋已載入的系列檔
     private var loadedFiles: Set<String> = []
@@ -141,14 +122,10 @@ final class Hero3DModel: ObservableObject {
     private var yaw: Float = 0
     private var sub: Cancellable?
 
-    /// demo＝動作示範用（0.56.0）：斜前方鏡頭、不顯示效能數字、不用泛光、動作檔和器材依需要才讀
-    init(demo: Bool = false, move: String = "squat") {
-        self.demo = demo
+    init() {
         arView = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
-        self.move = move
-        showStats = !demo
-        arView.environment.background = .color(demo ? UIColor(red: 0.078, green: 0.098, blue: 0.125, alpha: 1) : UIColor(red: 0.07, green: 0.08, blue: 0.13, alpha: 1))
-        arView.debugOptions = demo ? [] : [.showStatistics]
+        arView.environment.background = .color(UIColor(red: 0.07, green: 0.08, blue: 0.13, alpha: 1))
+        arView.debugOptions = [.showStatistics]
         load()
         applyBloom()
     }
@@ -251,14 +228,8 @@ final class Hero3DModel: ObservableObject {
         let anchor = AnchorEntity(world: .zero)
         arView.scene.addAnchor(anchor)
         let cam = PerspectiveCamera()
-        if demo {
-            // 斜前方看（跟 Blender 審查圖同一個方向），器材（滑輪架 2 m 高）也放得下
-            cam.camera.fieldOfViewInDegrees = 34
-            cam.look(at: [0, 0.95, 0], from: [3.4, 1.6, 3.7], relativeTo: nil)
-        } else {
-            cam.camera.fieldOfViewInDegrees = 32
-            cam.look(at: [0, 0.85, 0], from: [0, 1.15, 4.4], relativeTo: nil)
-        }
+        cam.camera.fieldOfViewInDegrees = 32
+        cam.look(at: [0, 0.85, 0], from: [0, 1.15, 4.4], relativeTo: nil)
         anchor.addChild(cam)
         // 舞台圓台
         let stage = ModelEntity(mesh: .generatePlane(width: 1.6, depth: 1.6, cornerRadius: 0.8),
@@ -267,7 +238,6 @@ final class Hero3DModel: ObservableObject {
         anchor.addChild(stage)
         anchor.addChild(holder)
         holder.addChild(model)
-        holder.addChild(propRoot)
 
         let bundle = Bundle.main
         do {
@@ -276,7 +246,7 @@ final class Hero3DModel: ObservableObject {
                 report = ["找不到 hero3d.usdz／hero3d.json"]; return
             }
             info = try JSONDecoder().decode(Hero3DInfo.self, from: Data(contentsOf: infoURL))
-            for m in (demo ? ["squat", move] : ["squat", "pushup"]) { _ = clip(m) }
+            for m in ["squat", "pushup"] { _ = clip(m) }
             try makeMaterials(&log)
             let root = try loadRoot(usdURL, "主檔", &log)
             log.append("USD 內建動畫 \(root.availableAnimations.count) 段")
@@ -402,7 +372,6 @@ final class Hero3DModel: ObservableObject {
         guard let device = MTLCreateSystemDefaultDevice(), let lib = device.makeDefaultLibrary() else {
             log.append("❌ 沒有 Metal 函式庫"); return
         }
-        metalLib = lib
         let flat = CustomMaterial.SurfaceShader(named: "flatSurface", in: lib)
         let used = Set((info?.meshes ?? []).compactMap { $0.components(separatedBy: "__").dropFirst().first })
         for name in used.sorted() {
@@ -441,7 +410,7 @@ final class Hero3DModel: ObservableObject {
     /// 依目前選的裝備，從原始內容篩出要顯示的 part，重組網格並指定材質
     func applyChoice() {
         clip(move)
-        if shownMove != move { shownMove = move; time = 0; loadProps() }
+        if shownMove != move { shownMove = move; time = 0 }
         ensureSeriesLoaded()
         let active = activeParts
         var vBody = 0, vLine = 0
@@ -506,115 +475,16 @@ final class Hero3DModel: ObservableObject {
         }
     }
 
-    /// 同位置的頂點法線取平均（硬邊撐開不裂）。描邊用
-    private static func smoothNormals(_ pos: [SIMD3<Float>], _ normals: [SIMD3<Float>]) -> [SIMD3<Float>] {
-        var acc: [SIMD3<Int32>: SIMD3<Float>] = [:]
-        func k(_ v: SIMD3<Float>) -> SIMD3<Int32> { SIMD3<Int32>(v * 10000, rounding: .toNearestOrAwayFromZero) }
-        for i in pos.indices where i < normals.count { acc[k(pos[i]), default: .zero] += normals[i] }
-        return pos.map { v -> SIMD3<Float> in
-            let s = acc[k(v)] ?? .zero
-            let l = simd_length(s)
-            return l > 1e-6 ? s / l : .zero
-        }
-    }
-
     /// 描邊用的 part：同位置的頂點法線取平均（硬邊撐開不裂），材質固定第 0 個
     private func outlinePart(_ key: String, _ p: MeshResource.Part) -> MeshResource.Part {
         if let c = smoothCache[key] { return c }
         var q = p
         q.materialIndex = 0
         if let normals = p.normals?.elements {
-            q.normals = MeshBuffer(Self.smoothNormals(p.positions.elements, normals))
+            q.normals = MeshBuffer(Hero3DPropData.smoothNormals(p.positions.elements, normals))
         }
         smoothCache[key] = q
         return q
-    }
-
-    // MARK: 器材（0.56.0）：hero3d_prop_<動作>.json＋.bin，自己組網格；會動的零件每格設變換
-
-    private func propMaterial(_ name: String, _ info: Hero3DPropInfo) -> (any RealityKit.Material) {
-        if let m = propMats[name] { return m }
-        guard let lib = metalLib, let mi = info.materials[name], let m = try? makeMaterial(mi, lib) else {
-            return UnlitMaterial(color: .gray)
-        }
-        propMats[name] = m
-        return m
-    }
-
-    private func loadProps() {
-        propRoot.children.removeAll()
-        propEntities = []
-        guard let ju = Bundle.main.url(forResource: "hero3d_prop_\(move)", withExtension: "json"),
-              let bu = Bundle.main.url(forResource: "hero3d_prop_\(move)", withExtension: "bin") else { return }
-        do {
-            let pi = try JSONDecoder().decode(Hero3DPropInfo.self, from: Data(contentsOf: ju))
-            let bin = try Data(contentsOf: bu)
-            for g in pi.groups {
-                let (pos, nor, idx) = Self.readGroup(bin, g)
-                guard pos.count == g.nv, !idx.isEmpty else { report.append("⚠️ 器材 \(g.name) 資料長度不對"); continue }
-                var d = MeshDescriptor(name: g.name)
-                d.positions = MeshBuffers.Positions(pos)
-                d.normals = MeshBuffers.Normals(nor)
-                d.primitives = .triangles(idx)
-                let e = ModelEntity(mesh: try MeshResource.generate(from: [d]), materials: [propMaterial(g.mat, pi)])
-                e.name = g.name
-                var ol: Entity?
-                if g.outline, let olm = olShaderMat {
-                    var od = d
-                    od.normals = MeshBuffers.Normals(Self.smoothNormals(pos, nor))
-                    let o = ModelEntity(mesh: try MeshResource.generate(from: [od]), materials: [olm])
-                    o.name = g.name + "_outline"
-                    e.addChild(o)       // 描邊跟著本體動
-                    ol = o
-                }
-                propRoot.addChild(e)
-                propEntities.append((e, ol, g.anim ?? []))
-            }
-        } catch {
-            report.append("❌ 器材 \(move)：\(error.localizedDescription)")
-        }
-    }
-
-    private static func readGroup(_ bin: Data, _ g: Hero3DPropInfo.Group) -> ([SIMD3<Float>], [SIMD3<Float>], [UInt32]) {
-        let n = g.nv
-        guard g.pos >= 0, g.pos + n * 24 + g.ni * 4 <= bin.count else { return ([], [], []) }
-        return bin.withUnsafeBytes { raw -> ([SIMD3<Float>], [SIMD3<Float>], [UInt32]) in
-            func f(_ o: Int) -> Float { raw.loadUnaligned(fromByteOffset: o, as: Float.self) }
-            let pos = (0..<n).map { SIMD3<Float>(f(g.pos + $0 * 12), f(g.pos + $0 * 12 + 4), f(g.pos + $0 * 12 + 8)) }
-            let o2 = g.pos + n * 12
-            let nor = (0..<n).map { SIMD3<Float>(f(o2 + $0 * 12), f(o2 + $0 * 12 + 4), f(o2 + $0 * 12 + 8)) }
-            let o3 = g.pos + n * 24
-            let idx = (0..<g.ni).map { raw.loadUnaligned(fromByteOffset: o3 + $0 * 4, as: UInt32.self) }
-            return (pos, nor, idx)
-        }
-    }
-
-    /// 會動的器材第 x 格（x 可以是小數）的變換：位移、縮放線性內插，旋轉球面內插
-    private static func propTransform(_ fr: [[Float]], _ x: Double) -> Transform {
-        let n = fr.count
-        let i0 = Int(x) % n, i1 = (i0 + 1) % n, a = Float(x - Double(Int(x)))
-        let p = fr[i0], q = fr[i1]
-        func v(_ r: [Float], _ o: Int) -> SIMD3<Float> { SIMD3(r[o], r[o + 1], r[o + 2]) }
-        let r0 = simd_quatf(ix: p[3], iy: p[4], iz: p[5], r: p[6]), r1 = simd_quatf(ix: q[3], iy: q[4], iz: q[5], r: q[6])
-        return Transform(scale: v(p, 7) + (v(q, 7) - v(p, 7)) * a, rotation: simd_slerp(r0, r1, a),
-                         translation: v(p, 0) + (v(q, 0) - v(p, 0)) * a)
-    }
-
-    // MARK: 動作示範（0.56.0）：依使用者的裝備穿上
-
-    /// 角色頁的裝備（`Loadout`）→ 3D 零件選擇；3D 沒有的系列用基本款
-    func apply(loadout: Loadout) {
-        for slot in Self.slots.map(\.id) {
-            let fallback = slot == "back" ? "none" : "basic"
-            let s = GearSlot(rawValue: slot).flatMap { loadout.item($0)?.series } ?? fallback
-            choice[slot] = options(for: slot).contains(s) ? s : fallback
-        }
-        for slot in ["top", "bottom"] {
-            let s = GearSlot(rawValue: slot).flatMap { loadout.item($0)?.series } ?? "basic"
-            outfit[slot] = outfitOptions(slot).contains(s) ? s : "basic"
-        }
-        applyOutfit()
-        applyChoice()
     }
 
     private var activeParts: Set<String> {
@@ -659,7 +529,6 @@ final class Hero3DModel: ObservableObject {
             report.append("泛光 " + bloom.formatNote)
         }
         model.position.y = clip.lift(at: t, parts: activeParts)
-        for pe in propEntities where !pe.anim.isEmpty { pe.entity.transform = Self.propTransform(pe.anim, t * clip.fps) }
     }
 
     private static func jointNames(_ e: Entity) -> [String] {
@@ -778,31 +647,5 @@ struct Hero3DLabView: View {
         .onChange(of: m.bloomStrength) { _, _ in m.applyBloom() }
         .onChange(of: m.bloomThreshold) { _, _ in m.applyBloom() }
         .onChange(of: m.showStats) { _, _ in m.toggleStats() }
-    }
-}
-
-/// 動作示範用的 3D 畫面（0.56.0）：穿使用者目前的裝備播一個動作，手指左右拖曳轉視角。
-/// 只在有 `hero3d_clip_<動作>.json` 時使用（`Hero3DExerciseMap`）。
-struct Hero3DDemoView: View {
-    let move: String
-    let loadout: Loadout
-    @StateObject private var m: Hero3DModel
-    @State private var lastDrag: CGFloat = 0
-
-    init(move: String, loadout: Loadout) {
-        self.move = move
-        self.loadout = loadout
-        _m = StateObject(wrappedValue: Hero3DModel(demo: true, move: move))
-    }
-
-    var body: some View {
-        Hero3DViewport(model: m)
-            .gesture(DragGesture()
-                .onChanged { g in m.rotate(by: g.translation.width - lastDrag); lastDrag = g.translation.width }
-                .onEnded { _ in lastDrag = 0 })
-            .onAppear { m.apply(loadout: loadout) }
-            .onChange(of: move) { _, new in m.move = new; m.applyChoice() }
-            .onChange(of: loadout) { _, l in m.apply(loadout: l) }
-            .accessibilityHidden(true)
     }
 }

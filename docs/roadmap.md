@@ -38,14 +38,25 @@
 - [ ] **App 正式畫面換成 3D**（2026-11-26 開始；做法見 `docs/3d-system.md` 階段 4）：
   - [x] 共用元件 `CharacterStage`＋背包 → 3D 零件對照（`Workout/Hero3D/Hero3DStage.swift`），有片段就 3D、沒有退回 2D；預覽在「設定 → 3D 角色預覽」。
     上機要看：背景是否透明、斜側面角度和大小、拿不拿啞鈴／藏不藏背部對不對、換裝後顏色。
-  - [ ] 匯出全部動作片段（別的 session 在做）；椅子、滑輪架這些道具還沒帶進 App，躺椅子的動作會浮在空中。
-  - [ ] 換掉 8 個用 2D `CharacterView` 的畫面：**已換 `CharacterStage`（7 處）**：動作卡、休息頁、伸展流程、角色頁（舞台＋2 個換裝預覽）、開箱；動作介紹頁改用 `Hero3DDemoView`（0.57.0，可切回 2D）；**還沒換**：分享卡（`ShareCard` 用 ImageRenderer 輸出，ARView 截不進去，要畫面外繪製再截圖）。
-    沒有 3D 片段的動作會自動退回 2D，所以畫面暫時大多仍是 2D。換裝預覽格有 `.opacity`（未擁有變淡）、`.padding`，上機確認 3D 套不套得到。
+  - [x] 匯出全部動作片段：App 裡已有 95 個以上的 `hero3d_clip_*`。
+  - [x] 器材（椅子、滑輪架、槓、機器）帶進 `CharacterStage`（0.59.0）：所有用 `CharacterStage` 的畫面都會顯示器材，跟著片段播放。**待上機確認**：
+    臥推、上斜臥推、坐姿划船、滑輪下拉、引體向上、腿推這類動作在動作卡和介紹頁的器材位置對不對（人有沒有坐／躺在椅子上、手有沒有握到把手），
+    以及有高器材的動作鏡頭往後拉之後角色會不會太小。
+  - [ ] 換掉 8 個用 2D `CharacterView` 的畫面：**已換 `CharacterStage`（8 處）**：動作卡、休息頁、伸展流程、角色頁（舞台＋2 個換裝預覽）、開箱、動作介紹頁（0.59.0，可拖曳轉視角、可切回 2D；`Hero3DDemoView` 已刪）；**還沒換**：分享卡（`ShareCard` 用 ImageRenderer 輸出，ARView 截不進去，要畫面外繪製再截圖）。
+    沒有 3D 片段的動作會自動退回 2D（片段已幾乎齊全）。換裝預覽格有 `.opacity`（未擁有變淡）、`.padding`，上機確認 3D 套不套得到。
     動作庫對 3D 新動作（sidePlank 等 34 個）的對照用 `CharacterStage(key3D:)`，對照表見 `docs/3d-moves/inventory.md`。
-  - [ ] 特效（fx）部位的 3D 做法要先跟使用者討論。
+  - [ ] **定格截圖（2026-11-28 使用者定案）**：App 只放一個隱藏的「截圖工作台」3D 畫面，設好裝備＋動作、停在中間格截成圖，依「動作＋裝備＋尺寸」快取。
+    - 換裝格（`CharacterScreen.swift` 460／486 附近，現在每格各開一個 ARView）全部改用截圖；角色頁大舞台維持即時 3D。截圖好之前顯示**灰色剪影**，好了淡入。
+    - 分享卡改放 3D 截圖，姿勢用**單手秀二頭**（`flex`，左手秀、右手扠腰；Blender 批次 `scripts/blender/moves/pose.py`，2026-11-28 另一個 session 在做）。截圖當一般圖片放進 `ShareCardView`，照舊用 `ImageRenderer` 輸出。
+    - 先做「設定 → 3D 角色預覽」的截圖測試上機：**未查證**隱藏的 ARView 能不能正常算圖並用 `ARView.snapshot` 截出、背景透明有沒有保留、一張要多久。
+    - 訓練中的動作卡不用改：同時只有正在做的那張卡有 3D（`ExerciseCard.swift` 的 `hasActive`）。
+  - [ ] 特效（fx）部位的 3D 做法要先跟使用者討論（10 種：電光、火焰、冰晶、金光、暗影煙、全像掃描、夜雨、聖光、符文法陣、星塵）。
+    初步提案（未定案）：粒子 `ParticleEmitterComponent`（火焰、電光、冰晶、星塵、夜雨、暗影煙）、發光面片（金光、聖光）、Blender 網格＋動畫（符文法陣、全像掃描）；先做 2～3 種樣品給使用者看。泛光已決定不用。
   - [x] 角色頁舞台的戰力數字：3D 版用疊字（位置、字級照 2D）；舞台已改用 `CharacterStage`（深蹲有片段 → 3D，推舉、硬舉等匯出）。
     「狀態越差舞台越暗」的 `.saturation` 可能套不到 3D 畫面（ARView 是 UIKit），上機確認。
-  - [ ] 全部換完、使用者確認後，刪 2D（`CharacterCanvas`、`GearArt`、`MoveFrames`、`scripts/art/moves.js`）。
+  - [ ] 全部換完、使用者確認後，刪 2D（`CharacterCanvas`、`GearArt`、`MoveFrames`、`CharacterPose`、`scripts/art/gear.js`、`scripts/art/moves.js`、2D 小豬預覽）。
+    前提：器材、定格截圖、特效都完成並上機確認；拿掉動作介紹頁的 3D／2D 切換；「沒片段退回 2D」改成停在預設站姿。牌位（`RankBadgeArt`、`badges.js`）不刪。
+    刪完要改寫 `CLAUDE.md` 的「角色、裝備的美術流程」成 3D 版。
 
 ## 動作庫擴充與部位歸屬修正（2026-11-25 使用者定案）
 

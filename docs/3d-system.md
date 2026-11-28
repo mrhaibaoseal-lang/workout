@@ -172,12 +172,19 @@
 - **器材（不走 USD）**：`export_app.py` 把「人以外的網格」（舞台圓台、光圈除外）用修改器算完（倒角；描邊外殼不要），三角化，同位置同法線的角合併，座標轉成 RealityKit（Blender (x,y,z) → (x,z,−y)）。
   靜態的依「材質 × 有無描邊」各一組、烘進世界座標；會動的（配重、鋼索、槓子、繩）依「每格世界矩陣」分組，網格留在物件座標，另存每格 `[t, q, s]`（`C·M·C⁻¹` 分解）。
   `.bin`＝每組 頂點 Float32×3、法線 Float32×3、索引 UInt32（依 json 的 `pos` 位置），json 有每組的材質、是否描邊、動畫；材質表同 `hero3d.json` 格式。
-  App（`Hero3DModel.loadProps`）用 `MeshDescriptor` 組網格，材質用同一套 `CustomMaterial`（卡通／純色），描邊＝同網格法線取平均再用著色器外撐（跟角色一樣）。
+  App（0.59.0 起 `Hero3DAssets.prop`，原本是 `Hero3DModel.loadProps`）用 `MeshDescriptor` 組網格，材質用同一套 `CustomMaterial`（卡通／純色），描邊＝同網格法線取平均再用著色器外撐（跟角色一樣）。
   大小：每個有器材的動作約 100～200 KB（`.bin`）。
 - **載入**：動作檔、器材檔都在選到那個動作才讀；系列檔（`hero3d_<系列>.usdz`）選到才載（0.52.0 起）。打開一次「動作說明」要載主檔 2.2 MB＋穿著系列的檔，可能要零點幾秒。
-- **鏡頭**：斜前方（跟 Blender 審查圖同方向）、FOV 34°，可左右拖曳轉視角。**還沒上機看過**，器材位置、鏡頭構圖、器材座標轉換是否跟角色對齊都要上機確認；不對先用右下角切回 2D。
+- **鏡頭**（0.56.0～0.58.0 的 `Hero3DDemoView`；0.59.0 起改用 `CharacterStage` 的鏡頭，見下面「已統一」）：斜前方（跟 Blender 審查圖同方向）、FOV 34°，可左右拖曳轉視角。**還沒上機看過**，器材位置、鏡頭構圖、器材座標轉換是否跟角色對齊都要上機確認；不對先用右下角切回 2D。
 
 
-> **注意（0.57.0）**：動作示範頁用的 `Hero3DDemoView`（Hero3DLab.swift）和另一個 session 做的共用元件 `CharacterStage`（Hero3DStage.swift）功能重疊。
-> 示範頁多了「器材（床、滑輪架、槓、機器）」的載入，`CharacterStage` 目前沒有。之後要統一時，把器材載入搬進 `Hero3DAssets`／`Hero3DStageModel`，再刪 `Hero3DDemoView`。
+> **已統一（0.59.0）**：0.57.0 時動作示範頁用 `Hero3DDemoView`（Hero3DLab.swift），和共用元件 `CharacterStage`（Hero3DStage.swift）重疊；
+> 現在器材載入搬進共用元件，`Hero3DDemoView`、`Hero3DModel` 的示範模式和器材程式都刪了，動作介紹頁也用 `CharacterStage`。
+> - `Hero3DPropData.load(key)`：讀 `hero3d_prop_<動作>.json`＋`.bin`（不碰 RealityKit，單元測試直接測這條路徑）；`transform(anim, 格)` 算會動零件的變換。
+> - `Hero3DAssets.prop(key)`：組網格、材質（和角色同一套 `makeMaterial`）、描邊（法線取平均＋`outlineGeom`），**每個動作只組一次**，各畫面 `clone(recursive:)`。
+> - `Hero3DStageModel`：器材掛在 `holder`（轉向）底下、和 `model`（接地抬高）同層——和原本示範頁一樣，所以座標直接對齊；每格用同一個時間點設會動零件的變換，
+>   不播放／減少動態效果時停在和角色同一格。沒有器材檔的動作照舊。
+> - **鏡頭**：沒有器材或器材在預設畫面內 → 原本的斜側面鏡頭不變。器材超出（滑輪架、單槓比人高、機器比較寬）→ 依器材第 0 格的範圍往後拉、取景中心上移，所以這些動作角色會小一點。
+> - `CharacterStage(rotatable: true)`：手指左右拖曳轉視角（只有動作介紹頁開，其他畫面預設關，免得和捲動搶手勢）。動作介紹頁的 3D／2D 切換（`demo.use3D`）保留。
+> - 動作卡（`ExerciseCard`）仍用 `CharacterMove.forExercise(ex)` 決定片段（沒用 `Hero3DExerciseMap`），有些動作卡和介紹頁播的片段會不同。
 > 動作庫對照表因為撞名，改名為 `Hero3DExerciseMap`（`Hero3DMoves` 是 Hero3DStage.swift 裡的 bell／leanBack 表）。

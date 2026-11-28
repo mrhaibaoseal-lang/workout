@@ -83,7 +83,8 @@ struct DemoVideoSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var inventory: InventoryStore
 
-    /// 3D 示範（0.56.0）：有 3D 動作就播 3D（穿目前裝備、帶器材），沒有就退回 2D；右下角可以切回 2D
+    /// 3D 示範（0.56.0）：有 3D 動作就播 3D（穿目前裝備、帶器材），沒有就退回 2D；左下角可以切回 2D。
+    /// 0.59.0 起和其他畫面共用 `CharacterStage`（器材也在裡面），多開拖曳轉視角。
     @AppStorage("demo.use3D") private var use3D = true
     private var move3D: String? { Hero3DExerciseMap.move(for: exercise.id) }
 
@@ -91,7 +92,8 @@ struct DemoVideoSheet: View {
     private var demoStage: some View {
         Group {
             if use3D, let mv = move3D {
-                Hero3DDemoView(move: mv, loadout: inventory.state.loadout)
+                CharacterStage(move: CharacterMove.forExercise(exercise), key3D: mv, loadout: inventory.state.loadout,
+                               animated: true, showStats: false, rotatable: true)
             } else {
                 CharacterView(move: CharacterMove.forExercise(exercise), loadout: inventory.state.loadout,
                               animated: !reduceMotion, showStats: false)
