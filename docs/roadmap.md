@@ -38,8 +38,11 @@
 - [ ] **App 正式畫面換成 3D**（2026-11-26 開始；做法見 `docs/3d-system.md` 階段 4）：
   - [x] 共用元件 `CharacterStage`＋背包 → 3D 零件對照（`Workout/Hero3D/Hero3DStage.swift`），有片段就 3D、沒有退回 2D；預覽在「設定 → 3D 角色預覽」。
     上機要看：背景是否透明、斜側面角度和大小、拿不拿啞鈴／藏不藏背部對不對、換裝後顏色。
-  - [ ] 匯出全部動作片段（別的 session 在做）；椅子、滑輪架這些道具還沒帶進 App，躺椅子的動作會浮在空中。
-  - [ ] 換掉 8 個用 2D `CharacterView` 的畫面：**已換 `CharacterStage`（7 處）**：動作卡、休息頁、伸展流程、角色頁（舞台＋2 個換裝預覽）、開箱；動作介紹頁改用 `Hero3DDemoView`（0.57.0，可切回 2D）；**還沒換**：分享卡（`ShareCard` 用 ImageRenderer 輸出，ARView 截不進去，要畫面外繪製再截圖）。
+  - [x] 匯出全部動作片段：App 裡已有 95 個以上的 `hero3d_clip_*`。
+  - [x] 器材（椅子、滑輪架、槓、機器）帶進 `CharacterStage`（0.59.0）：所有用 `CharacterStage` 的畫面都會顯示器材，跟著片段播放。**待上機確認**：
+    臥推、上斜臥推、坐姿划船、滑輪下拉、引體向上、腿推這類動作在動作卡和介紹頁的器材位置對不對（人有沒有坐／躺在椅子上、手有沒有握到把手），
+    以及有高器材的動作鏡頭往後拉之後角色會不會太小。
+  - [ ] 換掉 8 個用 2D `CharacterView` 的畫面：**已換 `CharacterStage`（8 處）**：動作卡、休息頁、伸展流程、角色頁（舞台＋2 個換裝預覽）、開箱、動作介紹頁（0.59.0，可拖曳轉視角、可切回 2D；`Hero3DDemoView` 已刪）；**還沒換**：分享卡（`ShareCard` 用 ImageRenderer 輸出，ARView 截不進去，要畫面外繪製再截圖）。
     沒有 3D 片段的動作會自動退回 2D，所以畫面暫時大多仍是 2D。換裝預覽格有 `.opacity`（未擁有變淡）、`.padding`，上機確認 3D 套不套得到。
     動作庫對 3D 新動作（sidePlank 等 34 個）的對照用 `CharacterStage(key3D:)`，對照表見 `docs/3d-moves/inventory.md`。
   - [ ] 特效（fx）部位的 3D 做法要先跟使用者討論。

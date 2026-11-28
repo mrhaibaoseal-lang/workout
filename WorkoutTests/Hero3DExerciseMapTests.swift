@@ -1,4 +1,5 @@
 import XCTest
+import RealityKit
 @testable import Workout
 
 /// 3D 動作示範（0.56.0）：動作庫的每個動作都有對照、對照的動作檔和器材檔都在 App 裡、檔案內容彼此對得起來。
@@ -71,6 +72,39 @@ final class Hero3DExerciseMapTests: XCTestCase {
             }
         }
         XCTAssertGreaterThan(withProps, 20, "有器材的動作應該有 30 幾個")
+    }
+
+    /// CharacterStage 的器材載入路徑（0.59.0，`Hero3DPropData.load`）：每個對照到的動作，App 裡有器材檔就讀得到，
+    /// 零件一個都沒被丟掉（長度不對會被跳過）、每個零件的材質都有定義
+    func testStageLoadsPropForEveryMappedMove() throws {
+        var loaded = 0
+        for move in Set(Hero3DExerciseMap.byExercise.values).sorted() {
+            guard let ju = bundle.url(forResource: "hero3d_prop_\(move)", withExtension: "json") else {
+                XCTAssertNil(Hero3DPropData.load(move, bundle: bundle), "\(move) 沒有器材檔卻讀到器材")
+                continue
+            }
+            let data = try XCTUnwrap(Hero3DPropData.load(move, bundle: bundle), "\(move) 有器材檔，CharacterStage 卻讀不到")
+            let info = try JSONDecoder().decode(Hero3DPropInfo.self, from: Data(contentsOf: ju))
+            XCTAssertEqual(data.groups.map(\.name), info.groups.map(\.name), "\(move) 有器材零件讀失敗")
+            for g in data.groups {
+                XCTAssertNotNil(g.matInfo, "\(move)/\(g.name) 沒有材質")
+                XCTAssertEqual(g.pos.count, g.nor.count, "\(move)/\(g.name) 頂點和法線數不同")
+            }
+            loaded += 1
+        }
+        XCTAssertGreaterThan(loaded, 20, "有器材的動作應該有 30 幾個")
+    }
+
+    /// 會動的器材：整數格取到的就是那一格（停格時器材和角色停在同一格）
+    func testPropTransformHitsExactFrame() throws {
+        let data = try XCTUnwrap(Hero3DPropData.load("pulldown", bundle: bundle))
+        let anim = try XCTUnwrap(data.groups.compactMap(\.anim).first, "下拉的滑輪應該會動")
+        let i = anim.count / 2
+        let t = Hero3DPropData.transform(anim, Double(i))
+        XCTAssertEqual(t.translation.x, anim[i][0], accuracy: 1e-5)
+        XCTAssertEqual(t.translation.y, anim[i][1], accuracy: 1e-5)
+        XCTAssertEqual(t.translation.z, anim[i][2], accuracy: 1e-5)
+        XCTAssertEqual(t.scale.x, anim[i][7], accuracy: 1e-5)
     }
 
     /// 要靠器材才看得懂的動作，一定要有器材檔（臥推沒有椅子會變成躺在空中）
