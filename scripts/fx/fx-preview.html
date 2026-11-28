@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D 特效樣品</title>
+<!--
+  裝備特效（fx）3D 樣品預覽：火焰（面片）、符文法陣（地面圓盤）、金光（立體金幣）。
+  做法（2026-11-28 定案方向）：每種特效是固定數量的面片／小網格，每格用時間 t 的公式算位置、大小、透明度，
+  不用 RealityKit 粒子模擬 → 同一個 t 一定是同一張圖，定格截圖可以指定 t。
+  這裡的公式是之後 Swift 版的對照；改一邊要改另一邊。假人用基本款配色、簡化外形，只用來看特效的位置和大小。
+  鏡頭照 Hero3DStageModel：fov 30、看 (0,0.8,0)、從 (0,1.2,4.6)、角色轉 -0.5 弧度、畫面比例 180:204。
+-->
+<style>
+  :root { --s:#2C3340; --fg:#EEF1F5; --mu:#98A2B1; --co:#FF9F43; --trk:#3A4250; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--fg);
+    background: linear-gradient(#252B36, #1F242D 60%, #232833);
+    font: 15px/1.5 -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: var(--mu); margin: 0 0 16px; font-size: 14px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; background: var(--s);
+    border-radius: 22px; padding: 12px 16px; margin-bottom: 18px;
+    box-shadow: 8px 10px 20px rgb(0 0 0 / .22), inset -2px -2px 4px rgb(0 0 0 / .25), inset 2px 2px 4px rgba(255,255,255,.07); }
+  button { background: var(--co); color: #2A1A10; border: 0; border-radius: 999px; padding: 7px 16px;
+    font: inherit; font-weight: 700; cursor: pointer; }
+  button.ghost { background: var(--trk); color: var(--fg); }
+  button.on { outline: 2px solid var(--fg); }
+  input[type=range] { width: 220px; accent-color: var(--co); }
+  label { color: var(--mu); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  #tl { font-variant-numeric: tabular-nums; min-width: 64px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .card { background: var(--s); border-radius: 28px; padding: 14px;
+    box-shadow: 8px 10px 20px rgb(0 0 0 / .22), inset -2px -2px 4px rgb(0 0 0 / .25), inset 2px 2px 4px rgba(255,255,255,.07); }
+  .card h2 { font-size: 17px; margin: 0; }
+  .card .meta { color: var(--mu); font-size: 13px; margin: 2px 0 8px; }
+  .stage { display: flex; justify-content: center; }
+  canvas { display: block; border-radius: 18px; touch-action: none; cursor: grab; }
+  body.gray canvas { filter: grayscale(1); }
+  .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--mu); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>3D 特效樣品：火焰・符文法陣・金光</h1>
+  <p class="sub">每種特效＝固定數量的面片，用時間 t 的公式算出位置；同一個 t 一定是同一張圖（定格截圖用）。假人是簡化外形、基本款配色。可以拖曳畫面轉角色。</p>
+  <div class="bar">
+    <button id="play">暫停</button>
+    <input id="t" type="range" min="0" max="8" step="0.01" value="0">
+    <span id="tl">t = 0.00</span>
+    <button id="still" class="ghost">定格（截圖／減少動態）</button>
+    <label><input id="gray" type="checkbox">灰階</label>
+    <label><input id="small" type="checkbox">小尺寸（換裝格 88pt）</label>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+// ---------- 共用小工具（Swift 版照抄） ----------
+const frac = x => x - Math.floor(x);
+const h = i => frac(Math.sin(i * 12.9898) * 43758.5453);   // 固定雜湊：每顆的「個性」
+const GOLDEN = 2.39996;                                       // 黃金角：讓 N 顆平均散開
+
+function canvasTex(w, hh, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = hh;
+  draw(c.getContext('2d'), w, hh);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const glowTex = (rgb, a = 0.85) => canvasTex(128, 128, (g, w) => {
+  const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+  gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(0.45, `rgba(${rgb},${a * 0.45})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, w, w);
+});
+const spriteMat = (map, extra = {}) => new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, ...extra });
+const groundMat = map => new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+function groundPlane(size, map, y = 0.01) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), groundMat(map));
+  m.rotation.x = -Math.PI / 2; m.position.y = y; m.renderOrder = 1; return m;
+}
+
+// 卡通三階明暗（和 Toon.metal 同概念，只是近似）
+const toonRamp = (() => { const d = new Uint8Array([90, 170, 255]); const t = new THREE.DataTexture(d, 3, 1, THREE.RedFormat);
+  t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; })();
+const toon = (color, extra = {}) => new THREE.MeshToonMaterial({ color, gradientMap: toonRamp, ...extra });
+const inkMat = new THREE.MeshBasicMaterial({ color: 0x15171c, side: THREE.BackSide });
+function inked(geo, mat, s = 1.06, ink = inkMat) {
+  const g = new THREE.Group(); g.add(new THREE.Mesh(geo, mat));
+  const o = new THREE.Mesh(geo, ink); o.scale.setScalar(s); g.add(o); return g;
+}
+
+// ---------- 假人（基本款配色、簡化外形） ----------
+function dummy() {
+  const g = new THREE.Group();
+  const skin = toon(0xF5CFA8), tee = toon(0xF4F5F7), shorts = toon(0x3E4652), shoe = toon(0x9AA4AF), hair = toon(0x3A2A22);
+  const add = (geo, mat, x, y, z = 0, s = 1.06) => { const m = inked(geo, mat, s); m.position.set(x, y, z); g.add(m); return m; };
+  for (const sx of [-1, 1]) {
+    add(new THREE.CapsuleGeometry(0.085, 0.36, 4, 12), skin, sx * 0.12, 0.32);
+    add(new THREE.BoxGeometry(0.17, 0.1, 0.26), shoe, sx * 0.12, 0.06, 0.04, 1.12);
+    const arm = add(new THREE.CapsuleGeometry(0.07, 0.34, 4, 12), skin, sx * 0.33, 0.86);
+    arm.rotation.z = sx * 0.22;
+  }
+  add(new THREE.CapsuleGeometry(0.15, 0.08, 4, 12), shorts, 0, 0.6);
+  g.userData.torso = add(new THREE.CapsuleGeometry(0.2, 0.22, 4, 16), tee, 0, 0.9);
+  add(new THREE.SphereGeometry(0.34, 24, 18), skin, 0, 1.42);
+  const cap = add(new THREE.SphereGeometry(0.355, 24, 12, 0, Math.PI * 2, 0, 1.25), hair, 0, 1.45, -0.01, 1.03);
+  cap.rotation.x = -0.35;
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), inkMat.clone()); e.material.side = THREE.FrontSide;
+    e.position.set(sx * 0.12, 1.42, 0.32); g.add(e); }
+  const base = new THREE.Mesh(new THREE.CircleGeometry(0.62, 48), new THREE.MeshBasicMaterial({ color: 0x353C49 }));
+  base.rotation.x = -Math.PI / 2; base.position.y = 0.001; g.add(base);
+  return g;
+}
+
+// ---------- 符文：從 3×3 格點挑線段，固定種子 → 每個字形不同、原創 ----------
+function glyph(g, seed, cx, cy, size, ang) {
+  const P = (k) => [((k % 3) - 1) * size / 2, (Math.floor(k / 3) - 1) * size / 2];
+  g.save(); g.translate(cx, cy); g.rotate(ang); g.beginPath();
+  g.moveTo(...P(1)); g.lineTo(...P(7));                                   // 每個符文都有中間一豎
+  for (let k = 0; k < 3; k++) { const a = Math.floor(h(seed * 7 + k) * 9), b = Math.floor(h(seed * 13 + k + 5) * 9);
+    if (a !== b) { g.moveTo(...P(a)); g.lineTo(...P(b)); } }
+  g.stroke(); g.restore();
+}
+
+// =====================================================================
+// 1. 火焰（熔岩・史詩）：腳下往上竄的水滴形火舌（帶描邊，卡通火）＋火星＋地面暖光＋身後暖光
+//    面片 18＋8＋2＝28
+// =====================================================================
+function makeFire(root) {
+  const C2 = '#FF5A1F', C3 = '#FFC23D';
+  const flameTex = (outer, core) => canvasTex(64, 128, (g, w, hh) => {
+    const p = new Path2D(); p.moveTo(w / 2, 4);
+    p.bezierCurveTo(w * 0.98, hh * 0.5, w * 0.92, hh * 0.97, w / 2, hh - 4);
+    p.bezierCurveTo(w * 0.08, hh * 0.97, w * 0.02, hh * 0.5, w / 2, 4);
+    g.fillStyle = outer; g.fill(p);
+    g.lineWidth = 4; g.strokeStyle = 'rgba(110,22,0,0.95)'; g.stroke(p);
+    g.save(); g.translate(w / 2, hh - 6); g.scale(0.55, 0.58); g.translate(-w / 2, -(hh - 6)); g.fillStyle = core; g.fill(p); g.restore();
+  });
+  const texA = flameTex(C2, C3), texB = flameTex(C3, '#FFF6D8');
+  const flames = [...Array(18)].map((_, i) => { const s = new THREE.Sprite(spriteMat(i % 3 ? texA : texB));
+    s.center.set(0.5, 0.1); root.add(s); return s; });
+  const sparkTex = canvasTex(32, 32, (g) => { g.fillStyle = '#FFE08A'; g.translate(16, 16); g.rotate(Math.PI / 4); g.fillRect(-8, -8, 16, 16); });
+  const sparks = [...Array(8)].map(() => { const s = new THREE.Sprite(spriteMat(sparkTex)); root.add(s); return s; });
+  const floor = groundPlane(1.5, glowTex('255,110,30')); root.add(floor);
+  const back = new THREE.Sprite(spriteMat(glowTex('255,120,40', 0.6))); back.position.set(0, 0.85, -0.45); back.scale.set(1.9, 2.1, 1); root.add(back);
+
+  return (t) => {
+    flames.forEach((s, i) => {
+      const ph = frac(t * 0.8 + h(i));
+      const a = i * GOLDEN, r = (0.22 + 0.22 * h(i + 7)) * (1 + 0.5 * ph);
+      s.position.set(Math.cos(a) * r + Math.sin(t * 3 + i) * 0.05 * ph, ph * (0.85 + 0.55 * h(i + 3)), Math.sin(a) * r);
+      const sz = 0.12 + 0.4 * Math.pow(1 - ph, 0.8);
+      s.scale.set(sz * 0.62, sz, 1);
+      s.material.opacity = Math.min(1, ph / 0.08) * (1 - ph * 0.85);
+    });
+    sparks.forEach((s, i) => {
+      const ph = frac(t * 0.45 + h(i + 40)), a = i * GOLDEN + 1, r = 0.3 + 0.25 * h(i + 41);
+      s.position.set(Math.cos(a) * r + Math.sin(t * 2 + i) * 0.08, 0.1 + ph * 1.9, Math.sin(a) * r);
+      s.scale.setScalar(0.045); s.material.opacity = Math.sin(Math.PI * ph) * (0.6 + 0.4 * Math.sin(t * 20 + i));
+    });
+    floor.material.opacity = 0.55 + 0.15 * Math.sin(t * 5) + 0.06 * Math.sin(t * 13);
+    back.material.opacity = 0.28 + 0.06 * Math.sin(t * 4);
+  };
+}
+
+// =====================================================================
+// 2. 符文法陣（符文戰神・傳說）：腳下兩層反向旋轉的圓盤（外圈符文＋六芒星、內圈虛線）
+//    ＋每 2 秒一道擴散光環＋往上飄的光點＋從陣上升起的符文。地面件 4＋光點 14＋符文 4＝22
+// =====================================================================
+function makeMagic(root) {
+  const G = '#3DF5A0', AU = '#E3C47E';
+  const outer = canvasTex(512, 512, (g) => {
+    g.translate(256, 256); g.lineCap = 'round'; g.shadowColor = G; g.shadowBlur = 14;
+    g.strokeStyle = G; g.lineWidth = 7; g.beginPath(); g.arc(0, 0, 238, 0, Math.PI * 2); g.stroke();
+    g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 196, 0, Math.PI * 2); g.stroke();
+    g.globalAlpha = 0.85; g.lineWidth = 3.5;
+    for (const off of [0, Math.PI]) { g.beginPath();
+      for (let k = 0; k < 3; k++) { const a = off - Math.PI / 2 + k * Math.PI * 2 / 3; g.lineTo(Math.cos(a) * 196, Math.sin(a) * 196); }
+      g.closePath(); g.stroke(); }
+    g.globalAlpha = 1; g.strokeStyle = AU; g.shadowColor = AU; g.lineWidth = 3.5;
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; glyph(g, k + 1, Math.cos(a) * 217, Math.sin(a) * 217, 22, a + Math.PI / 2); }
+  });
+  const inner = canvasTex(256, 256, (g) => {
+    g.translate(128, 128); g.strokeStyle = G; g.shadowColor = G; g.shadowBlur = 10; g.lineWidth = 4;
+    g.setLineDash([14, 10]); g.beginPath(); g.arc(0, 0, 118, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 70, 0, Math.PI * 2); g.stroke();
+    g.rotate(Math.PI / 4); g.strokeRect(-46, -46, 92, 92);
+    g.fillStyle = G; for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; g.beginPath(); g.arc(Math.cos(a) * 94, Math.sin(a) * 94, 6, 0, Math.PI * 2); g.fill(); }
+  });
+  const ringTex = canvasTex(256, 256, (g) => { g.strokeStyle = G; g.shadowColor = G; g.shadowBlur = 12; g.lineWidth = 8;
+    g.beginPath(); g.arc(128, 128, 112, 0, Math.PI * 2); g.stroke(); });
+  const glow = groundPlane(1.9, glowTex('61,245,160', 0.5), 0.006);
+  const discO = groundPlane(1.6, outer, 0.012), discI = groundPlane(1.0, inner, 0.016), pulse = groundPlane(1, ringTex, 0.02);
+  [glow, discO, discI, pulse].forEach(m => root.add(m));
+  const moteTex = glowTex('160,255,210', 1);
+  const motes = [...Array(14)].map(() => { const s = new THREE.Sprite(spriteMat(moteTex)); root.add(s); return s; });
+  const runeTex = [0, 1, 2, 3].map(k => canvasTex(64, 64, (g) => { g.strokeStyle = AU; g.shadowColor = G; g.shadowBlur = 8;
+    g.lineWidth = 5; g.lineCap = 'round'; glyph(g, k + 20, 32, 32, 36, 0); }));
+  const runes = runeTex.map(tx => { const s = new THREE.Sprite(spriteMat(tx)); root.add(s); return s; });
+
+  return (t) => {
+    discO.rotation.z = t * 0.35; discI.rotation.z = -t * 0.6;
+    const pp = frac(t / 2);                                    // 每 2 秒一道擴散光環
+    pulse.scale.setScalar(0.5 + pp * 1.3); pulse.material.opacity = (1 - pp) * 0.8;
+    glow.material.opacity = 0.7 + 0.2 * Math.sin(t * 3);
+    motes.forEach((s, i) => {
+      const ph = frac(t * 0.45 + h(i + 60)), a = i / 14 * Math.PI * 2 + t * 0.35;
+      s.position.set(Math.cos(a) * 0.72, 0.05 + ph * 1.6, Math.sin(a) * 0.72);
+      s.scale.setScalar(0.07 + 0.04 * h(i)); s.material.opacity = Math.sin(Math.PI * ph);
+    });
+    runes.forEach((s, i) => {
+      const ph = frac(t * 0.25 + i / 4), a = i * Math.PI / 2 + t * 0.35;
+      s.position.set(Math.cos(a) * 0.56, 0.1 + ph * 1.2, Math.sin(a) * 0.56);
+      s.scale.setScalar(0.16); s.material.opacity = Math.sin(Math.PI * ph);
+    });
+  };
+}
+
+// =====================================================================
+// 3. 金光（黃金・傳說）：從頭上灑落、會翻面的立體金幣（卡通上色＋描邊）＋四芒閃光＋腳下王者光圈
+//    金幣 12（小網格）＋閃光 8＋地面件 2＝22
+// =====================================================================
+function makeGold(root) {
+  const face = canvasTex(128, 128, (g) => {
+    g.fillStyle = '#F2B630'; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = '#B57A10'; g.lineWidth = 10; g.beginPath(); g.arc(64, 64, 56, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#FFE58A'; g.beginPath();                                // 凸起的五角星
+    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 16 : 36; g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); }
+    g.closePath(); g.fill(); g.strokeStyle = '#B57A10'; g.lineWidth = 4; g.stroke();
+  });
+  const geo = new THREE.CylinderGeometry(0.075, 0.075, 0.016, 28); geo.rotateX(Math.PI / 2);
+  const mats = [toon(0xC98E1A), toon(0xffffff, { map: face }), toon(0xffffff, { map: face })];
+  const coinInk = new THREE.MeshBasicMaterial({ color: 0x4a2c00, side: THREE.BackSide, transparent: true });
+  const coins = [...Array(12)].map(() => {
+    const g = new THREE.Group(); const m = new THREE.Mesh(geo, mats.map(x => x.clone())); m.material.forEach(x => x.transparent = true);
+    const o = new THREE.Mesh(geo, coinInk.clone()); o.scale.set(1.14, 1.14, 1.6); g.add(m, o); root.add(g); g.userData = { m, o }; return g;
+  });
+  const starTex = canvasTex(64, 64, (g) => { g.translate(32, 32); g.fillStyle = '#FFF1B8'; g.shadowColor = '#FFC83D'; g.shadowBlur = 10;
+    g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, r = k % 2 ? 5 : 28; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); });
+  const stars = [...Array(8)].map(() => { const s = new THREE.Sprite(spriteMat(starTex)); root.add(s); return s; });
+  const ringTex = canvasTex(256, 256, (g) => { g.translate(128, 128); g.strokeStyle = '#FFC83D'; g.shadowColor = '#FFC83D'; g.shadowBlur = 10;
+    g.lineWidth = 5; g.beginPath(); g.arc(0, 0, 116, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#FFF1B8'; for (let k = 0; k < 8; k++) { g.save(); g.rotate(k * Math.PI / 4); g.translate(0, -116); g.rotate(Math.PI / 4); g.fillRect(-9, -9, 18, 18); g.restore(); } });
+  const glow = groundPlane(1.7, glowTex('255,200,61', 0.55), 0.006), ring = groundPlane(1.35, ringTex, 0.014);
+  root.add(glow, ring);
+
+  return (t) => {
+    coins.forEach((c, i) => {
+      const ph = frac(t * 0.5 + h(i + 80)), a = i * GOLDEN + 0.5, r = 0.46 + 0.3 * h(i + 81);
+      c.position.set(Math.cos(a) * r, 2.35 - 2.3 * Math.pow(ph, 1.6), Math.sin(a) * r);   // 越落越快
+      c.rotation.set(t * 5 + i * 1.3, i * 0.9, 0);                                           // 翻面
+      const op = Math.min(1, ph / 0.08, (1 - ph) / 0.1);
+      c.userData.m.material.forEach(x => x.opacity = op); c.userData.o.material.opacity = op;
+    });
+    stars.forEach((s, i) => {
+      const a = i * GOLDEN + 2, r = 0.42 + 0.22 * h(i + 90);
+      s.position.set(Math.cos(a) * r, 0.3 + 1.55 * h(i + 91), Math.sin(a) * r);
+      const o = Math.pow(Math.max(0, Math.sin(t * 2.4 + i * 1.9)), 4);
+      s.scale.setScalar(0.03 + 0.2 * o); s.material.opacity = o; s.material.rotation = t * 0.6;
+    });
+    ring.rotation.z = t * 0.25; glow.material.opacity = 0.75 + 0.15 * Math.sin(t * 2.5);
+  };
+}
+
+// ---------- 舞台 ----------
+const DEFS = [
+  { name: '火焰', meta: '熔岩・史詩｜面片', still: 1.37, make: makeFire, count: '面片 28',
+    notes: ['位置：腳下往上竄＋身後暖光', '灰階辨識：有描邊的水滴形火舌、往上', '史詩：一層（火舌＋火星）'] },
+  { name: '符文法陣', meta: '符文戰神・傳說｜地面圓盤＋面片', still: 0.9, make: makeMagic, count: '地面件 4＋面片 18',
+    notes: ['位置：腳下地面', '灰階辨識：平躺的圓盤、兩層反向轉、擴散光環', '傳說：多一層升起的符文'] },
+  { name: '金光', meta: '黃金・傳說｜立體小網格＋面片', still: 2.15, make: makeGold, count: '金幣 12＋面片 10',
+    notes: ['位置：從頭上灑落＋腳下光圈', '灰階辨識：翻面的圓片（翻到側面變細條）', '傳說：多一層四芒閃光和王者光圈'] },
+];
+const BIG = [300, 340], SMALL = [88, 100];
+const grid = document.getElementById('grid');
+const panels = DEFS.map(def => {
+  const card = document.createElement('div'); card.className = 'card';
+  card.innerHTML = `<h2>${def.name}</h2><div class="meta">${def.meta}・${def.count}・截圖時間點 t=${def.still}</div><div class="stage"></div><ul>${def.notes.map(n => `<li>${n}</li>`).join('')}</ul>`;
+  grid.appendChild(card);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setClearColor(0x000000, 0);
+  card.querySelector('.stage').appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(2, 3, 4); scene.add(sun);
+  const camera = new THREE.PerspectiveCamera(30, 180 / 204, 0.1, 50);
+  camera.position.set(0, 1.2, 4.6); camera.lookAt(0, 0.8, 0);
+  const holder = new THREE.Group(); holder.rotation.y = -0.5; scene.add(holder);
+  const body = dummy(); holder.add(body);
+  const fx = new THREE.Group(); holder.add(fx);
+  const update = def.make(fx);
+  let spin = 0, drag = null;
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', e => { drag = e.clientX; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => { if (drag == null) return; spin += (e.clientX - drag) * 0.01; drag = e.clientX; });
+  el.addEventListener('pointerup', () => drag = null);
+  const resize = ([w, hh]) => renderer.setSize(w, hh);
+  resize(BIG);
+  return { def, renderer, scene, camera, holder, body, update, resize, getSpin: () => spin };
+});
+
+// ---------- 控制 ----------
+let t = 0, playing = true, still = false, last = performance.now();
+const $ = id => document.getElementById(id);
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '暫停' : '播放'; };
+$('t').oninput = e => { t = +e.target.value; playing = false; still = false; $('play').textContent = '播放'; $('still').classList.remove('on'); };
+$('still').onclick = () => { still = !still; $('still').classList.toggle('on', still); };
+$('gray').onchange = e => document.body.classList.toggle('gray', e.target.checked);
+$('small').onchange = e => panels.forEach(p => p.resize(e.target.checked ? SMALL : BIG));
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (playing && !still) t = (t + dt) % 8;
+  $('t').value = t; $('tl').textContent = still ? '定格' : `t = ${t.toFixed(2)}`;
+  for (const p of panels) {
+    const tt = still ? p.def.still : t;
+    p.holder.rotation.y = -0.5 + p.getSpin();
+    p.body.userData.torso.scale.y = 1 + 0.015 * Math.sin(tt * 2.2);
+    p.update(tt);
+    p.renderer.render(p.scene, p.camera);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__fx = { setT: v => { t = v; playing = false; }, panels };
+</script>
+</body>
+</html>

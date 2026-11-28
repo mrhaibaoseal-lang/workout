@@ -50,8 +50,11 @@
     - 分享卡改放 3D 截圖，姿勢用**單手秀二頭**（`flex`，左手秀、右手扠腰；Blender 批次 `scripts/blender/moves/pose.py`，2026-11-28 另一個 session 在做）。截圖當一般圖片放進 `ShareCardView`，照舊用 `ImageRenderer` 輸出。
     - 先做「設定 → 3D 角色預覽」的截圖測試上機：**未查證**隱藏的 ARView 能不能正常算圖並用 `ARView.snapshot` 截出、背景透明有沒有保留、一張要多久。
     - 訓練中的動作卡不用改：同時只有正在做的那張卡有 3D（`ExerciseCard.swift` 的 `hasActive`）。
-  - [ ] 特效（fx）部位的 3D 做法要先跟使用者討論（10 種：電光、火焰、冰晶、金光、暗影煙、全像掃描、夜雨、聖光、符文法陣、星塵）。
-    初步提案（未定案）：粒子 `ParticleEmitterComponent`（火焰、電光、冰晶、星塵、夜雨、暗影煙）、發光面片（金光、聖光）、Blender 網格＋動畫（符文法陣、全像掃描）；先做 2～3 種樣品給使用者看。泛光已決定不用。
+  - [ ] 特效（fx）部位的 3D 版（10 種）。**2026-11-28 使用者同意方向**：照公式移動的面片（不用粒子，定格截圖才固定）、
+    只放角色頁／開箱／截圖、減少動態效果時停在截圖時間點；做法與 10 種的位置外形見 `docs/3d-system.md`「特效」。
+    - [x] 網頁樣品：火焰、符文法陣、金光（`scripts/fx/fx-preview.html`）。
+    - [ ] 使用者看網頁樣品定外形 → Swift 版三種（`CharacterStage` 加特效層；先和截圖工作台 session 確認 `Hero3DStage.swift` 沒在改）→ 上機看 FPS。
+    - [ ] 其餘 7 種。
   - [x] 角色頁舞台的戰力數字：3D 版用疊字（位置、字級照 2D）；舞台已改用 `CharacterStage`（深蹲有片段 → 3D，推舉、硬舉等匯出）。
     「狀態越差舞台越暗」的 `.saturation` 可能套不到 3D 畫面（ARView 是 UIKit），上機確認。
   - [ ] 全部換完、使用者確認後，刪 2D（`CharacterCanvas`、`GearArt`、`MoveFrames`、`CharacterPose`、`scripts/art/gear.js`、`scripts/art/moves.js`、2D 小豬預覽）。
