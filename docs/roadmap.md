@@ -56,7 +56,8 @@
     - [x] Swift 版三種（0.60.0）：`Workout/Hero3D/Hero3DFX.swift`（公式照抄網頁樣品），`CharacterStage(showFX:)` 預設關，只有角色頁大舞台、開箱開；截圖時間點 `Hero3DFX.Kind.stillTime`。金幣圓面用 `Toon.metal` 新增的 `toonTexSurface`。
     - [ ] 上機看：FPS、面片是否面向鏡頭、半透明排序、貼圖方向、金幣淡出（`OpacityComponent` 對卡通材質有沒有效）。
     - [ ] 換裝格、分享卡改用定格截圖時帶特效（截圖工作台）。
-    - [ ] 其餘 7 種。
+    - [x] 其餘 7 種的網頁樣品（電光、冰晶、夜雨、暗影煙、全像掃描、聖光、星塵），2026-11-28 使用者全部同意；公式在同一個預覽頁。
+    - [ ] 其餘 7 種的 Swift 版（照抄預覽頁公式；全像掃描的光幕是無蓋圓筒，要自訂網格）。
   - [x] 角色頁舞台的戰力數字：3D 版用疊字（位置、字級照 2D）；舞台已改用 `CharacterStage`（深蹲有片段 → 3D，推舉、硬舉等匯出）。
     「狀態越差舞台越暗」的 `.saturation` 可能套不到 3D 畫面（ARView 是 UIKit），上機確認。
   - [ ] 全部換完、使用者確認後，刪 2D（`CharacterCanvas`、`GearArt`、`MoveFrames`、`CharacterPose`、`scripts/art/gear.js`、`scripts/art/moves.js`、2D 小豬預覽）。
