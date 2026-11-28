@@ -74,6 +74,13 @@
 machine_calf → calf；machine_* 以外的彈力帶系列 → 對應啞鈴／滑輪動作；暫停／慢速版 → 原動作；
 cable_one_arm_pushdown → tricepsPushdown；elevated_pike 以外的 pause_* → 原動作。
 
+## D. 姿勢（不在動作庫）
+不是訓練動作，不加進 `Hero3DExerciseMap.byExercise`（`Hero3DExerciseMapTests` 只檢查有對照的動作，不用白名單）。
+
+| 3D 動作 | 用途 | 批次檔 | 狀態 |
+|---|---|---|---|
+| flex | 單手秀二頭（左手秀、右手扠腰），分享卡取第 24 格 | `moves/pose.py` | 已匯出（2026-11-28），還沒有畫面使用 |
+
 ## 分批規則
 照 §0-1：同一個批次檔一次只給一個 session 改；`floor.py` 的 `legCurl` 是別的 session 在做，所以這次新增的地板動作另開 `floor2.py`。
 
