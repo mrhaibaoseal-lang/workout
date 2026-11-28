@@ -41,7 +41,7 @@ final class Hero3DFX {
         }
     }
 
-    /// 照公式擺好時間點 t（秒）的樣子
+    /// 照公式擺好時間點 t（秒）的樣子。只看 t、不看前一格，任意 t 可以重複呼叫（定格截圖用）
     func update(t: Double) {
         step(t)
         for e in manualFacing { e.setOrientation(simd_quatf(ix: 0, iy: 0, iz: 0, r: 1), relativeTo: nil) }

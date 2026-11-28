@@ -392,6 +392,7 @@ final class Hero3DStageModel {
     private var propParts: [(entity: Entity, anim: [[Float]])] = []
     private let fxRoot = Entity()            // 特效（Hero3DFX）：跟著轉向，不跟著抬高
     private var fx: Hero3DFX?
+    private var fxFrozenAt: Double?
     private let cam = PerspectiveCamera()
     private var spin: Float = 0
     private struct Body {
@@ -454,7 +455,10 @@ final class Hero3DStageModel {
         if wantFX != fx?.kind {
             fxRoot.children.removeAll()
             fx = wantFX.map { Hero3DFX(kind: $0) }
-            if let fx { fxRoot.addChild(fx.root) }
+            if let fx {
+                fxRoot.addChild(fx.root)
+                if let f = fxFrozenAt { fx.update(t: f) }
+            }
         }
         if animated != self.animated { self.animated = animated; posed = false }
         if newSpin != spin {
@@ -476,6 +480,13 @@ final class Hero3DStageModel {
             changed = true
         }
         if changed { rebuild() }
+    }
+
+    /// 截圖工作台用：特效定在時間點 t（秒），之後不再隨時間更新；nil＝恢復正常播放。
+    /// 一般用 `Hero3DFX.Kind.stillTime`；特效要先由 update(showFX: true) 建好（之後換特效也會停在同一個 t）。
+    func freezeFX(at t: Double?) {
+        fxFrozenAt = t
+        if let t { fx?.update(t: t) }
     }
 
     // MARK: 器材
@@ -668,7 +679,7 @@ final class Hero3DStageModel {
         // 特效：減少動態效果（animated＝false）或低電量模式時，停在該特效的截圖時間點
         if let fx {
             let still = !animated || ProcessInfo.processInfo.isLowPowerModeEnabled
-            fx.update(t: still ? fx.kind.stillTime : time)
+            fx.update(t: fxFrozenAt ?? (still ? fx.kind.stillTime : time))
         }
         if !animated && posed { return }
         if animated { time += dt }
