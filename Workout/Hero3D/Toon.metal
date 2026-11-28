@@ -110,3 +110,17 @@ void outlineGeom(realitykit::geometry_parameters params)
     float3 n = normalize(params.geometry().normal());
     params.geometry().set_model_position_offset(n * w);
 }
+
+// 特效的金幣圓面（Hero3DFX.swift）：亮面色＝base color 貼圖 × tint，明暗和 toonSurface 相同（不加塗色、不加高光）。
+// uv 由 App 自己組網格時給（v 朝下，和貼圖列同向），不用翻。
+[[visible]]
+void toonTexSurface(realitykit::surface_parameters params)
+{
+    constexpr sampler smp(coord::normalized, address::clamp_to_edge, filter::linear, mip_filter::none);
+    auto mc = params.material_constants();
+    float2 uv = params.geometry().uv0();
+    float3 base = float3(mc.base_color_tint()) * float3(params.textures().base_color().sample(smp, uv).rgb);
+    half cap = half(mc.specular_scale());
+    params.surface().set_base_color(half3(0));
+    params.surface().set_emissive_color(min(toonLight(params, base, params.uniforms().custom_parameter().w, false), half3(cap)));
+}

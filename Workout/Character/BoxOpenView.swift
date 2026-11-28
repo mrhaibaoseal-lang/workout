@@ -164,7 +164,7 @@ struct BoxOpenView: View {
                     .frame(width: 340, height: 340)
                     .scaleEffect(burst ? 1 : 0.1)
                     .opacity(burst ? 0.85 : 0)
-                CharacterStage(move: .squat, loadout: preview, animated: true, showStats: false)
+                CharacterStage(move: .squat, loadout: preview, animated: true, showStats: false, showFX: true)
                     .frame(height: 230)
                     .overlay {
                         if let at = equipAt {

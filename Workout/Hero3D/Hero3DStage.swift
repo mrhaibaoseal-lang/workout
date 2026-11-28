@@ -54,11 +54,12 @@ enum Hero3DMoves {
 
 /// 每個部位穿哪個系列的 3D 零件。背包沒穿、或該系列沒有這個部位的 3D 零件時，用基本款（背部用「無」）：
 /// 眼睛在 head_*、手掌在 hands_* 裡，空著會沒有眼睛和手；赤膊、赤腳、內褲還沒有 3D 版。
-/// 特效（fx）還沒有 3D 版，先不顯示。
+/// 特效（fx）：只有 Hero3DFX.Kind 做好的（fire／magic／gold）才有值，其他＝nil（不顯示）。
 struct Hero3DLook: Equatable {
     var head = "basic", hands = "basic", feet = "basic", bell = "basic"
     var back: String?
     var top = "basic", bottom = "basic"
+    var fx: String?
 
     init() {}
 
@@ -79,6 +80,7 @@ struct Hero3DLook: Equatable {
         back = rigid(.back)
         top = outfit(.top)
         bottom = outfit(.bottom)
+        fx = loadout.item(.fx).flatMap { Hero3DFX.Kind(rawValue: $0.form) }?.rawValue
     }
 
     var series: Set<String> { Set([head, hands, feet, bell, top, bottom] + [back].compactMap { $0 }) }
@@ -93,7 +95,7 @@ struct Hero3DLook: Equatable {
         case .back: return back
         case .top: return top
         case .bottom: return bottom
-        case .fx: return nil
+        case .fx: return fx
         }
     }
 }
@@ -388,6 +390,8 @@ final class Hero3DStageModel {
     private let model = Entity()             // 抬高用（接地修正）
     private let propRoot = Entity()          // 器材：跟著轉向，不跟著抬高（和 Hero3DLab 0.56.0 示範頁相同）
     private var propParts: [(entity: Entity, anim: [[Float]])] = []
+    private let fxRoot = Entity()            // 特效（Hero3DFX）：跟著轉向，不跟著抬高
+    private var fx: Hero3DFX?
     private let cam = PerspectiveCamera()
     private var spin: Float = 0
     private struct Body {
@@ -431,6 +435,7 @@ final class Hero3DStageModel {
         anchor.addChild(holder)
         holder.addChild(model)
         holder.addChild(propRoot)
+        holder.addChild(fxRoot)
         holder.orientation = simd_quatf(angle: Self.yaw, axis: [0, 1, 0])
         frameCamera(nil)
         sub = arView.scene.subscribe(to: SceneEvents.Update.self) { [weak self] ev in
@@ -443,8 +448,14 @@ final class Hero3DStageModel {
         sub = nil
     }
 
-    /// spin：使用者拖曳加上的轉向（弧度），疊在預設的斜側面上
-    func update(move key: String, look newLook: Hero3DLook, animated: Bool, spin newSpin: Float = 0) {
+    /// spin：使用者拖曳加上的轉向（弧度），疊在預設的斜側面上；showFX：顯示特效（只有角色頁大舞台、開箱）
+    func update(move key: String, look newLook: Hero3DLook, animated: Bool, spin newSpin: Float = 0, showFX: Bool = false) {
+        let wantFX = showFX ? newLook.fx.flatMap(Hero3DFX.Kind.init(rawValue:)) : nil
+        if wantFX != fx?.kind {
+            fxRoot.children.removeAll()
+            fx = wantFX.map { Hero3DFX(kind: $0) }
+            if let fx { fxRoot.addChild(fx.root) }
+        }
         if animated != self.animated { self.animated = animated; posed = false }
         if newSpin != spin {
             spin = newSpin
@@ -654,6 +665,11 @@ final class Hero3DStageModel {
 
     private func tick(_ dt: TimeInterval) {
         guard let clip else { return }
+        // 特效：減少動態效果（animated＝false）或低電量模式時，停在該特效的截圖時間點
+        if let fx {
+            let still = !animated || ProcessInfo.processInfo.isLowPowerModeEnabled
+            fx.update(t: still ? fx.kind.stillTime : time)
+        }
         if !animated && posed { return }
         if animated { time += dt }
         // 不播放（減少動態效果、靜態畫面）：停在動作最深的那一格
@@ -717,11 +733,13 @@ struct Hero3DCharacterView: UIViewRepresentable {
     var animated = true
     /// 拖曳加上的轉向（弧度）
     var spin: Float = 0
+    /// 顯示裝備特效（Hero3DFX）
+    var showFX = false
 
     func makeCoordinator() -> Hero3DStageModel { Hero3DStageModel() }
     func makeUIView(context: Context) -> ARView { context.coordinator.arView }
     func updateUIView(_ uiView: ARView, context: Context) {
-        context.coordinator.update(move: move, look: look, animated: animated, spin: spin)
+        context.coordinator.update(move: move, look: look, animated: animated, spin: spin, showFX: showFX)
     }
     static func dismantleUIView(_ uiView: ARView, coordinator: Hero3DStageModel) { coordinator.stop() }
 }
@@ -731,17 +749,19 @@ private struct Hero3DRotatableView: View {
     let move: String
     let look: Hero3DLook
     let animated: Bool
+    let showFX: Bool
     @State private var spin: Float = 0
     @State private var lastDrag: CGFloat = 0
 
-    init(move: String, look: Hero3DLook, animated: Bool) {
+    init(move: String, look: Hero3DLook, animated: Bool, showFX: Bool) {
         self.move = move
         self.look = look
         self.animated = animated
+        self.showFX = showFX
     }
 
     var body: some View {
-        Hero3DCharacterView(move: move, look: look, animated: animated, spin: spin)
+        Hero3DCharacterView(move: move, look: look, animated: animated, spin: spin, showFX: showFX)
             .contentShape(Rectangle())
             .gesture(DragGesture()
                 .onChanged { g in
@@ -764,6 +784,8 @@ struct CharacterStage: View {
     var bonusPower = 0
     /// 手指左右拖曳轉視角（動作介紹頁）；預設關
     var rotatable = false
+    /// 裝備特效（Hero3DFX）：預設不顯示；只有角色頁大舞台、開箱傳 true（docs/3d-system.md「特效」）
+    var showFX = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -773,9 +795,9 @@ struct CharacterStage: View {
             let look = Hero3DLook(loadout: loadout, info: assets.info)
             Group {
                 if rotatable {
-                    Hero3DRotatableView(move: key, look: look, animated: animated && !reduceMotion)
+                    Hero3DRotatableView(move: key, look: look, animated: animated && !reduceMotion, showFX: showFX)
                 } else {
-                    Hero3DCharacterView(move: key, look: look, animated: animated && !reduceMotion)
+                    Hero3DCharacterView(move: key, look: look, animated: animated && !reduceMotion, showFX: showFX)
                 }
             }
                 .aspectRatio(180.0 / 204.0, contentMode: .fit)
@@ -828,7 +850,7 @@ struct Hero3DStagePreview: View {
             Section {
                 Group {
                     if assets.hasClip(key) {
-                        Hero3DCharacterView(move: key, look: look, animated: animated)
+                        Hero3DCharacterView(move: key, look: look, animated: animated, showFX: true)
                     } else {
                         Text("「\(key)」還沒有 3D 片段\n（正式畫面會退回 2D）")
                             .multilineTextAlignment(.center)
@@ -869,7 +891,10 @@ struct Hero3DStagePreview: View {
 
     private func describe(_ slot: GearSlot, _ look: Hero3DLook) -> String {
         let worn = inventory.state.loadout.item(slot)
-        if slot == .fx { return worn == nil ? "無" : "\(worn!.name)（還沒有 3D）" }
+        if slot == .fx {
+            guard let worn else { return "無" }
+            return look.fx != nil ? worn.name : "\(worn.name)（還沒有 3D）"
+        }
         guard let s = look.shown(slot) else { return "無" }
         let name = GearCatalog.seriesById(s)?.name ?? s
         if worn == nil { return "沒穿 → 用\(name)" }
