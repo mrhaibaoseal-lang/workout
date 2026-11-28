@@ -67,8 +67,14 @@ final class Hero3DFX {
         return m
     }
 
+    /// three.js 的 material.opacity。OpacityComponent 要 iOS 18；iOS 17 沒有漸變，只在幾乎看不見時藏起來
     private static func setOpacity(_ e: Entity, _ o: Double) {
-        e.components.set(OpacityComponent(opacity: Float(min(1, max(0, o)))))
+        let v = Float(min(1, max(0, o)))
+        if #available(iOS 18.0, *) {
+            e.components.set(OpacityComponent(opacity: v))
+        } else {
+            e.isEnabled = v > 0.05
+        }
     }
 
     /// three.js 的 Sprite：面向鏡頭的面片。anchorY＝錨點離底邊的比例（Sprite.center.y）。
@@ -437,16 +443,20 @@ private enum Tex {
             g.setStrokeColor(cg(G)); g.setLineWidth(7); circle(g, 0, 0, 238); g.strokePath()
             g.setLineWidth(3); circle(g, 0, 0, 196); g.strokePath()
             g.setAlpha(0.85); g.setLineWidth(3.5)
-            for off in [0, CGFloat.pi] {
-                poly(g, (0..<3).map { k -> CGPoint in
-                    let a = off - .pi / 2 + CGFloat(k) * .pi * 2 / 3
-                    return CGPoint(x: cos(a) * 196, y: sin(a) * 196)
-                })
+            let offs: [CGFloat] = [0, CGFloat.pi]
+            for off in offs {
+                var tri: [CGPoint] = []
+                for k in 0..<3 {
+                    let step: CGFloat = CGFloat(k) * (2 * CGFloat.pi / 3)
+                    let a: CGFloat = off - CGFloat.pi / 2 + step
+                    tri.append(CGPoint(x: cos(a) * 196, y: sin(a) * 196))
+                }
+                poly(g, tri)
                 g.strokePath()
             }
             g.setAlpha(1); g.setStrokeColor(cg(AU)); g.setShadow(offset: .zero, blur: 14, color: cg(AU)); g.setLineWidth(3.5)
             for k in 0..<12 {
-                let a = CGFloat(k) / 12 * .pi * 2
+                let a: CGFloat = CGFloat(k) * (2 * CGFloat.pi / 12)
                 glyph(g, Double(k + 1), cos(a) * 217, sin(a) * 217, 22, a + .pi / 2)
             }
         }
@@ -461,7 +471,7 @@ private enum Tex {
             g.rotate(by: .pi / 4); g.stroke(CGRect(x: -46, y: -46, width: 92, height: 92))
             g.setFillColor(cg(G))
             for k in 0..<6 {
-                let a = CGFloat(k) / 6 * .pi * 2
+                let a: CGFloat = CGFloat(k) * (2 * CGFloat.pi / 6)
                 circle(g, cos(a) * 94, sin(a) * 94, 6); g.fillPath()
             }
         }
@@ -488,7 +498,8 @@ private enum Tex {
             g.setFillColor(cg("#F2B630")); g.fill(CGRect(x: 0, y: 0, width: 128, height: 128))
             g.setStrokeColor(cg("#B57A10")); g.setLineWidth(10); circle(g, 64, 64, 56); g.strokePath()
             let star = (0..<10).map { k -> CGPoint in                       // 凸起的五角星
-                let a = -CGFloat.pi / 2 + CGFloat(k) * .pi / 5, r: CGFloat = k % 2 == 1 ? 16 : 36
+                let a: CGFloat = CGFloat(k) * (CGFloat.pi / 5) - CGFloat.pi / 2
+                let r: CGFloat = k % 2 == 1 ? 16 : 36
                 return CGPoint(x: 64 + cos(a) * r, y: 64 + sin(a) * r)
             }
             g.setFillColor(cg("#FFE58A")); poly(g, star); g.fillPath()
@@ -500,7 +511,8 @@ private enum Tex {
         paint("gold_star", 64, 64) { g in
             g.translateBy(x: 32, y: 32); g.setFillColor(cg("#FFF1B8")); g.setShadow(offset: .zero, blur: 10, color: cg("#FFC83D"))
             poly(g, (0..<8).map { k -> CGPoint in
-                let a = CGFloat(k) * .pi / 4, r: CGFloat = k % 2 == 1 ? 5 : 28
+                let a: CGFloat = CGFloat(k) * (CGFloat.pi / 4)
+                let r: CGFloat = k % 2 == 1 ? 5 : 28
                 return CGPoint(x: cos(a) * r, y: sin(a) * r)
             })
             g.fillPath()
