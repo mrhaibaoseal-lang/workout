@@ -53,7 +53,9 @@
   - [ ] 特效（fx）部位的 3D 版（10 種）。**2026-11-28 使用者同意方向**：照公式移動的面片（不用粒子，定格截圖才固定）、
     只放角色頁／開箱／截圖、減少動態效果時停在截圖時間點；做法與 10 種的位置外形見 `docs/3d-system.md`「特效」。
     - [x] 網頁樣品：火焰、符文法陣、金光（`scripts/fx/fx-preview.html`）。
-    - [ ] 使用者看網頁樣品定外形 → Swift 版三種（`CharacterStage` 加特效層；先和截圖工作台 session 確認 `Hero3DStage.swift` 沒在改）→ 上機看 FPS。
+    - [x] Swift 版三種（0.60.0）：`Workout/Hero3D/Hero3DFX.swift`（公式照抄網頁樣品），`CharacterStage(showFX:)` 預設關，只有角色頁大舞台、開箱開；截圖時間點 `Hero3DFX.Kind.stillTime`。金幣圓面用 `Toon.metal` 新增的 `toonTexSurface`。
+    - [ ] 上機看：FPS、面片是否面向鏡頭、半透明排序、貼圖方向、金幣淡出（`OpacityComponent` 對卡通材質有沒有效）。
+    - [ ] 換裝格、分享卡改用定格截圖時帶特效（截圖工作台）。
     - [ ] 其餘 7 種。
   - [x] 角色頁舞台的戰力數字：3D 版用疊字（位置、字級照 2D）；舞台已改用 `CharacterStage`（深蹲有片段 → 3D，推舉、硬舉等匯出）。
     「狀態越差舞台越暗」的 `.saturation` 可能套不到 3D 畫面（ARView 是 UIKit），上機確認。
